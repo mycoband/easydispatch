@@ -50,6 +50,9 @@ export function ModuleToggles({
     next.messaging = true;
     next.tech_media = true;
     next.tech_offline_queue = true;
+    next.ai = true;
+    next.ai_walkthrough = true;
+    next.print_pdfs = true;
     setModules(next);
   }
 

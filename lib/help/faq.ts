@@ -35,7 +35,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What is EasyDispatch?',
     answer:
-      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, AI Job Walkthrough, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work. Turn categories on/off in Settings → Feature modules.',
+      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, video AI Job Walkthrough, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work. Turn categories on/off in Settings → Feature modules.',
   },
   {
     id: 'help-bot-popup',
@@ -49,13 +49,13 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What’s the difference between the office dashboard and the tech app?',
     answer:
-      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): only jobs assigned to that technician. Same company data; different screens and permissions.',
+      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): only jobs assigned to that technician (time, notes, Job Walkthrough video/voice/photos, sign). Same company data; different screens and permissions.',
   },
   {
     id: 'feature-modules',
     category: 'Settings & modules',
     question: 'How do I turn features on or off?',
-    answer: `Settings → Feature modules. Toggle each module, then Save modules. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: ${MODULE_GROUPS.join(', ')}. Core customers + jobs always stay on. Every module is listed in this FAQ under “What does … control?”`,
+    answer: `Settings → Feature modules. Toggle each module, then Save modules. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: ${MODULE_GROUPS.join(', ')}. Core customers + jobs always stay on. Example: AI Job Walkthrough (Field / tech) shows/hides the video walkthrough panel; AI tools gates Generate Report. Every module is listed in this FAQ under “What does … control?”`,
   },
   {
     id: 'modules-list',
@@ -63,14 +63,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     question: 'What does each feature module control?',
     answer: `Full catalog (same list as Settings → Feature modules):\n${COMPANY_MODULES.map(
       (m) => `• ${m.label}: ${m.description}`
-    ).join('\n')}\nSQL once as needed: supabase/workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, ai-walkthrough.sql (AI Job Walkthrough).`,
+    ).join('\n')}\nSQL once as needed: supabase/workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, ai-walkthrough.sql + ai-walkthrough-video.sql (AI Job Walkthrough video).`,
   },
   {
     id: 'ai-walkthrough-settings',
     category: 'Settings & modules',
     question: 'How do I turn AI Job Walkthrough on or off?',
     answer:
-      'Settings → Feature modules → Field / tech → AI Job Walkthrough. Off hides the Job Walkthrough (AI) panel on tech and office jobs. Generate needs AI tools + XAI_API_KEY. Voice auto-transcribe / Transcribe needs OPENAI_API_KEY. PDF needs PDF documents. Run supabase/ai-walkthrough.sql once so notes and reports can save.',
+      'Settings → Feature modules → Field / tech → AI Job Walkthrough. On (default): Job Walkthrough (AI) panel on tech and office jobs — record video (camera+mic), voice, or photos. Off: panel hidden. Generate Report also needs AI tools on + XAI_API_KEY (optional XAI_VIDEO_MODEL=grok-4.3 for video). Auto-transcribe needs OPENAI_API_KEY. Download PDF needs PDF documents. Run supabase/ai-walkthrough.sql once; if video upload fails on kind, run ai-walkthrough-video.sql.',
   },
   {
     id: 'live-dispatch',
@@ -175,21 +175,21 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Enable Feature modules → AI Job Walkthrough (+ AI tools for Generate). On a job → Job Walkthrough (AI): best experience is Record video walkthrough (camera + mic, up to ~90s) so Grok sees the site and hears your narration. You can also use voice-only or photos. Generate Report needs XAI_API_KEY (set XAI_VIDEO_MODEL=grok-4.3 if video fails on an older model). Whisper auto-transcribe needs OPENAI_API_KEY. Edit fields → Save to Job (copies diagnosis/customer summary; syncs parts/labor). PDF when PDF documents is on. SQL: supabase/ai-walkthrough.sql once; if video upload errors on kind, run ai-walkthrough-video.sql.',
+      'Settings → Feature modules → AI Job Walkthrough (shows the panel) and AI tools (needed for Generate). On a job → Job Walkthrough (AI): Record video walkthrough (camera + mic, ~90s) so Grok sees the site and hears you — or use voice/photos. Generate → edit findings/work/parts/labor/customer summary → Save to Job (copies diagnosis & customer summary; syncs parts/labor to line items if allowed). Download PDF with PDF documents on. Keys: XAI_API_KEY, optional XAI_VIDEO_MODEL=grok-4.3, OPENAI_API_KEY for Whisper. SQL: ai-walkthrough.sql; video kind: ai-walkthrough-video.sql if needed. Toggle off AI Job Walkthrough to hide the panel.',
   },
   {
     id: 'ai-walkthrough-video',
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'On the job → Job Walkthrough (AI) → Record video walkthrough. Allow camera + mic. Walk the equipment and narrate (under 90 seconds / ~80MB). Upload video file also works. Then Generate Report — Grok uses the video picture and audio. Run supabase/ai-walkthrough-video.sql if the database still rejects kind “video”.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open a job → Job Walkthrough (AI) → Record video walkthrough → allow camera + mic → walk/narrate → Stop (auto-stops at 90s / max ~80MB). Upload video file also works. Then Generate Report (AI tools + XAI_API_KEY). Videos are stored on the job with tag walkthrough (not mixed into Job photos). If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
   },
   {
     id: 'ai-walkthrough-pdf',
     category: 'Invoices & PDFs',
     question: 'How do I download a Job Walkthrough PDF?',
     answer:
-      'Needs Feature modules → AI Job Walkthrough and PDF documents. On a job with a generated or saved walkthrough, tap Download PDF. File is branded with company info, findings, work performed, parts, labor, and totals.',
+      'Settings → Feature modules: turn on AI Job Walkthrough and PDF documents. On a job with a generated or saved walkthrough, tap Download PDF. Branded with company info, findings, work performed, parts, labor, and totals. Turning either module off hides the PDF button.',
   },
   {
     id: 'customer-portal-rich',

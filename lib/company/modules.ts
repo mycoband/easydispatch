@@ -145,8 +145,8 @@ export const COMPANY_MODULES = [
     id: 'print_pdfs',
     label: 'PDF documents',
     description:
-      'Branded invoice PDF, job walkthrough PDF, office day-sheet PDF, tech run-sheet PDF',
-    help: 'Shows PDF download on invoices, Day sheet, tech My jobs, and Job Walkthrough (AI). Turn off to hide all PDFs. Walkthrough PDF also needs AI Job Walkthrough on.',
+      'Branded invoice PDF, AI Job Walkthrough PDF, day-sheet PDF, tech run-sheet PDF',
+    help: 'PDF buttons on invoices, Day sheet, tech My jobs, and Job Walkthrough → Download PDF. Walkthrough PDF also needs AI Job Walkthrough on. Turn off to hide all PDF downloads.',
     href: null,
     defaultEnabled: true,
     group: 'Sales & money',
@@ -262,8 +262,8 @@ export const COMPANY_MODULES = [
     id: 'ai',
     label: 'AI tools',
     description:
-      'Ticket fill, voice → notes, plate scan, filters, diagnostic, Job Walkthrough Generate, margin coach, Ask Reports, Help bot',
-    help: 'Needs XAI_API_KEY. New job → Fill ticket with AI. Job → diagnostic / margin coach / Job Walkthrough Generate. Voice Transcribe also needs OPENAI_API_KEY + Job photos & voice. Floating Help bot uses this module.',
+      'Ticket fill, voice → notes, plate scan, filters, diagnostic, Walkthrough Generate, margin coach, Ask Reports, Help bot',
+    help: 'Needs XAI_API_KEY. Required for Job Walkthrough → Generate Report (video/voice/photos). Also: New job → Fill ticket; diagnostic / margin coach; Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough module for the walkthrough panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -272,8 +272,8 @@ export const COMPANY_MODULES = [
     id: 'ai_walkthrough',
     label: 'AI Job Walkthrough',
     description:
-      'Video/voice/photos on a job → AI report (findings, work performed, parts, customer summary)',
-    help: 'On the job → Job Walkthrough (AI). Best: Record video walkthrough (picture + narration) → Generate (XAI_API_KEY; video via Grok video model / XAI_VIDEO_MODEL). Also voice/photos. Whisper auto-transcribe needs OPENAI_API_KEY. Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql (+ ai-walkthrough-video.sql if kind check blocks video).',
+      'On-job video (camera+mic), voice, and photos → AI report you edit and save',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video walkthrough (best), voice, or photos → Generate (needs AI tools + XAI_API_KEY; optional XAI_VIDEO_MODEL=grok-4.3) → edit → Save to Job. Auto-transcribe needs OPENAI_API_KEY. PDF needs PDF documents. Off hides the whole panel. SQL: supabase/ai-walkthrough.sql; for video kind: ai-walkthrough-video.sql if uploads fail.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -282,8 +282,8 @@ export const COMPANY_MODULES = [
     id: 'tech_media',
     label: 'Job photos & voice',
     description:
-      'Before/after photos and voice notes; Transcribe fills diagnosis / customer summary when AI is on',
-    help: 'On the job → Job photos. Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY).',
+      'Before/after photos and voice notes on the job (separate from Walkthrough video)',
+    help: 'On the job → Job photos. Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY). Walkthrough video/voice lives under AI Job Walkthrough (tag walkthrough), not this panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

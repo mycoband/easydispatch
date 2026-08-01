@@ -136,9 +136,10 @@ export default async function SettingsPage() {
             Feature modules
           </h2>
           <p className="mb-4 text-sm text-ink-500">
-            Master on/off for every optional feature (dispatch, AI, PDFs,
-            inventory, portal, offline queue, and more). Save after toggling.
-            Details for each module: Help / FAQ → Settings & modules.
+            Master on/off for every optional feature (dispatch, AI Job
+            Walkthrough video, AI tools, PDFs, inventory, portal, offline
+            queue, and more). Save after toggling. Each toggle has a FAQ under
+            Help → Settings & modules (same list as below).
           </p>
           <ModuleToggles initial={company.modules} />
         </section>
