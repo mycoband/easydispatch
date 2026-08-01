@@ -22,6 +22,7 @@ export function JobInvoicePanel({
   hasEmail,
   allowCashCheck = true,
   allowSend = true,
+  allowPdf = true,
 }: {
   jobId: string;
   customerId?: string | null;
@@ -35,6 +36,7 @@ export function JobInvoicePanel({
   hasEmail: boolean;
   allowCashCheck?: boolean;
   allowSend?: boolean;
+  allowPdf?: boolean;
 }) {
   return (
     <section className="panel p-5">
@@ -44,7 +46,8 @@ export function JobInvoicePanel({
             Invoice
           </h2>
           <p className="mt-0.5 text-sm text-ink-500">
-            Send to customer · Stripe link for card · cash/check in person
+            Send to customer · Stripe link for card · cash/check
+            {allowPdf ? ' · branded PDF' : ''}
           </p>
         </div>
         <p className="font-display text-xl font-semibold text-ink-950">
@@ -100,6 +103,7 @@ export function JobInvoicePanel({
         hasEmail={hasEmail}
         allowCashCheck={allowCashCheck}
         allowSend={allowSend}
+        allowPdf={allowPdf}
       />
 
       {allowCashCheck && (

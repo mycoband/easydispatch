@@ -41,3 +41,28 @@ export function skillMatchScore(
   const hit = need.length - missing.length;
   return { score: hit / need.length, missing };
 }
+
+/** Infer preferred skills from job type text for dispatch suggestions. */
+export function skillsForJobType(jobType: string | null | undefined): string[] {
+  const t = (jobType || '').toLowerCase();
+  const out = new Set<string>();
+  if (!t) return [];
+  if (/install|change.?out|replacement/.test(t)) out.add('Install');
+  if (/maint|pm|tune|filter|agreement/.test(t)) out.add('Maintenance');
+  if (/service|repair|no.?cool|no.?heat|callback|diagnos/.test(t)) {
+    out.add('Service');
+  }
+  if (/commercial|rtu|rooftop/.test(t)) {
+    out.add('Commercial');
+    out.add('Rooftop / RTU');
+  }
+  if (/residential|home|house/.test(t)) out.add('Residential');
+  if (/heat.?pump/.test(t)) out.add('Heat pump');
+  if (/furnace|gas/.test(t)) out.add('Gas furnace');
+  if (/mini.?split|ductless/.test(t)) out.add('Mini-split');
+  if (/chiller/.test(t)) out.add('Chiller');
+  if (/control|thermostat/.test(t)) out.add('Controls');
+  if (/electric|electrical/.test(t)) out.add('Electrical');
+  if (out.size === 0) out.add('Service');
+  return [...out];
+}

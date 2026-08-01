@@ -113,15 +113,31 @@ export function CompanySettingsForm({ company }: { company: CompanySettings }) {
         </label>
       </div>
 
-      <label className="block">
-        <span className={labelClass}>Website</span>
-        <input
-          name="website"
-          defaultValue={company.website ?? ''}
-          placeholder="https://example.com"
-          className={inputClass}
-        />
-      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="block">
+          <span className={labelClass}>Website</span>
+          <input
+            name="website"
+            defaultValue={company.website ?? ''}
+            placeholder="https://example.com"
+            className={inputClass}
+          />
+        </label>
+        <label className="block">
+          <span className={labelClass}>
+            Google / review URL
+            <span className="ml-2 font-normal text-ink-400">
+              emailed after paid + complete
+            </span>
+          </span>
+          <input
+            name="google_review_url"
+            defaultValue={company.google_review_url ?? ''}
+            placeholder="https://g.page/r/…"
+            className={inputClass}
+          />
+        </label>
+      </div>
 
       <label className="block">
         <span className={labelClass}>Street address</span>

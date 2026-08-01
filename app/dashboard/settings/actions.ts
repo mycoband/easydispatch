@@ -82,34 +82,57 @@ export async function saveCompanySettings(
       invoice_footer: emptyToNull(formString(formData, 'invoice_footer')),
       estimate_footer: emptyToNull(formString(formData, 'estimate_footer')),
       sms_signature: emptyToNull(formString(formData, 'sms_signature')),
+      google_review_url: emptyToNull(formString(formData, 'google_review_url')),
       updated_at: new Date().toISOString(),
     };
 
-    let error;
-    if (profile.company_id) {
-      const existing = await supabase
-        .from('company_settings')
-        .select('id')
-        .eq('company_id', profile.company_id)
-        .maybeSingle();
-      if (existing.data?.id) {
-        ({ error } = await supabase
+    async function writeSettings(body: Record<string, unknown>) {
+      if (profile.company_id) {
+        const existing = await supabase
           .from('company_settings')
-          .update(payload)
-          .eq('id', existing.data.id));
-      } else {
-        ({ error } = await supabase.from('company_settings').upsert(
-          { id: 1, company_id: profile.company_id, ...payload },
+          .select('id')
+          .eq('company_id', profile.company_id)
+          .maybeSingle();
+        if (existing.data?.id) {
+          return supabase
+            .from('company_settings')
+            .update(body)
+            .eq('id', existing.data.id);
+        }
+        return supabase.from('company_settings').upsert(
+          { id: 1, company_id: profile.company_id, ...body },
           { onConflict: 'id' }
-        ));
+        );
       }
-    } else {
-      ({ error } = await supabase
+      return supabase
         .from('company_settings')
-        .upsert({ id: 1, ...payload }, { onConflict: 'id' }));
+        .upsert({ id: 1, ...body }, { onConflict: 'id' });
     }
 
-    if (error) return { error: error.message };
+    let { error } = await writeSettings(payload);
+    if (
+      error &&
+      /google_review_url|column|schema cache/i.test(error.message)
+    ) {
+      const { google_review_url: _drop, ...withoutReview } = payload;
+      ({ error } = await writeSettings(withoutReview));
+      if (!error) {
+        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard');
+        return {
+          success:
+            'Saved (run supabase/differentiation.sql to store Google review URL)',
+        };
+      }
+    }
+
+    if (error) {
+      return {
+        error: /google_review_url|column|schema cache/i.test(error.message)
+          ? 'Run supabase/differentiation.sql in Supabase, then save again.'
+          : error.message,
+      };
+    }
 
     // Keep companies.name in sync for billing UI
     if (profile.company_id) {

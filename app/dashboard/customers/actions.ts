@@ -428,6 +428,43 @@ export async function deleteEquipment(
   }
 }
 
+export async function saveEquipmentPmChecklist(
+  customerId: string,
+  equipmentId: string,
+  checklist: Record<string, { checked: boolean; at?: string | null }>,
+  jobId?: string | null
+): Promise<ActionState> {
+  try {
+    const { supabase } = await requireEquipmentAccess(customerId);
+    const { error } = await supabase
+      .from('equipment')
+      .update({
+        pm_checklist: checklist,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', equipmentId)
+      .eq('customer_id', customerId);
+
+    if (error) {
+      return {
+        error: /pm_checklist|column|schema cache/i.test(error.message)
+          ? 'Run supabase/workflow-depth.sql in Supabase first.'
+          : error.message,
+      };
+    }
+    revalidateEquipmentPaths(customerId, jobId);
+    if (jobId) {
+      revalidatePath(`/tech/jobs/${jobId}`);
+      revalidatePath(`/dashboard/jobs/${jobId}`);
+    }
+    return { success: 'PM checklist saved' };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Could not save checklist',
+    };
+  }
+}
+
 /** Save Grok-extracted plate fields + photo to the property. */
 export async function saveScannedEquipment(
   customerId: string,

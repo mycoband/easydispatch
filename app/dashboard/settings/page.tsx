@@ -144,7 +144,7 @@ export default async function SettingsPage() {
       )}
 
       {canSettings && company.modules.job_costing && (
-        <section className="panel p-5">
+        <section id="job-costing" className="panel scroll-mt-20 p-5">
           <h2 className="mb-1 font-display text-lg font-semibold text-ink-950">
             Job costing
           </h2>

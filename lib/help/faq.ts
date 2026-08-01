@@ -11,6 +11,7 @@ export const FAQ_CATEGORIES = [
   'Jobs & calendar',
   'Job costing & reports',
   'Estimates',
+  'Invoices & PDFs',
   'Tech app',
   'Settings & modules',
   'Billing & account',
@@ -22,28 +23,105 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What is EasyDispatch?',
     answer:
-      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, and on-site estimates. Use the Help button (bottom-right on any signed-in page) to ask the AI bot while you work.',
+      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work.',
   },
   {
     id: 'help-bot-popup',
     category: 'Getting started',
     question: 'Where is the AI help bot?',
     answer:
-      'Signed in: tap Help in the bottom-right corner on any office or tech page. The chat popup stays available while you navigate; conversation is kept for your browser session. Clear resets the chat. Help / FAQ in the nav has a searchable FAQ. Public FAQ (no login): /faq. Login page also links to FAQ.',
+      'Signed in: tap Help in the bottom-right on any office or tech page. Chat stays for your browser session; Clear resets it. Help / FAQ in the nav is searchable. Public FAQ (no login): /faq. Login also links to FAQ. AI tools module must be on for the bot.',
   },
   {
     id: 'office-vs-tech',
     category: 'Getting started',
     question: 'What’s the difference between the office dashboard and the tech app?',
     answer:
-      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): only jobs assigned to that technician for field work. Same company data; different screens and permissions.',
+      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): only jobs assigned to that technician. Same company data; different screens and permissions.',
   },
   {
     id: 'feature-modules',
     category: 'Settings & modules',
     question: 'How do I turn features on or off?',
     answer:
-      'Settings → Feature modules. Each toggle enables or disables a whole category (calendar, estimates, invoices, job costing & profit, reports, AI tools, inventory, etc.). Turning a module off hides its nav/pages and related UI. Owner/dispatcher needs the “Feature modules” permission.',
+      'Settings → Feature modules. Toggle each category on or off. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: Scheduling (day sheet, dispatch, live dispatch, Assign-tech AI, capacity warnings, calendar), Sales & money, Recurring, Operations, Customer experience (messaging, review ask, portal), Field / tech (AI, photos, offline notes & time, safety).',
+  },
+  {
+    id: 'modules-list',
+    category: 'Settings & modules',
+    question: 'What does each feature module control?',
+    answer:
+      'Day sheet: daily load + huddle PDF. Dispatch: assign board. Live dispatch board: realtime En Route/On Site (run supabase/ops-polish.sql). Assign-tech AI: skills + load + GPS. Day capacity warnings: overbooked (>8h) and overlapping jobs. Calendar: drag day + edit time. Estimates / GBB / Pricebook / Invoices / Export / Job costing / PDFs: as labeled. Agreements / PM automation / Inventory / Reorder / Parts / Equipment timeline / Callbacks / Reports / Portal / Review ask / Messaging / AI / Photos / Offline notes & time / Safety: as labeled. SQL: workflow-depth, differentiation, ops-polish as needed.',
+  },
+  {
+    id: 'live-dispatch',
+    category: 'Jobs & calendar',
+    question: 'Why doesn’t En Route / On Site update until I refresh?',
+    answer:
+      'Turn on Feature modules → Live dispatch board. Run supabase/ops-polish.sql once (adds jobs to Supabase Realtime). Keep the Dispatch page open — Drive/Arrive from the tech app updates the board live. Status line shows “● Live” when connected.',
+  },
+  {
+    id: 'capacity-warnings',
+    category: 'Jobs & calendar',
+    question: 'How do day capacity warnings work?',
+    answer:
+      'Enable Day capacity warnings. Dispatch columns and Day sheet flag techs over ~8h estimated work and jobs whose scheduled windows overlap (uses scheduled end or est hours). Overlapping cards show an Overlap badge.',
+  },
+  {
+    id: 'offline-queue',
+    category: 'Tech app',
+    question: 'Can techs save notes and time when offline?',
+    answer:
+      'Enable Offline notes & time. On a job, Drive/Arrive/Clock Out and Save notes queue in the browser when signal drops, then auto-sync when online (banner shows Sync now). Better than view-only offline — still not a full offline app like Housecall Pro.',
+  },
+  {
+    id: 'skill-dispatch',
+    category: 'Jobs & calendar',
+    question: 'How does Assign-tech AI work?',
+    answer:
+      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive (run supabase/differentiation.sql once). Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign AI: [tech] ranked by skills + lighter load + closer location. Assign dropdown is ordered the same way.',
+  },
+  {
+    id: 'voice-notes',
+    category: 'Tech app',
+    question: 'How do I turn voice into job notes?',
+    answer:
+      'Enable AI tools + Job photos & voice. On the job, Record voice note, then Transcribe → notes. Needs OPENAI_API_KEY (Whisper) and XAI_API_KEY (Grok cleanup). Fills diagnosis and customer summary; transcript is saved on the attachment caption.',
+  },
+  {
+    id: 'review-ask',
+    category: 'Invoices & PDFs',
+    question: 'When does the review ask email go out?',
+    answer:
+      'Enable Review ask. Set Google / review URL in Company settings. When a job is both Paid and Completed, the customer gets one email with the link (Resend — no Twilio). Triggers on Stripe pay, cash/check paid, clock-out, or signature if the other condition is already met. Needs supabase/differentiation.sql for the review URL column.',
+  },
+  {
+    id: 'pm-automation',
+    category: 'Jobs & calendar',
+    question: 'Can EasyDispatch auto-create PM jobs from agreements?',
+    answer:
+      'Yes. Enable Service agreements and PM job automation (automation is off by default). Active agreements with next due date today or earlier get a Scheduled Maintenance/PM job overnight; next due advances by visits/year. You can still Create PM manually on Agreements.',
+  },
+  {
+    id: 'inventory-po',
+    category: 'Jobs & calendar',
+    question: 'How do I make a reorder / PO list from low stock?',
+    answer:
+      'Enable Truck inventory + Reorder / PO list. Set min qty, vendor, and optional reorder qty on items. Inventory shows a reorder panel: Copy PO list or Export PO CSV, Mark ordered. Run supabase/workflow-depth.sql if vendor fields are missing.',
+  },
+  {
+    id: 'equipment-timeline',
+    category: 'Customers',
+    question: 'Where is the equipment timeline and PM checklist?',
+    answer:
+      'Enable Feature modules → Equipment timeline. On a job (office or tech): PM checklist panel appears after you link a unit under Equipment → Use on job. Same checklist is on the customer → Equipment timeline. Saved on the unit. Needs supabase/workflow-depth.sql once for the pm_checklist column.',
+  },
+  {
+    id: 'customer-portal-rich',
+    category: 'Invoices & PDFs',
+    question: 'What can customers see in the portal?',
+    answer:
+      'Customer portal module on: from the customer profile, Customer portal link opens their account — open job status, pending estimates (Approve), unpaid invoices (Pay online if Stripe link exists), and recent completed jobs. Separate estimate/invoice token links still work for single documents. Run workflow-depth.sql so purpose “customer” is allowed.',
   },
   {
     id: 'import-customers',
@@ -64,7 +142,7 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'Customers',
     question: 'How do I pick a customer on a new job?',
     answer:
-      'On New job, click Customer to browse or search by name, city, or phone (full list). From a customer profile, New job pre-fills that customer (you can still change it). Double-click a site/property — or use New job on that site — to start a job for that address. After the job is created, the customer is locked.',
+      'On New job, click Customer to browse or search by name, city, or phone. From a customer profile, New job pre-fills that customer. Double-click a site/property — or New job on that site — to start a job for that address. After the job is created, the customer is locked.',
   },
   {
     id: 'multi-site',
@@ -85,56 +163,91 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do I reschedule a job on the calendar?',
     answer:
-      'Open Calendar, drag a job onto another day, and drop it. Time of day is kept; only the date changes. You can drop on the whole day cell, including near the date label.',
+      'Needs Calendar module on. Drag a job onto another day (time of day is kept). Click a job to edit start time and duration (hours), then Save — or Open job for full details.',
+  },
+  {
+    id: 'day-sheet',
+    category: 'Jobs & calendar',
+    question: 'What is the day sheet?',
+    answer:
+      'Needs Day sheet module. Office Day sheet shows each tech’s stops for a day. With PDF documents on: Print PDF for the morning huddle. Techs get Today’s run sheet PDF on My jobs for their assigned stops today.',
+  },
+  {
+    id: 'callback-revisit',
+    category: 'Jobs & calendar',
+    question: 'How do I schedule a callback revisit?',
+    answer:
+      'Needs Callbacks & warranty module. Open Callbacks → Schedule revisit on a flagged job or auto-detected revisit. Opens New job for that customer (and site if known) with Callback type and callback flag checked.',
   },
   {
     id: 'ai-ticket',
     category: 'Jobs & calendar',
     question: 'What does AI ticket fill do?',
     answer:
-      'On New job (when AI tools module is on), paste or dictate call notes → Fill ticket with AI. Grok drafts job type, priority, diagnosis, notes, and may match an existing customer. Always review before creating the job.',
+      'On New job (AI tools module on), paste or dictate call notes → Fill ticket with AI. Grok drafts job type, priority, diagnosis, notes, and may match an existing customer. Always review before creating the job.',
   },
   {
     id: 'job-costing-where',
     category: 'Job costing & reports',
     question: 'Where is job costing? I only see Settings and Reports.',
     answer:
-      'There is no separate “Job Costing” nav tab. Enable Settings → Feature modules → Job costing & profit. Then: (1) Settings → Job costing for target margin, tech wages, and optional weekly profit digest; (2) open any job for the Sold / Cost / Profit / Margin panel; (3) estimates show projected P&L before you send; (4) Reports for profit KPIs; (5) Export → Job costing / Tech P&L CSV for your accountant; (6) truck-stock deduct adds a costed parts line automatically. Run supabase/job-costing.sql once in Supabase if panels look empty.',
+      'No separate “Job Costing” nav tab — turn on Settings → Feature modules → Job costing & profit. Then: Settings → Job costing (wages, target margin, weekly digest); each job’s Sold/Cost/Profit panel; estimate P&L before send; Reports profit KPIs; Export job costing / tech P&L CSV; truck-stock deduct adds costed parts lines. Links also appear on Reports and the job costing panel.',
   },
   {
     id: 'job-costing-how',
     category: 'Job costing & reports',
     question: 'How do I set up job costing so numbers are right?',
     answer:
-      '1) Turn on Job costing & profit. 2) Settings → Job costing: target margin %, burden %, default labor $/hr, optional overhead, weekly digest email. 3) Set each tech’s $/hr wage. 4) Pricebook: Cost + Sell + type. 5) On jobs, Cost $ on line items (inventory deduct and pricebook presets fill cost). 6) Clock hours + tech wage feed labor. Save line items to refresh P&L. Check estimate P&L before sending quotes.',
+      '1) Enable Job costing & profit. 2) Settings → Job costing: target margin, burden, labor $/hr, overhead, optional weekly digest. 3) Tech wages. 4) Pricebook Cost + Sell + type. 5) Cost $ on job lines (inventory deduct fills cost). 6) Clock hours + wage = labor. Save lines to refresh P&L. Review estimate P&L before quoting.',
   },
   {
     id: 'costing-export-digest',
     category: 'Job costing & reports',
     question: 'How do I export job costing CSV or get a weekly profit email?',
     answer:
-      'Export (Export module): pick a date range → Job costing (P&L) for per-job sold/cost/profit/margin, or Tech P&L summary for rollup by technician — CSV for your accountant. Weekly digest: Settings → Job costing → enable Weekly owner profit digest and set an email (or company email). Mondays the app emails last week’s totals, by-tech profit, and lowest-margin jobs (needs Resend configured).',
+      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit (needs Resend on the server).',
   },
   {
     id: 'margin-coach',
     category: 'Job costing & reports',
     question: 'What is AI margin coach and Ask Reports?',
     answer:
-      'On a job (costing + AI modules on): AI margin coach reads that job’s P&L and suggests how to hit target margin. On Reports: Ask Reports answers questions in plain English about the selected date range (profit, techs, job types, losers). Both need AI tools enabled under Feature modules.',
+      'Job costing + AI tools on: AI margin coach on a job suggests how to hit target margin. Reports + AI: Ask Reports answers plain-English questions about the date range. Help bot also uses AI tools.',
   },
   {
     id: 'reports-vs-costing',
     category: 'Job costing & reports',
     question: 'What’s on the Reports page?',
     answer:
-      'Always (Reports module on): paid revenue, completed unpaid, AR, avg ticket, hours, estimate close rate, AR aging, tech productivity, unpaid invoices. With Job costing & profit on: gross profit, total cost, avg margin, jobs below target, profit by tech, profit by job type, lowest-profit jobs, plus Ask Reports AI if AI tools are on.',
+      'Reports module: paid revenue, unpaid, AR aging, avg ticket, hours, estimate close rate, tech productivity. Job costing on: gross profit, total cost, avg margin, below-target jobs, profit by tech/type, lowest-profit jobs; links to Costing settings and Export CSV.',
   },
   {
     id: 'estimates-on-jobs',
     category: 'Estimates',
     question: 'How do estimates link to jobs?',
     answer:
-      'From a job: New estimate (office) or Build estimate (tech). The estimate links to that job and customer. When approved, Apply to job copies line items onto the job. Estimates list shows customer and job #. Needs Estimates module (and manage_estimates permission for techs).',
+      'Estimates module: from a job → New estimate (office) or Build estimate (tech). Apply approved lines to the job. With job costing on, estimates show projected P&L before you send.',
+  },
+  {
+    id: 'gbb-packages',
+    category: 'Estimates',
+    question: 'What is Good / Better / Best (GBB)?',
+    answer:
+      'Enable Feature modules → Good / Better / Best. From Estimates, open Good / Better / Best to build multi-option packages customers can choose (often with the customer portal). Turn the module off to hide GBB if you only use single estimates.',
+  },
+  {
+    id: 'invoice-pdf',
+    category: 'Invoices & PDFs',
+    question: 'How do I download a branded invoice PDF?',
+    answer:
+      'Turn on Invoices & payments and PDF documents under Feature modules. On a job invoice panel or Invoices list, tap PDF — downloads a branded PDF (company info, line items, totals) for your bookkeeper or customer.',
+  },
+  {
+    id: 'pdf-day-run',
+    category: 'Invoices & PDFs',
+    question: 'How do day sheet and tech run sheet PDFs work?',
+    answer:
+      'PDF documents module on. Office: Day sheet module → Day sheet → Print PDF (stops by tech for that day). Tech: My jobs → Today’s run sheet PDF (today’s assigned stops). Turn PDF documents off to hide all PDF download buttons.',
   },
   {
     id: 'tech-estimate',
@@ -144,11 +257,18 @@ export const FAQ_ITEMS: FaqItem[] = [
       'Yes if Estimates is enabled and the tech has “Build estimates on jobs” (default on). Open an assigned job → Build estimate. Techs only edit estimates on their assigned jobs.',
   },
   {
+    id: 'tech-run-sheet',
+    category: 'Tech app',
+    question: 'Where is my printable run sheet?',
+    answer:
+      'Tech home (My jobs) → Today’s run sheet PDF when PDF documents is enabled. For the full digital run sheet, open an assigned job (packet, drive, diagnose, parts, sign).',
+  },
+  {
     id: 'tech-permissions',
     category: 'Tech app',
     question: 'How do I control what techs can do?',
     answer:
-      'Settings → Role permissions. Toggle time tracking, notes, media, estimates, invoices, line-item editing, and more for technician vs dispatcher/office. Job cost visibility for techs is under Settings → Job costing (“Techs can see job cost / margin”).',
+      'Settings → Role permissions for time tracking, notes, media, estimates, invoices, line items, etc. Job cost visibility: Settings → Job costing → “Techs can see job cost / margin”. Feature modules still hide whole categories for the company.',
   },
   {
     id: 'plans',

@@ -10,7 +10,7 @@ export function CreatePortalLinkButton({
   jobId,
   label,
 }: {
-  purpose: 'estimate' | 'invoice';
+  purpose: 'estimate' | 'invoice' | 'customer';
   customerId: string | null;
   estimateId?: string | null;
   jobId?: string | null;

@@ -20,6 +20,7 @@ export async function upsertInventoryItem(
   const name = formString(formData, 'name').trim();
   if (!name) return { error: 'Name required' };
 
+  const reorderRaw = formString(formData, 'reorder_qty').trim();
   const payload = {
     name,
     sku: emptyToNull(formString(formData, 'sku')),
@@ -28,6 +29,11 @@ export async function upsertInventoryItem(
     cost: Number(formString(formData, 'cost')) || 0,
     sell_price: Number(formString(formData, 'sell_price')) || 0,
     location: emptyToNull(formString(formData, 'location')),
+    vendor: emptyToNull(formString(formData, 'vendor')),
+    reorder_qty:
+      reorderRaw === '' || !Number.isFinite(Number(reorderRaw))
+        ? null
+        : Number(reorderRaw),
     updated_at: new Date().toISOString(),
   };
 
@@ -35,9 +41,35 @@ export async function upsertInventoryItem(
     ? await supabase.from('inventory_items').update(payload).eq('id', id)
     : await supabase.from('inventory_items').insert(payload);
 
-  if (error) return { error: error.message };
+  if (error) {
+    return {
+      error: /vendor|reorder_qty|column|schema cache/i.test(error.message)
+        ? 'Run supabase/workflow-depth.sql in Supabase for vendor / reorder fields.'
+        : error.message,
+    };
+  }
   revalidatePath('/dashboard/inventory');
   return { success: id ? 'Updated' : 'Added' };
+}
+
+export async function markInventoryOrdered(id: string): Promise<ActionState> {
+  const { supabase } = await requireOffice();
+  const { error } = await supabase
+    .from('inventory_items')
+    .update({
+      reorder_ordered_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+  if (error) {
+    return {
+      error: /reorder_ordered_at|column|schema cache/i.test(error.message)
+        ? 'Run supabase/workflow-depth.sql in Supabase first.'
+        : error.message,
+    };
+  }
+  revalidatePath('/dashboard/inventory');
+  return { success: 'Marked ordered' };
 }
 
 export async function deleteInventoryItem(id: string): Promise<ActionState> {

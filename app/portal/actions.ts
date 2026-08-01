@@ -69,3 +69,30 @@ export async function approveGbbOptionViaPortal(
   revalidatePath(`/portal/${token}`);
   revalidatePath(`/dashboard/estimates/${estimateId}`);
 }
+
+/** Approve an estimate from a customer-account portal token. */
+export async function approveEstimateByIdViaPortal(
+  token: string,
+  estimateId: string
+): Promise<void> {
+  const admin = createServiceClient();
+  const { data: link } = await admin
+    .from('portal_tokens')
+    .select('*')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (!link || link.purpose !== 'customer' || !link.customer_id) return;
+
+  const { data: estimate } = await admin
+    .from('estimates')
+    .select('id, customer_id, package_id')
+    .eq('id', estimateId)
+    .maybeSingle();
+
+  if (!estimate || estimate.customer_id !== link.customer_id) return;
+
+  await approveGbbOptionWith(admin, estimateId);
+  revalidatePath(`/portal/${token}`);
+  revalidatePath(`/dashboard/estimates/${estimateId}`);
+}

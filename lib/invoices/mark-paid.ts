@@ -66,5 +66,12 @@ export async function markJobPaidFromStripe(opts: {
     provider_id: opts.stripePaymentId,
   });
 
+  try {
+    const { maybeSendReviewAsk } = await import('@/lib/reviews/ask');
+    await maybeSendReviewAsk(job.id);
+  } catch {
+    /* optional — needs review URL + completed job */
+  }
+
   return { ok: true, jobId: job.id };
 }

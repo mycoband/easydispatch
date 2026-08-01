@@ -6,12 +6,14 @@ import { JobInvoicePanel } from '@/components/invoices/JobInvoicePanel';
 import { JobMessageActions } from '@/components/messages/JobMessageActions';
 import { JobMessageLog } from '@/components/messages/JobMessageLog';
 import { EquipmentSection } from '@/components/equipment/EquipmentSection';
+import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { DiagnosticAssist } from '@/components/tech/DiagnosticAssist';
 import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
 import { SafetyChecklist } from '@/components/tech/SafetyChecklist';
 import { SignaturePad } from '@/components/tech/SignaturePad';
+import { OfflineSyncBanner } from '@/components/tech/OfflineSyncBanner';
 import { TechJobNotes } from '@/components/tech/TechJobNotes';
 import { TechJobPacket } from '@/components/tech/TechJobPacket';
 import { TruckStockDeduct } from '@/components/tech/TruckStockDeduct';
@@ -77,10 +79,25 @@ export default async function TechJobDetailPage({
       ? supabase
           .from('equipment')
           .select(
-            'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes'
+            'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes, pm_checklist'
           )
           .eq('customer_id', job.customer_id)
           .order('created_at', { ascending: true })
+          .then(async (res) => {
+            if (
+              res.error &&
+              /pm_checklist|column|schema cache/i.test(res.error.message)
+            ) {
+              return supabase
+                .from('equipment')
+                .select(
+                  'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes'
+                )
+                .eq('customer_id', job.customer_id)
+                .order('created_at', { ascending: true });
+            }
+            return res;
+          })
       : Promise.resolve({ data: [] }),
     job.customer_id
       ? supabase
@@ -237,6 +254,10 @@ export default async function TechJobDetailPage({
 
       <TechJobPacket packet={packet} />
 
+      {mods.tech_offline_queue && (
+        <OfflineSyncBanner jobId={job.id} enabled />
+      )}
+
       {mods.estimates && (
         <JobEstimatesPanel
           jobId={job.id}
@@ -253,6 +274,25 @@ export default async function TechJobDetailPage({
         <WarrantyBadge info={linkedEquipment} />
       )}
 
+      {mods.equipment_timeline &&
+        job.customer_id &&
+        allow('manage_equipment') && (
+          <JobPmChecklist
+            customerId={job.customer_id}
+            jobId={job.id}
+            equipmentId={job.equipment_id}
+            equipment={linkedEquipment}
+            units={(equipment ?? []).map((e) => ({
+              id: e.id,
+              name: e.name,
+              equipment_type: e.equipment_type,
+              manufacturer: e.manufacturer,
+              model: e.model,
+              pm_checklist: (e as { pm_checklist?: unknown }).pm_checklist,
+            }))}
+          />
+        )}
+
       {job.customer_id && allow('manage_equipment') ? (
         <EquipmentSection
           customerId={job.customer_id}
@@ -268,11 +308,19 @@ export default async function TechJobDetailPage({
           attachments={attachments}
           customerApprovedAt={job.customer_approved_at}
           customerApprovedNote={job.customer_approved_note}
+          allowVoiceTranscribe={Boolean(
+            mods.ai && mods.tech_media && allow('edit_notes')
+          )}
         />
       )}
 
       {allow('time_track') && (
-        <TimeTrackingPanel jobId={job.id} job={job} large />
+        <TimeTrackingPanel
+          jobId={job.id}
+          job={job}
+          large
+          offlineQueue={Boolean(mods.tech_offline_queue)}
+        />
       )}
 
       {mods.messaging && allow('messaging') && (
@@ -296,6 +344,7 @@ export default async function TechJobDetailPage({
           diagnosis={job.diagnosis}
           customerSummary={job.customer_summary}
           internalNotes={job.internal_notes}
+          offlineQueue={Boolean(mods.tech_offline_queue)}
         />
       )}
 
@@ -341,6 +390,7 @@ export default async function TechJobDetailPage({
             hasEmail={Boolean(customer?.email)}
             allowCashCheck={allow('record_payment')}
             allowSend={allow('send_invoice')}
+            allowPdf={Boolean(mods.print_pdfs)}
           />
         )}
 

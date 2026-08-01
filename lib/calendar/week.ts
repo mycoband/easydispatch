@@ -116,3 +116,51 @@ export function rescheduleIsoToDateKey(
 export function isToday(date: Date, now = new Date()) {
   return isSameDay(date, now);
 }
+
+/** Local HH:mm from ISO for time inputs. */
+export function localTimeHm(iso: string | null | undefined) {
+  if (!iso) return '09:00';
+  try {
+    const d = parseISO(iso);
+    if (Number.isNaN(d.getTime())) return '09:00';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return '09:00';
+  }
+}
+
+/**
+ * Build ISO for dateKey (YYYY-MM-DD) at local HH:mm.
+ * Optionally set scheduled_end from estHours.
+ */
+export function scheduleIsoOnDate(
+  dateKey: string,
+  timeHm: string,
+  estHours?: number | null
+): { start: string; end: string | null } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(timeHm.trim());
+  if (!m) return null;
+  const hours = Number(m[1]);
+  const minutes = Number(m[2]);
+  if (
+    !Number.isFinite(hours) ||
+    !Number.isFinite(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+  const [y, mo, d] = dateKey.split('-').map(Number);
+  const start = new Date(y, mo - 1, d, hours, minutes, 0, 0);
+  if (Number.isNaN(start.getTime())) return null;
+  let end: string | null = null;
+  if (estHours != null && Number.isFinite(estHours) && estHours > 0) {
+    const endDate = new Date(start.getTime() + estHours * 60 * 60 * 1000);
+    end = endDate.toISOString();
+  }
+  return { start: start.toISOString(), end };
+}

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { formatMoney } from '@/lib/jobs/totals';
 import {
@@ -48,6 +49,26 @@ export function JobCostingPanel({
           </h2>
           <p className="mt-0.5 text-sm text-ink-500">
             Sold vs cost — target margin {snapshot.target_margin_pct}%
+          </p>
+          <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            <Link
+              href="/dashboard/settings#job-costing"
+              className="font-medium text-brand-700 hover:underline"
+            >
+              Costing settings
+            </Link>
+            <Link
+              href="/dashboard/reports"
+              className="font-medium text-brand-700 hover:underline"
+            >
+              Profit reports
+            </Link>
+            <Link
+              href="/dashboard/export"
+              className="font-medium text-brand-700 hover:underline"
+            >
+              Export CSV
+            </Link>
           </p>
         </div>
         <span

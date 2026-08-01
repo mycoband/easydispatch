@@ -59,7 +59,7 @@ export default async function CalendarPage({
       supabase
         .from('jobs')
         .select(
-          'id, job_number, customer_name, job_type, priority, assigned_to_name, scheduled_start, status'
+          'id, job_number, customer_name, job_type, priority, assigned_to_name, scheduled_start, status, est_hours'
         )
         .neq('status', 'Cancelled')
         .not('scheduled_start', 'is', null)
@@ -69,7 +69,7 @@ export default async function CalendarPage({
       supabase
         .from('jobs')
         .select(
-          'id, job_number, customer_name, job_type, priority, assigned_to_name, scheduled_start, status'
+          'id, job_number, customer_name, job_type, priority, assigned_to_name, scheduled_start, status, est_hours'
         )
         .neq('status', 'Cancelled')
         .not('scheduled_start', 'is', null)

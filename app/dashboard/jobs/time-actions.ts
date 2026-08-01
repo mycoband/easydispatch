@@ -18,7 +18,7 @@ async function assertCanTrackJob(jobId: string) {
   const { data: job, error } = await supabase
     .from('jobs')
     .select(
-      'id, status, assigned_to, drive_started_at, check_in_at, check_out_at'
+      'id, status, assigned_to, drive_started_at, check_in_at, check_out_at, payment_status'
     )
     .eq('id', jobId)
     .maybeSingle();
@@ -34,7 +34,30 @@ async function assertCanTrackJob(jobId: string) {
     throw new Error('You are not assigned to this job');
   }
 
-  return { supabase, job, office };
+  return { supabase, user, job, office };
+}
+
+async function saveTechLastLocation(
+  supabase: Awaited<ReturnType<typeof requireProfile>>['supabase'],
+  userId: string,
+  coords?: { lat?: number; lng?: number }
+) {
+  const hasLat = typeof coords?.lat === 'number' && Number.isFinite(coords.lat);
+  const hasLng = typeof coords?.lng === 'number' && Number.isFinite(coords.lng);
+  if (!hasLat || !hasLng) return;
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      last_lat: coords!.lat,
+      last_lng: coords!.lng,
+      last_location_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userId);
+  // Column may be missing until differentiation.sql — ignore
+  if (error && !/last_lat|last_lng|last_location|column|schema cache/i.test(error.message)) {
+    console.warn('last location:', error.message);
+  }
 }
 
 function revalidateJob(jobId: string) {
@@ -54,7 +77,7 @@ export async function trackJobTime(
   try {
     const perm = await assertTechCapability('time_track');
     if (!perm.ok) return { error: perm.error };
-    const { supabase, job } = await assertCanTrackJob(jobId);
+    const { supabase, user, job } = await assertCanTrackJob(jobId);
     const now = new Date().toISOString();
 
     if (action === 'drive') {
@@ -73,6 +96,7 @@ export async function trackJobTime(
         })
         .eq('id', jobId);
       if (error) return { error: error.message };
+      await saveTechLastLocation(supabase, user.id, coords);
       revalidateJob(jobId);
       return { success: 'Drive started' };
     }
@@ -98,6 +122,7 @@ export async function trackJobTime(
         })
         .eq('id', jobId);
       if (error) return { error: error.message };
+      await saveTechLastLocation(supabase, user.id, coords);
       revalidateJob(jobId);
       return { success: 'Arrived / work started' };
     }
@@ -133,6 +158,14 @@ export async function trackJobTime(
       await recalculateJobCosting(supabase, jobId);
     } catch {
       /* optional until job-costing.sql */
+    }
+    if (job.payment_status === 'Paid') {
+      try {
+        const { maybeSendReviewAsk } = await import('@/lib/reviews/ask');
+        await maybeSendReviewAsk(jobId);
+      } catch {
+        /* optional */
+      }
     }
     revalidateJob(jobId);
     return { success: 'Clocked out' };

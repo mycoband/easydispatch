@@ -33,6 +33,8 @@ export type CompanySettings = {
   invoice_footer: string | null;
   estimate_footer: string | null;
   sms_signature: string | null;
+  /** Google / review page URL for post paid+complete email ask */
+  google_review_url: string | null;
   modules: Record<ModuleId, boolean>;
   role_permissions: RolePermissions;
   costing: CostingSettings;
@@ -58,6 +60,7 @@ export const COMPANY_FALLBACK: CompanySettings = {
   estimate_footer:
     'This estimate is valid for 30 days. Prices may change if site conditions differ.',
   sms_signature: 'My Company',
+  google_review_url: null,
   modules: normalizeModules({}),
   role_permissions: normalizeRolePermissions({}),
   costing: { ...DEFAULT_COSTING },
@@ -69,11 +72,16 @@ function hydrate(row: Record<string, unknown> | null): CompanySettings {
     modules: rawModules,
     role_permissions: rawPerms,
     costing: rawCosting,
+    google_review_url: rawReview,
     ...rest
   } = row;
   return {
     ...COMPANY_FALLBACK,
     ...rest,
+    google_review_url:
+      typeof rawReview === 'string' && rawReview.trim()
+        ? rawReview.trim()
+        : null,
     modules: normalizeModules(rawModules),
     role_permissions: normalizeRolePermissions(rawPerms),
     costing: normalizeCosting(rawCosting),

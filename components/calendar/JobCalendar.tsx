@@ -11,12 +11,16 @@ import {
   type DragEvent,
 } from 'react';
 import { isSameMonth } from 'date-fns';
-import { moveJobToDate } from '@/app/dashboard/calendar/actions';
+import {
+  moveJobToDate,
+  updateJobSchedule,
+} from '@/app/dashboard/calendar/actions';
 import { CalendarDateJump } from '@/components/calendar/CalendarDateJump';
 import {
   type CalendarView,
   isToday,
   localDateKey,
+  localTimeHm,
   monthGridDays,
   monthLabel,
   monthOffsetForDateKey,
@@ -39,6 +43,7 @@ export type CalendarJob = {
   assigned_to_name: string | null;
   scheduled_start: string | null;
   status: string | null;
+  est_hours?: number | null;
 };
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -100,6 +105,9 @@ export function JobCalendar({
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTime, setEditTime] = useState('09:00');
+  const [editHours, setEditHours] = useState('');
   const dragMoved = useRef(false);
 
   useEffect(() => {
@@ -225,13 +233,82 @@ export function JobCalendar({
     });
   }
 
-  function openJob(jobId: string) {
+  function openScheduleEditor(job: CalendarJob) {
     if (dragMoved.current) {
       dragMoved.current = false;
       return;
     }
-    router.push(`/dashboard/jobs/${jobId}`);
+    setEditingId(job.id);
+    setEditTime(localTimeHm(job.scheduled_start));
+    setEditHours(
+      job.est_hours != null && Number(job.est_hours) > 0
+        ? String(job.est_hours)
+        : ''
+    );
+    setError(null);
   }
+
+  function saveSchedule() {
+    if (!editingId) return;
+    const jobId = editingId;
+    const job = localJobs.find((j) => j.id === jobId);
+    const dateKey = scheduledLocalDateKey(job?.scheduled_start);
+    if (!dateKey) {
+      setError('Job has no date');
+      return;
+    }
+    const hoursRaw = editHours.trim();
+    const estHours = hoursRaw === '' ? null : Number(hoursRaw);
+    if (hoursRaw !== '' && (!Number.isFinite(estHours) || (estHours ?? 0) < 0)) {
+      setError('Invalid duration hours');
+      return;
+    }
+
+    const snapshot = localJobs;
+    const timeHm = editTime;
+    const [hh, mm] = timeHm.split(':').map(Number);
+    const [y, mo, d] = dateKey.split('-').map(Number);
+    const nextStart = new Date(
+      y,
+      mo - 1,
+      d,
+      hh || 0,
+      mm || 0,
+      0,
+      0
+    ).toISOString();
+    setLocalJobs((prev) =>
+      prev.map((j) =>
+        j.id === jobId
+          ? {
+              ...j,
+              scheduled_start: nextStart,
+              est_hours: estHours,
+              status: j.status === 'New' ? 'Scheduled' : j.status,
+            }
+          : j
+      )
+    );
+    setEditingId(null);
+
+    startTransition(async () => {
+      const result = await updateJobSchedule(jobId, {
+        dateKey,
+        timeHm,
+        estHours,
+      });
+      if (result.error) {
+        setLocalJobs(snapshot);
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  const editingJob = editingId
+    ? localJobs.find((j) => j.id === editingId) || null
+    : null;
 
   return (
     <div className="space-y-4">
@@ -241,7 +318,7 @@ export function JobCalendar({
             Calendar
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Drag a job onto another day to reschedule · time of day is kept
+            Drag to change day · click a job to edit start time &amp; duration
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -309,11 +386,75 @@ export function JobCalendar({
 
       {error && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          Couldn’t move job: {error}
+          {error}
         </p>
       )}
       {pending && (
         <p className="text-xs font-medium text-ink-400">Saving schedule…</p>
+      )}
+
+      {editingJob && (
+        <div className="panel space-y-3 border-brand-200 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="font-semibold text-ink-900">
+                {editingJob.customer_name || 'Customer'}
+              </p>
+              <p className="text-xs text-ink-500">
+                {editingJob.job_type || 'Job'}
+                {editingJob.job_number ? ` · ${editingJob.job_number}` : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="text-sm text-ink-500 hover:text-ink-800"
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-ink-600">
+                Start time
+              </span>
+              <input
+                type="time"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+                className="rounded-lg border border-ink-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-ink-600">
+                Duration (hours)
+              </span>
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                placeholder="e.g. 1.5"
+                value={editHours}
+                onChange={(e) => setEditHours(e.target.value)}
+                className="w-28 rounded-lg border border-ink-200 px-3 py-2 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={saveSchedule}
+              disabled={pending}
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              Save
+            </button>
+            <Link
+              href={`/dashboard/jobs/${editingJob.id}`}
+              className="rounded-lg border border-ink-200 bg-white px-4 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+            >
+              Open job
+            </Link>
+          </div>
+        </div>
       )}
 
       <div className="panel overflow-hidden">
@@ -449,8 +590,8 @@ export function JobCalendar({
                             draggable
                             onDragStart={(e) => onDragStart(e, job)}
                             onDragEnd={onDragEnd}
-                            onClick={() => openJob(job.id)}
-                            title="Drag to another day · click to open"
+                            onClick={() => openScheduleEditor(job)}
+                            title="Drag to another day · click to edit time"
                             className={cn(
                               'block w-full cursor-grab rounded-lg p-1.5 text-left text-[11px] leading-tight transition active:cursor-grabbing',
                               high

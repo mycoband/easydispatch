@@ -90,6 +90,13 @@ export async function recordCashCheckPayment(
 
     if (error) return { error: error.message };
 
+    try {
+      const { maybeSendReviewAsk } = await import('@/lib/reviews/ask');
+      await maybeSendReviewAsk(jobId);
+    } catch {
+      /* optional */
+    }
+
     revalidateInvoicePaths(jobId);
     return {
       success: `Marked paid (${method})`,

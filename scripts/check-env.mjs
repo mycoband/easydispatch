@@ -46,8 +46,13 @@ const groups = [
     keys: ['NEXT_PUBLIC_APP_URL'],
   },
   {
-    title: 'AI (Grok)',
-    keys: ['XAI_API_KEY', 'XAI_VISION_MODEL', 'XAI_CHAT_MODEL'],
+    title: 'AI (Grok + Whisper)',
+    keys: [
+      'XAI_API_KEY',
+      'XAI_VISION_MODEL',
+      'XAI_CHAT_MODEL',
+      'OPENAI_API_KEY',
+    ],
   },
   {
     title: 'Stripe (invoices + SaaS)',

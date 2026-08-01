@@ -54,6 +54,33 @@ export function invoiceSmsBody(opts: {
   return `Hi ${name}, your ${company} invoice for ${opts.amountLabel} is ready.${linkPart}`;
 }
 
+/** Post paid+complete review ask (email). */
+export function reviewAskEmail(opts: {
+  customerName: string | null | undefined;
+  companyName?: string | null;
+  reviewUrl: string;
+  jobNumber?: string | null;
+}) {
+  const name = opts.customerName?.trim() || 'there';
+  const company = opts.companyName?.trim() || 'EasyDispatch';
+  const job =
+    opts.jobNumber?.trim() ? ` (job ${opts.jobNumber.trim()})` : '';
+  const subject = `Thanks from ${company} — leave a quick review?`;
+  const text = `Hi ${name},
+
+Thank you for choosing ${company}${job}. If we earned it, a short review helps other homeowners find us:
+
+${opts.reviewUrl}
+
+We appreciate your business.
+— ${company}`;
+  const html = `<p>Hi ${name},</p>
+<p>Thank you for choosing <strong>${company}</strong>${job}. If we earned it, a short review helps other homeowners find us:</p>
+<p><a href="${opts.reviewUrl}">Leave a review</a></p>
+<p>We appreciate your business.<br/>— ${company}</p>`;
+  return { subject, text, html };
+}
+
 export function formatScheduleLabel(iso: string | null | undefined) {
   if (!iso) return 'your scheduled time';
   const d = new Date(iso);

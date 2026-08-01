@@ -15,12 +15,15 @@ function appBaseUrl() {
 }
 
 export async function createPortalLink(input: {
-  purpose: 'estimate' | 'invoice';
+  purpose: 'estimate' | 'invoice' | 'customer';
   customerId: string | null;
   estimateId?: string | null;
   jobId?: string | null;
 }): Promise<ActionState> {
-  const { supabase } = await requireOffice();
+  const { supabase, profile } = await requireOffice();
+  if (input.purpose === 'customer' && !input.customerId) {
+    return { error: 'Customer required for portal link' };
+  }
   const token = randomBytes(24).toString('hex');
   const expires = new Date();
   expires.setDate(expires.getDate() + 30);
@@ -31,6 +34,7 @@ export async function createPortalLink(input: {
     customer_id: input.customerId,
     estimate_id: input.estimateId || null,
     job_id: input.jobId || null,
+    company_id: profile.company_id || null,
     expires_at: expires.toISOString(),
   });
 

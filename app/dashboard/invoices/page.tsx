@@ -5,6 +5,7 @@ import {
   PaymentStatusBadge,
 } from '@/components/invoices/InvoiceStatusBadges';
 import { requireOffice } from '@/lib/auth';
+import { loadCompanySettings } from '@/lib/company';
 import { requireCompanyModule } from '@/lib/company/require-module';
 import { formatTimestamp } from '@/lib/jobs/time-tracking';
 import { formatMoney } from '@/lib/jobs/totals';
@@ -24,7 +25,11 @@ export default async function InvoicesPage({
 }) {
   await requireCompanyModule('invoices');
 
-  const { supabase } = await requireOffice();
+  const [{ supabase }, company] = await Promise.all([
+    requireOffice(),
+    loadCompanySettings(),
+  ]);
+  const allowPdf = Boolean(company.modules.print_pdfs);
   const { q, filter: filterRaw } = await searchParams;
   const query = q?.trim() || '';
   const filter =
@@ -240,6 +245,7 @@ export default async function InvoicesPage({
                         total={total}
                         hasPhone={Boolean(contact?.phone)}
                         hasEmail={Boolean(contact?.email)}
+                        allowPdf={allowPdf}
                         compact
                       />
                     </td>

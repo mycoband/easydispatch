@@ -70,7 +70,9 @@ export function ModuleToggles({
         <div>
           <p className="text-sm text-ink-500">
             Turn categories on or off for this company. Disabled items hide from
-            the menu and block those screens. Core customers + jobs stay on.
+            the menu and related buttons (PDFs, GBB, costing, callbacks, etc.).
+            Core customers + jobs stay on. See Help / FAQ for what each module
+            includes.
           </p>
           <p className="mt-1 text-xs font-medium text-ink-400">
             {enabledCount} / {COMPANY_MODULES.length} modules enabled

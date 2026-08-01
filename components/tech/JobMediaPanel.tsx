@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   deleteJobAttachment,
   markCustomerApproved,
+  transcribeVoiceToNotes,
   uploadJobAttachment,
 } from '@/app/tech/actions';
 
@@ -29,11 +30,14 @@ export function JobMediaPanel({
   attachments,
   customerApprovedAt,
   customerApprovedNote,
+  allowVoiceTranscribe = false,
 }: {
   jobId: string;
   attachments: Attachment[];
   customerApprovedAt?: string | null;
   customerApprovedNote?: string | null;
+  /** AI + media modules on — show Transcribe on voice notes */
+  allowVoiceTranscribe?: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -111,6 +115,19 @@ export function JobMediaPanel({
     setPending(null);
   }
 
+  async function transcribe(attachmentId: string) {
+    setPending(`tx-${attachmentId}`);
+    setError(null);
+    setMessage(null);
+    const result = await transcribeVoiceToNotes(jobId, attachmentId);
+    if (result.error) setError(result.error);
+    else {
+      setMessage(result.success || 'Transcribed');
+      router.refresh();
+    }
+    setPending(null);
+  }
+
   return (
     <section className="panel space-y-4 p-5">
       <div>
@@ -118,8 +135,10 @@ export function JobMediaPanel({
           Job photos
         </h2>
         <p className="mt-0.5 text-sm text-ink-500">
-          Post before/after and nameplate shots here. Voice notes + verbal
-          approval optional.
+          Before/after and nameplate shots. Voice notes
+          {allowVoiceTranscribe
+            ? ' → Transcribe fills diagnosis & customer summary.'
+            : ' optional.'}
         </p>
       </div>
 
@@ -215,16 +234,35 @@ export function JobMediaPanel({
                 <p className="text-xs text-ink-400">
                   {new Date(a.created_at).toLocaleString()}
                 </p>
-                <button
-                  type="button"
-                  className="mt-1 text-xs text-red-700 hover:underline"
-                  onClick={async () => {
-                    await deleteJobAttachment(jobId, a.id);
-                    router.refresh();
-                  }}
-                >
-                  Remove
-                </button>
+                {a.caption && (
+                  <p className="mt-0.5 text-xs text-ink-500 line-clamp-2">
+                    {a.caption}
+                  </p>
+                )}
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {allowVoiceTranscribe && a.kind === 'voice' && (
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50"
+                      disabled={Boolean(pending)}
+                      onClick={() => void transcribe(a.id)}
+                    >
+                      {pending === `tx-${a.id}`
+                        ? 'Transcribing…'
+                        : 'Transcribe → notes'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="text-xs text-red-700 hover:underline"
+                    onClick={async () => {
+                      await deleteJobAttachment(jobId, a.id);
+                      router.refresh();
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             </li>
           ))}

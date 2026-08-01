@@ -11,8 +11,22 @@ type RecentJob = {
   job_type: string | null;
   status: string | null;
   scheduled_start: string | null;
+  property_id?: string | null;
   created_at: string;
 };
+
+function revisitHref(job: {
+  customer_id: string | null;
+  property_id?: string | null;
+}) {
+  if (!job.customer_id) return '/dashboard/jobs/new?callback=1';
+  const params = new URLSearchParams({
+    customerId: job.customer_id,
+    callback: '1',
+  });
+  if (job.property_id) params.set('propertyId', job.property_id);
+  return `/dashboard/jobs/new?${params.toString()}`;
+}
 
 export default async function CallbacksPage() {
   await requireCompanyModule('callbacks');
@@ -26,7 +40,7 @@ export default async function CallbacksPage() {
     supabase
       .from('jobs')
       .select(
-        'id, job_number, customer_id, customer_name, job_type, status, scheduled_start, is_callback, warranty_flag, created_at'
+        'id, job_number, customer_id, customer_name, job_type, status, scheduled_start, property_id, is_callback, warranty_flag, created_at'
       )
       .or('is_callback.eq.true,warranty_flag.eq.true,job_type.ilike.%callback%')
       .neq('status', 'Cancelled')
@@ -35,7 +49,7 @@ export default async function CallbacksPage() {
     supabase
       .from('jobs')
       .select(
-        'id, job_number, customer_id, customer_name, job_type, status, scheduled_start, created_at'
+        'id, job_number, customer_id, customer_name, job_type, status, scheduled_start, property_id, created_at'
       )
       .gte('created_at', since.toISOString())
       .neq('status', 'Cancelled')
@@ -45,7 +59,6 @@ export default async function CallbacksPage() {
 
   const recentJobs = (recent ?? []) as RecentJob[];
 
-  // Detect same customer revisit within 30 days (possible callback)
   const byCustomer = new Map<string, RecentJob[]>();
   for (const job of recentJobs) {
     if (!job.customer_id) continue;
@@ -85,7 +98,8 @@ export default async function CallbacksPage() {
           Callbacks & warranty
         </h1>
         <p className="mt-1 text-sm text-ink-500">
-          Flagged jobs and same-site revisits within 30 days
+          Flagged jobs and same-site revisits within 30 days — schedule a
+          revisit in one click.
         </p>
       </div>
 
@@ -100,25 +114,36 @@ export default async function CallbacksPage() {
             </li>
           ) : (
             (flagged ?? []).map((job) => (
-              <li key={job.id}>
+              <li
+                key={job.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
                 <Link
                   href={`/dashboard/jobs/${job.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-ink-50"
+                  className="min-w-0 flex-1 hover:opacity-80"
                 >
-                  <div>
-                    <p className="font-medium">{job.customer_name}</p>
-                    <p className="text-xs text-ink-500">
-                      {job.job_number} · {job.job_type} · {job.status}
-                    </p>
-                  </div>
-                  <div className="text-right text-xs font-semibold text-amber-800">
+                  <p className="font-medium">{job.customer_name}</p>
+                  <p className="text-xs text-ink-500">
+                    {job.job_number} · {job.job_type} · {job.status}
+                  </p>
+                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-amber-800">
                     {job.is_callback ||
                     (job.job_type || '').toLowerCase().includes('callback')
                       ? 'Callback'
                       : ''}
                     {job.warranty_flag ? ' · Warranty' : ''}
-                  </div>
-                </Link>
+                  </span>
+                  {job.customer_id && (
+                    <Link
+                      href={revisitHref(job)}
+                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                    >
+                      Schedule revisit
+                    </Link>
+                  )}
+                </div>
               </li>
             ))
           )}
@@ -143,9 +168,9 @@ export default async function CallbacksPage() {
             suspected.slice(0, 40).map(({ newer, older, days }) => (
               <li
                 key={`${newer.id}-${older.id}`}
-                className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium">{newer.customer_name}</p>
                   <p className="text-xs text-ink-500">
                     {days} days after prior visit ·{' '}
@@ -164,9 +189,19 @@ export default async function CallbacksPage() {
                     </Link>
                   </p>
                 </div>
-                <p className="text-xs text-ink-400">
-                  {formatTimestamp(newer.created_at)}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-ink-400">
+                    {formatTimestamp(newer.created_at)}
+                  </p>
+                  {newer.customer_id && (
+                    <Link
+                      href={revisitHref(newer)}
+                      className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-900 hover:bg-brand-100"
+                    >
+                      Schedule revisit
+                    </Link>
+                  )}
+                </div>
               </li>
             ))
           )}

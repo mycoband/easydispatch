@@ -264,6 +264,22 @@ export default async function ReportsPage({
               ? 'Profit, margins, revenue, tech productivity, and AR.'
               : 'Revenue, tech productivity, and AR aging for owners.'}
           </p>
+          {showCosting && (
+            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              <Link
+                href="/dashboard/settings#job-costing"
+                className="font-medium text-brand-700 hover:underline"
+              >
+                Costing settings
+              </Link>
+              <Link
+                href="/dashboard/export"
+                className="font-medium text-brand-700 hover:underline"
+              >
+                Export job costing CSV
+              </Link>
+            </p>
+          )}
         </div>
         <ReportsDateFilter from={fromStr} to={toStr} />
       </div>

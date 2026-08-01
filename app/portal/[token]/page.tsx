@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
+  approveEstimateByIdViaPortal,
   approveEstimateViaPortal,
   approveGbbOptionViaPortal,
 } from '@/app/portal/actions';
@@ -35,8 +36,6 @@ export default async function CustomerPortalPage({
     );
   }
 
-  const company = await loadCompanySettingsAdmin();
-
   const { data: link } = await admin
     .from('portal_tokens')
     .select('*')
@@ -44,6 +43,9 @@ export default async function CustomerPortalPage({
     .maybeSingle();
 
   if (!link) notFound();
+
+  const company = await loadCompanySettingsAdmin(link.company_id);
+
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
@@ -309,6 +311,216 @@ export default async function CustomerPortalPage({
           <Link href="/" className="hover:underline">
             {company.name}
           </Link>
+        </p>
+      </div>
+    );
+  }
+
+  if (link.purpose === 'customer' && link.customer_id) {
+    if (!company.modules.portal) {
+      return (
+        <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-ink-600">
+          Customer portal is turned off.
+        </div>
+      );
+    }
+
+    const { data: customer } = await admin
+      .from('customers')
+      .select('id, name, phone, email')
+      .eq('id', link.customer_id)
+      .maybeSingle();
+
+    if (!customer) notFound();
+
+    const [{ data: openJobs }, { data: pastJobs }, { data: estimates }, { data: invoices }] =
+      await Promise.all([
+        admin
+          .from('jobs')
+          .select(
+            'id, job_number, job_type, status, scheduled_start, assigned_to_name'
+          )
+          .eq('customer_id', customer.id)
+          .neq('status', 'Cancelled')
+          .neq('status', 'Completed')
+          .order('scheduled_start', { ascending: true, nullsFirst: false })
+          .limit(20),
+        admin
+          .from('jobs')
+          .select('id, job_number, job_type, status, scheduled_start, total')
+          .eq('customer_id', customer.id)
+          .eq('status', 'Completed')
+          .order('scheduled_start', { ascending: false, nullsFirst: false })
+          .limit(15),
+        admin
+          .from('estimates')
+          .select(
+            'id, estimate_number, description, status, total, option_label, package_id'
+          )
+          .eq('customer_id', customer.id)
+          .in('status', ['Draft', 'Sent', 'Viewed'])
+          .order('created_at', { ascending: false })
+          .limit(10),
+        admin
+          .from('jobs')
+          .select(
+            'id, job_number, total, payment_status, invoice_status, stripe_payment_link'
+          )
+          .eq('customer_id', customer.id)
+          .eq('invoice_status', 'Sent')
+          .neq('payment_status', 'Paid')
+          .order('invoice_sent_at', { ascending: false })
+          .limit(10),
+      ]);
+
+    return (
+      <div className="mx-auto max-w-lg space-y-5 px-4 py-12">
+        <CompanyBrandHeader
+          company={company}
+          eyebrow="Your account"
+          title={customer.name || 'Customer'}
+          subtitle="Jobs, estimates, and invoices"
+        />
+
+        <section className="panel p-5">
+          <h2 className="font-display text-base font-semibold text-ink-950">
+            Open jobs
+          </h2>
+          {(openJobs ?? []).length === 0 ? (
+            <p className="mt-2 text-sm text-ink-400">No open jobs.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {(openJobs ?? []).map((j) => (
+                <li
+                  key={j.id}
+                  className="rounded-lg border border-ink-100 bg-ink-50/50 px-3 py-2"
+                >
+                  <p className="font-medium">
+                    {j.job_number || 'Job'} · {j.job_type || 'Service'}
+                  </p>
+                  <p className="text-xs text-ink-500">
+                    {j.status}
+                    {j.scheduled_start
+                      ? ` · ${new Date(j.scheduled_start).toLocaleString()}`
+                      : ''}
+                    {j.assigned_to_name ? ` · ${j.assigned_to_name}` : ''}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="panel p-5">
+          <h2 className="font-display text-base font-semibold text-ink-950">
+            Estimates to review
+          </h2>
+          {(estimates ?? []).length === 0 ? (
+            <p className="mt-2 text-sm text-ink-400">No pending estimates.</p>
+          ) : (
+            <ul className="mt-3 space-y-3 text-sm">
+              {(estimates ?? []).map((est) => {
+                const approve = approveEstimateByIdViaPortal.bind(
+                  null,
+                  token,
+                  est.id
+                );
+                return (
+                  <li
+                    key={est.id}
+                    className="rounded-lg border border-ink-100 px-3 py-2"
+                  >
+                    <div className="flex justify-between gap-2">
+                      <div>
+                        <p className="font-medium">
+                          {est.estimate_number || 'Estimate'}
+                          {est.option_label ? ` · ${est.option_label}` : ''}
+                        </p>
+                        <p className="text-xs text-ink-500 line-clamp-2">
+                          {est.description || est.status}
+                        </p>
+                      </div>
+                      <p className="font-semibold">
+                        {formatMoney(Number(est.total) || 0)}
+                      </p>
+                    </div>
+                    <form action={approve} className="mt-2">
+                      <button
+                        type="submit"
+                        className="w-full rounded-lg bg-emerald-600 py-2 text-xs font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Approve estimate
+                      </button>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        <section className="panel p-5">
+          <h2 className="font-display text-base font-semibold text-ink-950">
+            Unpaid invoices
+          </h2>
+          {(invoices ?? []).length === 0 ? (
+            <p className="mt-2 text-sm text-ink-400">Nothing due.</p>
+          ) : (
+            <ul className="mt-3 space-y-3 text-sm">
+              {(invoices ?? []).map((inv) => (
+                <li
+                  key={inv.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-100 px-3 py-2"
+                >
+                  <div>
+                    <p className="font-medium">{inv.job_number || 'Invoice'}</p>
+                    <p className="text-xs text-ink-500">
+                      {formatMoney(Number(inv.total) || 0)} due
+                    </p>
+                  </div>
+                  {inv.stripe_payment_link ? (
+                    <a
+                      href={inv.stripe_payment_link}
+                      className="rounded-lg bg-ink-900 px-3 py-1.5 text-xs font-semibold text-white"
+                    >
+                      Pay online
+                    </a>
+                  ) : (
+                    <span className="text-xs text-ink-400">Contact office</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="panel p-5">
+          <h2 className="font-display text-base font-semibold text-ink-950">
+            Recent completed
+          </h2>
+          {(pastJobs ?? []).length === 0 ? (
+            <p className="mt-2 text-sm text-ink-400">No past jobs yet.</p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {(pastJobs ?? []).map((j) => (
+                <li
+                  key={j.id}
+                  className="flex justify-between gap-2 border-b border-ink-50 py-1.5 last:border-0"
+                >
+                  <span>
+                    {j.job_number || 'Job'} · {j.job_type || 'Service'}
+                  </span>
+                  <span className="text-ink-600">
+                    {formatMoney(Number(j.total) || 0)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <p className="text-center text-xs text-ink-400">
+          Questions? Call {company.phone || company.name}.
         </p>
       </div>
     );

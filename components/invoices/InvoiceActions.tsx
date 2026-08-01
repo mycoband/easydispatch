@@ -17,6 +17,7 @@ export function InvoiceActions({
   hasEmail,
   allowCashCheck = true,
   allowSend = true,
+  allowPdf = true,
   compact = false,
 }: {
   jobId: string;
@@ -27,6 +28,8 @@ export function InvoiceActions({
   hasEmail: boolean;
   allowCashCheck?: boolean;
   allowSend?: boolean;
+  /** Feature modules → PDF documents */
+  allowPdf?: boolean;
   compact?: boolean;
 }) {
   const router = useRouter();
@@ -71,64 +74,74 @@ export function InvoiceActions({
 
   return (
     <div className={cn('space-y-2', compact ? '' : '')}>
-      {!paid && (allowSend || allowCashCheck) && (
-        <div className={cn('flex flex-wrap gap-1.5', compact && 'justify-end')}>
-          {allowSend && (
+      <div className={cn('flex flex-wrap gap-1.5', compact && 'justify-end')}>
+        {allowPdf && (
+          <a
+            href={`/api/invoices/${jobId}/pdf`}
+            className={cn(
+              btn,
+              'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+            )}
+            title="Download branded invoice PDF"
+          >
+            PDF
+          </a>
+        )}
+        {!paid && allowSend && (
+          <button
+            type="button"
+            disabled={!canSend || Boolean(pending)}
+            onClick={() => runSend('auto')}
+            className={cn(
+              btn,
+              canSend
+                ? 'bg-ink-900 text-white hover:bg-ink-800'
+                : 'bg-ink-100 text-ink-400'
+            )}
+            title={
+              total <= 0
+                ? 'Add priced line items first'
+                : !hasPhone && !hasEmail
+                  ? 'Customer needs phone or email'
+                  : sent
+                    ? 'Resend invoice'
+                    : 'Send invoice'
+            }
+          >
+            {pending?.startsWith('send')
+              ? 'Sending…'
+              : sent
+                ? 'Resend'
+                : 'Send invoice'}
+          </button>
+        )}
+        {!paid && allowCashCheck && (
+          <>
             <button
               type="button"
-              disabled={!canSend || Boolean(pending)}
-              onClick={() => runSend('auto')}
+              disabled={Boolean(pending)}
+              onClick={() => runCashCheck('cash')}
               className={cn(
                 btn,
-                canSend
-                  ? 'bg-ink-900 text-white hover:bg-ink-800'
-                  : 'bg-ink-100 text-ink-400'
+                'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
               )}
-              title={
-                total <= 0
-                  ? 'Add priced line items first'
-                  : !hasPhone && !hasEmail
-                    ? 'Customer needs phone or email'
-                    : sent
-                      ? 'Resend invoice'
-                      : 'Send invoice'
-              }
             >
-              {pending?.startsWith('send')
-                ? 'Sending…'
-                : sent
-                  ? 'Resend'
-                  : 'Send invoice'}
+              {pending === 'cash' ? '…' : 'Cash'}
             </button>
-          )}
-          {allowCashCheck && (
-            <>
-              <button
-                type="button"
-                disabled={Boolean(pending)}
-                onClick={() => runCashCheck('cash')}
-                className={cn(
-                  btn,
-                  'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
-                )}
-              >
-                {pending === 'cash' ? '…' : 'Cash'}
-              </button>
-              <button
-                type="button"
-                disabled={Boolean(pending)}
-                onClick={() => runCashCheck('check')}
-                className={cn(
-                  btn,
-                  'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
-                )}
-              >
-                {pending === 'check' ? '…' : 'Check'}
-              </button>
-            </>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              disabled={Boolean(pending)}
+              onClick={() => runCashCheck('check')}
+              className={cn(
+                btn,
+                'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
+              )}
+            >
+              {pending === 'check' ? '…' : 'Check'}
+            </button>
+          </>
+        )}
+      </div>
       {paid && (
         <p className={cn('text-emerald-700', compact ? 'text-xs' : 'text-sm')}>
           Paid

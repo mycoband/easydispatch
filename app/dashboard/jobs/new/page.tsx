@@ -15,10 +15,14 @@ export default async function NewJobPage({
     propertyId?: string;
     equipmentId?: string;
     date?: string;
+    callback?: string;
   }>;
 }) {
   const { supabase, profile } = await requireOffice();
-  const { customerId, propertyId, equipmentId, date } = await searchParams;
+  const { customerId, propertyId, equipmentId, date, callback } =
+    await searchParams;
+  const isCallback =
+    callback === '1' || callback === 'true' || callback === 'yes';
   const [options, company, suggestedJobNumber] = await Promise.all([
     loadJobFormOptions(supabase, { customerId: customerId || null }),
     loadCompanySettings(),
@@ -52,16 +56,22 @@ export default async function NewJobPage({
           {backLabel}
         </Link>
         <h1 className="mt-2 font-display text-2xl font-semibold text-ink-950">
-          {date ? 'Schedule job' : 'New job'}
+          {isCallback
+            ? 'Schedule revisit'
+            : date
+              ? 'Schedule job'
+              : 'New job'}
         </h1>
         <p className="mt-1 text-sm text-ink-500">
-          {prefilledCustomer
-            ? `For ${prefilledCustomer.name}${propertyId ? ' · site selected' : ''}. You can change the customer anytime.`
-            : date
-              ? `Pre-filled for ${date} at 9:00 AM — change time as needed.`
-              : company.modules.ai
-                ? 'Search for a customer, or paste call notes for AI fill.'
-                : 'Search and pick a customer, then fill out the ticket.'}
+          {isCallback
+            ? `Callback / revisit${prefilledCustomer ? ` for ${prefilledCustomer.name}` : ''} — flagged as callback and ready to schedule.`
+            : prefilledCustomer
+              ? `For ${prefilledCustomer.name}${propertyId ? ' · site selected' : ''}. You can change the customer anytime.`
+              : date
+                ? `Pre-filled for ${date} at 9:00 AM — change time as needed.`
+                : company.modules.ai
+                  ? 'Search for a customer, or paste call notes for AI fill.'
+                  : 'Search and pick a customer, then fill out the ticket.'}
         </p>
       </div>
 
@@ -81,12 +91,16 @@ export default async function NewJobPage({
             property_id: propertyId || undefined,
             job_number: suggestedJobNumber,
             equipment_id: equipmentId || '',
-            priority: 'Medium',
-            status: scheduledFromDate ? 'Scheduled' : 'New',
+            job_type: isCallback ? 'Callback' : undefined,
+            priority: isCallback ? 'High' : 'Medium',
+            status: scheduledFromDate || isCallback ? 'Scheduled' : 'New',
             tax_rate_id: 'kcmo-jackson',
             scheduled_start: scheduledFromDate,
+            is_callback: isCallback || undefined,
           }}
-          submitLabel={date ? 'Schedule job' : 'Create job'}
+          submitLabel={
+            isCallback ? 'Create revisit' : date ? 'Schedule job' : 'Create job'
+          }
         />
       </div>
     </div>

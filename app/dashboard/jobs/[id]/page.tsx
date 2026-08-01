@@ -13,6 +13,7 @@ import { JobInvoicePanel } from '@/components/invoices/JobInvoicePanel';
 import { JobMessageActions } from '@/components/messages/JobMessageActions';
 import { JobMessageLog } from '@/components/messages/JobMessageLog';
 import { EquipmentSection } from '@/components/equipment/EquipmentSection';
+import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
@@ -90,10 +91,25 @@ export default async function JobDetailPage({
       ? supabase
           .from('equipment')
           .select(
-            'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes'
+            'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes, pm_checklist'
           )
           .eq('customer_id', job.customer_id)
           .order('created_at', { ascending: true })
+          .then(async (res) => {
+            if (
+              res.error &&
+              /pm_checklist|column|schema cache/i.test(res.error.message)
+            ) {
+              return supabase
+                .from('equipment')
+                .select(
+                  'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes'
+                )
+                .eq('customer_id', job.customer_id)
+                .order('created_at', { ascending: true });
+            }
+            return res;
+          })
       : Promise.resolve({ data: [] }),
     supabase
       .from('job_attachments')
@@ -228,6 +244,25 @@ export default async function JobDetailPage({
         return linked ? <WarrantyBadge info={linked} /> : null;
       })()}
 
+      {mods.equipment_timeline && job.customer_id && (
+        <JobPmChecklist
+          customerId={job.customer_id}
+          jobId={job.id}
+          equipmentId={job.equipment_id}
+          equipment={
+            (equipment ?? []).find((e) => e.id === job.equipment_id) || null
+          }
+          units={(equipment ?? []).map((e) => ({
+            id: e.id,
+            name: e.name,
+            equipment_type: e.equipment_type,
+            manufacturer: e.manufacturer,
+            model: e.model,
+            pm_checklist: (e as { pm_checklist?: unknown }).pm_checklist,
+          }))}
+        />
+      )}
+
       <div className="grid gap-6 lg:grid-cols-2">
         {mods.tech_media ? (
           <JobMediaPanel
@@ -235,6 +270,7 @@ export default async function JobDetailPage({
             attachments={attachments}
             customerApprovedAt={job.customer_approved_at}
             customerApprovedNote={job.customer_approved_note}
+            allowVoiceTranscribe={Boolean(mods.ai && mods.tech_media)}
           />
         ) : (
           <div />
@@ -265,6 +301,7 @@ export default async function JobDetailPage({
           paymentLink={job.stripe_payment_link}
           hasPhone={hasPhone}
           hasEmail={hasEmail}
+          allowPdf={Boolean(mods.print_pdfs)}
         />
       )}
 

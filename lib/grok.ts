@@ -579,6 +579,61 @@ ${text}`,
   return parsed.data;
 }
 
+const voiceNotesSchema = z.object({
+  diagnosis: z.string().trim().max(10000).default(''),
+  customer_summary: z.string().trim().max(10000).nullable().optional(),
+  internal_notes: z.string().trim().max(10000).nullable().optional(),
+});
+
+export type VoiceNotesFill = z.infer<typeof voiceNotesSchema>;
+
+/** Turn a field voice transcript into diagnosis + customer-facing summary. */
+export async function voiceNotesFromTranscript(input: {
+  transcript: string;
+  jobType?: string | null;
+  existingDiagnosis?: string | null;
+}): Promise<VoiceNotesFill> {
+  const text = input.transcript.trim();
+  if (text.length < 4) {
+    throw new Error('Transcript too short');
+  }
+
+  const content = await callGrok(
+    [
+      {
+        role: 'system',
+        content: `You are an HVAC field assistant. A tech recorded a voice note on a job.
+Return ONLY valid JSON:
+{
+  "diagnosis": string (clear tech-facing symptoms, findings, and work performed / recommended — rewrite messy speech),
+  "customer_summary": string | null (short plain-language summary suitable for the customer invoice/portal),
+  "internal_notes": string | null (access tips, parts needed, follow-ups — omit if none)
+}
+Rules:
+- Prefer HVAC terminology a tech would use in diagnosis.
+- Do not invent equipment model/serial numbers not stated.
+- Keep customer_summary friendly and non-technical when possible.
+- If prior diagnosis is provided, merge new info rather than discarding it.`,
+      },
+      {
+        role: 'user',
+        content: `Job type: ${input.jobType || 'Service'}
+Existing diagnosis (may be empty): ${input.existingDiagnosis || '(none)'}
+
+Voice transcript:
+${text}`,
+      },
+    ],
+    { model: chatModel(), temperature: 0.2 }
+  );
+
+  const parsed = voiceNotesSchema.safeParse(parseJsonContent(content));
+  if (!parsed.success) {
+    throw new Error('Could not parse voice notes response');
+  }
+  return parsed.data;
+}
+
 export type HelpChatMessage = {
   role: 'user' | 'assistant';
   content: string;
@@ -606,13 +661,23 @@ Rules:
 
 Known product facts:
 - Office app: /dashboard (customers, jobs, calendar, dispatch, estimates, invoices, reports, pricebook, settings).
-- Tech app: /tech (assigned jobs, time, notes, media, equipment, estimates when permitted).
-- Feature modules: Settings → Feature modules toggles categories on/off (including Job costing & profit, Reports, AI tools).
-- Customer import: CSV UTF-8; Housecall Pro multi-site; junk phone names skipped; wipe clears equipment FKs; email dedupe requires similar names; shop invoices@ emails prefer Additional Emails.
-- New job: search/browse any customer; from customer profile pre-fills customer; double-click site/property starts job for that site; customer locks after create; Job # defaults #1, #2… editable.
-- Calendar: drag jobs to another day (keeps time of day).
-- Estimates: link to job; office New estimate / tech Build estimate; Apply to job when approved.
-- Job costing (module on): NOT a separate nav tab. Setup in Settings → Job costing (margin, wages). See P&L on each job + cost on line items + AI margin coach. Reports adds profit by tech/type + Ask Reports AI. Pricebook has cost + sell. Needs supabase/job-costing.sql once.
+- Tech app: /tech (assigned jobs, time, notes, media, equipment, estimates when permitted, today’s run sheet PDF).
+- Feature modules: Settings → Feature modules — Day sheet, Dispatch, Live dispatch board, Assign-tech AI, Day capacity warnings, Calendar, Estimates, GBB, Pricebook, Invoices, Export, Job costing, PDF documents, Agreements, PM job automation, Inventory, Reorder/PO list, Parts, Equipment timeline, Callbacks, Reports, Messaging, Review ask, Portal, AI, Photos, Offline notes & time, Safety. Off hides related UI.
+- Live dispatch: Supabase Realtime on jobs (ops-polish.sql) → En Route/On Site without refresh.
+- Capacity warnings: overbooked >8h est and overlapping scheduled windows on dispatch/day sheet.
+- Offline notes & time: localStorage queue for tech notes + Drive/Arrive/Clock Out; sync when online.
+- Assign-tech AI: Suggest tech from skills + today’s load + last known GPS (Drive/Arrive) on Dispatch.
+- Voice → notes: record voice on job → Transcribe (Whisper + Grok) fills diagnosis / customer summary (needs OPENAI_API_KEY + AI module).
+- Review ask: after paid + completed, email Google review link from Settings (Resend; no Twilio).
+- PM automation: nightly cron creates due PM jobs when module on (default off). Manual Create PM still on Agreements.
+- Reorder/PO: low-stock list by vendor, CSV export, mark ordered (needs workflow-depth.sql).
+- Equipment timeline: per-unit history + PM checklist on customer profile and on the job (office/tech) when a unit is linked.
+- Portal: customer account link (status, history, approve estimates, pay) + estimate/invoice tokens (needs workflow-depth.sql for purpose customer).
+- PDF documents: branded invoice PDF, day-sheet PDF, tech run sheet PDF.
+- Customer import: CSV UTF-8; Housecall Pro multi-site; junk phone names skipped; wipe clears equipment FKs.
+- Calendar: drag day; click job to edit start time & duration.
+- Callbacks: Schedule revisit → New job as Callback.
+- Job costing: Settings → Job costing; P&L on jobs/estimates; Reports; Export CSV. Needs job-costing.sql once.
 - Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help.
 - Floating Help bot: Help button bottom-right on every office/tech page; chat survives navigation in the browser session.
 

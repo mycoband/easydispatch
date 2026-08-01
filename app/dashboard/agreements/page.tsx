@@ -60,7 +60,8 @@ export default async function AgreementsPage({
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             PM plans & memberships · {overdue} PM overdue · {billingDue}{' '}
-            billing due
+            billing due. Turn on Feature modules → PM job automation to
+            auto-create due PM jobs nightly.
           </p>
         </div>
         <div className="flex gap-2 text-sm">

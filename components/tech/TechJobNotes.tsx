@@ -1,20 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveTechJobNotes } from '@/app/tech/actions';
+import { notifyOfflineQueueChanged } from '@/components/tech/OfflineSyncBanner';
 import { DictationField } from '@/components/ui/DictationButton';
+import {
+  enqueueOfflineItem,
+  isBrowserOffline,
+} from '@/lib/tech/offline-queue';
 
 export function TechJobNotes({
   jobId,
   diagnosis,
   customerSummary,
   internalNotes,
+  offlineQueue = false,
 }: {
   jobId: string;
   diagnosis?: string | null;
   customerSummary?: string | null;
   internalNotes?: string | null;
+  offlineQueue?: boolean;
 }) {
   const router = useRouter();
   const [diag, setDiag] = useState(diagnosis || '');
@@ -24,19 +31,54 @@ export function TechJobNotes({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setDiag(diagnosis || '');
+    setSummary(customerSummary || '');
+    setInternal(internalNotes || '');
+  }, [diagnosis, customerSummary, internalNotes]);
+
   async function save() {
     setPending(true);
     setError(null);
     setMessage(null);
-    const result = await saveTechJobNotes(jobId, {
+
+    const payload = {
       diagnosis: diag,
       customer_summary: summary,
       internal_notes: internal,
-    });
-    if (result.error) setError(result.error);
-    else {
-      setMessage(result.success || 'Saved');
-      router.refresh();
+    };
+
+    if (offlineQueue && isBrowserOffline()) {
+      enqueueOfflineItem({ kind: 'notes', jobId, ...payload });
+      notifyOfflineQueueChanged();
+      setMessage('Queued — will sync when online');
+      setPending(false);
+      return;
+    }
+
+    try {
+      const result = await saveTechJobNotes(jobId, payload);
+      if (result.error) {
+        if (offlineQueue) {
+          enqueueOfflineItem({ kind: 'notes', jobId, ...payload });
+          notifyOfflineQueueChanged();
+          setMessage('Saved offline — will sync when online');
+          setError(null);
+        } else {
+          setError(result.error);
+        }
+      } else {
+        setMessage(result.success || 'Saved');
+        router.refresh();
+      }
+    } catch {
+      if (offlineQueue) {
+        enqueueOfflineItem({ kind: 'notes', jobId, ...payload });
+        notifyOfflineQueueChanged();
+        setMessage('Saved offline — will sync when online');
+      } else {
+        setError('Network error — try again');
+      }
     }
     setPending(false);
   }
@@ -49,6 +91,7 @@ export function TechJobNotes({
         </h2>
         <p className="mt-0.5 text-sm text-ink-500">
           Type or speak — save before clock-out
+          {offlineQueue ? ' · queues offline' : ''}
         </p>
       </div>
 

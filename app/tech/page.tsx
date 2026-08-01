@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
 import { requireTech } from '@/lib/auth';
+import { loadCompanySettings } from '@/lib/company';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
 
 export default async function TechHomePage() {
   const { profile, supabase, user } = await requireTech();
+  const company = await loadCompanySettings();
+  const allowPdf = Boolean(company.modules.print_pdfs);
 
   const { data: jobs } = await supabase
     .from('jobs')
@@ -18,14 +21,24 @@ export default async function TechHomePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-ink-950">
-          My jobs
-        </h1>
-        <p className="mt-1 text-sm text-ink-500">
-          Hi{profile.full_name ? ` ${profile.full_name}` : ''}. Open a job for
-          the full run sheet — packet, drive, diagnose, parts, sign & pay.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-ink-950">
+            My jobs
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            Hi{profile.full_name ? ` ${profile.full_name}` : ''}. Open a job for
+            the full run sheet — packet, drive, diagnose, parts, sign & pay.
+          </p>
+        </div>
+        {allowPdf && (
+          <a
+            href="/api/tech/run-sheet/pdf"
+            className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-900 hover:bg-brand-100"
+          >
+            Today&apos;s run sheet PDF
+          </a>
+        )}
       </div>
 
       <div className="space-y-3">

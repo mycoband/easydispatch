@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { trackJobTime } from '@/app/dashboard/jobs/time-actions';
+import { notifyOfflineQueueChanged } from '@/components/tech/OfflineSyncBanner';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
 import {
   buildTimeLog,
@@ -10,26 +11,40 @@ import {
   formatTimestamp,
   type JobTimeFields,
 } from '@/lib/jobs/time-tracking';
+import {
+  enqueueOfflineItem,
+  isBrowserOffline,
+} from '@/lib/tech/offline-queue';
 import { cn } from '@/lib/utils';
 
 export function TimeTrackingPanel({
   jobId,
   job,
   large = false,
+  offlineQueue = false,
 }: {
   jobId: string;
   job: JobTimeFields;
   large?: boolean;
+  /** Queue Drive/Arrive/Clock Out when offline */
+  offlineQueue?: boolean;
 }) {
   const router = useRouter();
-  const log = buildTimeLog(job);
+  const [local, setLocal] = useState(job);
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canDrive = !job.drive_started_at && !job.check_out_at;
-  const canArrive = !job.check_in_at && !job.check_out_at;
-  const canClockOut = !job.check_out_at && Boolean(job.check_in_at || job.drive_started_at);
+  useEffect(() => {
+    setLocal(job);
+  }, [job]);
+
+  const log = buildTimeLog(local);
+  const canDrive = !local.drive_started_at && !local.check_out_at;
+  const canArrive = !local.check_in_at && !local.check_out_at;
+  const canClockOut =
+    !local.check_out_at &&
+    Boolean(local.check_in_at || local.drive_started_at);
 
   function getCurrentPosition(): Promise<GeolocationPosition | null> {
     return new Promise((resolve) => {
@@ -45,13 +60,35 @@ export function TimeTrackingPanel({
     });
   }
 
+  function applyOptimistic(action: 'drive' | 'arrive' | 'clock_out') {
+    const now = new Date().toISOString();
+    setLocal((prev) => {
+      if (action === 'drive') {
+        return { ...prev, drive_started_at: prev.drive_started_at || now };
+      }
+      if (action === 'arrive') {
+        return {
+          ...prev,
+          drive_started_at: prev.drive_started_at || now,
+          check_in_at: prev.check_in_at || now,
+          status: 'In Progress',
+        };
+      }
+      return {
+        ...prev,
+        check_out_at: now,
+        status: 'Completed',
+      };
+    });
+  }
+
   async function run(action: 'drive' | 'arrive' | 'clock_out') {
     setPending(action);
     setError(null);
     setMessage(null);
 
     let coords: { lat?: number; lng?: number } | undefined;
-    if (action === 'arrive') {
+    if (action === 'arrive' || action === 'drive') {
       const pos = await getCurrentPosition();
       if (pos) {
         coords = {
@@ -59,14 +96,42 @@ export function TimeTrackingPanel({
           lng: pos.coords.longitude,
         };
       }
-      // If geolocation is denied/unavailable, we still arrive without coords.
     }
 
-    const result = await trackJobTime(jobId, action, coords);
-    if (result.error) setError(result.error);
-    else {
-      setMessage(result.success || 'Updated');
-      router.refresh();
+    if (offlineQueue && isBrowserOffline()) {
+      enqueueOfflineItem({ kind: 'time', jobId, action, coords });
+      notifyOfflineQueueChanged();
+      applyOptimistic(action);
+      setMessage('Queued — will sync when online');
+      setPending(null);
+      return;
+    }
+
+    try {
+      const result = await trackJobTime(jobId, action, coords);
+      if (result.error) {
+        if (offlineQueue) {
+          enqueueOfflineItem({ kind: 'time', jobId, action, coords });
+          notifyOfflineQueueChanged();
+          applyOptimistic(action);
+          setMessage('Saved offline — will sync when online');
+          setError(null);
+        } else {
+          setError(result.error);
+        }
+      } else {
+        setMessage(result.success || 'Updated');
+        router.refresh();
+      }
+    } catch {
+      if (offlineQueue) {
+        enqueueOfflineItem({ kind: 'time', jobId, action, coords });
+        notifyOfflineQueueChanged();
+        applyOptimistic(action);
+        setMessage('Saved offline — will sync when online');
+      } else {
+        setError('Network error — try again');
+      }
     }
     setPending(null);
   }
@@ -84,6 +149,7 @@ export function TimeTrackingPanel({
           </h2>
           <p className="mt-0.5 text-sm text-ink-500">
             Drive Start → Arrive / Start Work → Clock Out
+            {offlineQueue ? ' · works offline' : ''}
           </p>
         </div>
         <LiveStatusBadge status={log.liveStatus} />
@@ -160,7 +226,7 @@ export function TimeTrackingPanel({
             {log.workHours != null ? `Work ${log.workHours}h` : 'Work —'}
           </dd>
         </div>
-        {(log.checkInLat != null && log.checkInLng != null) && (
+        {log.checkInLat != null && log.checkInLng != null && (
           <div className="rounded-lg bg-ink-50 px-3 py-2 sm:col-span-2">
             <dt className="text-ink-500">Arrival GPS</dt>
             <dd className="mt-0.5 font-medium text-ink-900">

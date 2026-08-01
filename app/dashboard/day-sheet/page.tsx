@@ -2,6 +2,13 @@ import Link from 'next/link';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
 import { requireOffice } from '@/lib/auth';
 import { localDateKey } from '@/lib/calendar/week';
+import { loadCompanySettings } from '@/lib/company';
+import {
+  DAY_CAPACITY_HOURS,
+  estHoursOf,
+  findOverlappingJobIds,
+  isOverloaded,
+} from '@/lib/dispatch/capacity';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
 import { requireCompanyModule } from '@/lib/company/require-module';
 
@@ -12,7 +19,12 @@ export default async function DaySheetPage({
 }) {
   await requireCompanyModule('day_sheet');
 
-  const { supabase } = await requireOffice();
+  const [{ supabase }, company] = await Promise.all([
+    requireOffice(),
+    loadCompanySettings(),
+  ]);
+  const allowPdf = Boolean(company.modules.print_pdfs);
+  const capacityWarnings = Boolean(company.modules.capacity_warnings);
   const { date } = await searchParams;
   const dayKey =
     date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : localDateKey(new Date());
@@ -29,7 +41,7 @@ export default async function DaySheetPage({
       supabase
         .from('jobs')
         .select(
-          'id, job_number, customer_name, job_type, status, priority, assigned_to, assigned_to_name, scheduled_start, est_hours, drive_started_at, check_in_at, check_out_at, internal_notes, is_callback, warranty_flag'
+          'id, job_number, customer_name, job_type, status, priority, assigned_to, assigned_to_name, scheduled_start, scheduled_end, est_hours, drive_started_at, check_in_at, check_out_at, internal_notes, is_callback, warranty_flag'
         )
         .neq('status', 'Cancelled')
         .gte('scheduled_start', dayStart.toISOString())
@@ -60,6 +72,10 @@ export default async function DaySheetPage({
   prev.setDate(prev.getDate() - 1);
   const next = new Date(dayStart);
   next.setDate(next.getDate() + 1);
+
+  const overlappingIds = capacityWarnings
+    ? findOverlappingJobIds(jobs ?? [], dayKey)
+    : new Set<string>();
 
   return (
     <div className="space-y-5">
@@ -96,6 +112,14 @@ export default async function DaySheetPage({
           >
             Next →
           </Link>
+          {allowPdf && (
+            <a
+              href={`/api/day-sheet/pdf?date=${dayKey}`}
+              className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-900 hover:bg-brand-100"
+            >
+              Print PDF
+            </a>
+          )}
           <Link
             href={`/dashboard/jobs/new?date=${dayKey}`}
             className="rounded-xl bg-ink-900 px-4 py-1.5 text-sm font-semibold text-white"
@@ -114,20 +138,22 @@ export default async function DaySheetPage({
         />
         {(techs ?? []).map((tech) => {
           const list = byTech.get(tech.id) || [];
-          const hours = list.reduce(
-            (sum, j) => sum + (Number(j.est_hours) || 1.5),
-            0
-          );
+          const hours = list.reduce((sum, j) => sum + estHoursOf(j), 0);
           const active = list.filter(
             (j) => j.status !== 'Completed'
           ).length;
+          const overlaps = list.filter((j) => overlappingIds.has(j.id)).length;
+          const overloaded = capacityWarnings && isOverloaded(hours);
           return (
             <TechColumn
               key={tech.id}
               title={tech.full_name || 'Tech'}
-              subtitle={`${active} active · ~${hours.toFixed(1)}h est`}
+              subtitle={`${active} active · ~${hours.toFixed(1)}h est${
+                overlaps > 0 ? ` · ${overlaps} overlap` : ''
+              }${overloaded ? ` · over ${DAY_CAPACITY_HOURS}h` : ''}`}
               jobs={list}
-              overloaded={hours > 8}
+              overloaded={overloaded}
+              overlappingIds={overlappingIds}
             />
           );
         })}
@@ -167,6 +193,7 @@ function TechColumn({
   subtitle,
   jobs,
   overloaded,
+  overlappingIds,
 }: {
   title: string;
   subtitle: string;
@@ -189,6 +216,7 @@ function TechColumn({
   }[];
   hoursLabel?: boolean;
   overloaded?: boolean;
+  overlappingIds?: Set<string>;
 }) {
   return (
     <section
@@ -213,12 +241,21 @@ function TechColumn({
             <Link
               key={job.id}
               href={`/dashboard/jobs/${job.id}`}
-              className="block rounded-xl border border-ink-100 bg-white px-3 py-2 text-sm hover:border-brand-300"
+              className={`block rounded-xl border px-3 py-2 text-sm hover:border-brand-300 ${
+                overlappingIds?.has(job.id)
+                  ? 'border-amber-300 bg-amber-50/60'
+                  : 'border-ink-100 bg-white'
+              }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="truncate font-medium">
                     {job.customer_name || 'Customer'}
+                    {overlappingIds?.has(job.id) ? (
+                      <span className="ml-1 text-[10px] font-semibold text-amber-900">
+                        Overlap
+                      </span>
+                    ) : null}
                   </p>
                   <p className="text-xs text-ink-500">
                     {job.scheduled_start

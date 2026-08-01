@@ -90,6 +90,12 @@ export async function saveJobSignature(
       .eq('id', jobId);
 
     if (error) return { error: error.message };
+    try {
+      const { maybeSendReviewAsk } = await import('@/lib/reviews/ask');
+      await maybeSendReviewAsk(jobId);
+    } catch {
+      /* optional */
+    }
     revalidateTechJob(jobId);
     return { success: 'Signed & marked complete' };
   } catch (err) {
@@ -224,6 +230,108 @@ export async function uploadJobAttachment(
     return { success: kind === 'voice' ? 'Voice note saved' : 'Photo saved' };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Upload failed' };
+  }
+}
+
+/**
+ * Transcribe a saved voice note → diagnosis / customer summary (Whisper + Grok).
+ */
+export async function transcribeVoiceToNotes(
+  jobId: string,
+  attachmentId: string
+): Promise<TechActionState> {
+  try {
+    const mediaPerm = await assertTechCapability('media');
+    if (!mediaPerm.ok) return { error: mediaPerm.error };
+    const notesPerm = await assertTechCapability('edit_notes');
+    if (!notesPerm.ok) return { error: notesPerm.error };
+
+    const { loadCompanySettings } = await import('@/lib/company');
+    const company = await loadCompanySettings();
+    if (!company.modules.ai) {
+      return { error: 'Turn on AI tools in Settings → Feature modules' };
+    }
+    if (!company.modules.tech_media) {
+      return { error: 'Job photos & voice module is off' };
+    }
+
+    const { supabase } = await loadAssignedJob(jobId);
+    const { data: att, error: attErr } = await supabase
+      .from('job_attachments')
+      .select('id, kind, url, caption')
+      .eq('id', attachmentId)
+      .eq('job_id', jobId)
+      .maybeSingle();
+    if (attErr || !att) {
+      return { error: attErr?.message || 'Attachment not found' };
+    }
+    if (att.kind !== 'voice' || !att.url) {
+      return { error: 'Select a voice note' };
+    }
+
+    const audioRes = await fetch(att.url);
+    if (!audioRes.ok) {
+      return { error: 'Could not download voice file' };
+    }
+    const buffer = Buffer.from(await audioRes.arrayBuffer());
+    const contentType =
+      audioRes.headers.get('content-type') || 'audio/webm';
+    const filename = att.url.split('/').pop() || 'voice.webm';
+
+    const { transcribeAudioBuffer } = await import('@/lib/ai/transcribe');
+    const transcript = await transcribeAudioBuffer(
+      buffer,
+      filename,
+      contentType
+    );
+
+    const { data: job } = await supabase
+      .from('jobs')
+      .select('job_type, diagnosis, customer_summary, internal_notes')
+      .eq('id', jobId)
+      .maybeSingle();
+
+    const { voiceNotesFromTranscript } = await import('@/lib/grok');
+    const fill = await voiceNotesFromTranscript({
+      transcript,
+      jobType: job?.job_type,
+      existingDiagnosis: job?.diagnosis,
+    });
+
+    const merge = (prev: string | null | undefined, next: string | null | undefined) => {
+      const a = (prev || '').trim();
+      const b = (next || '').trim();
+      if (!b) return a || null;
+      if (!a) return b;
+      if (a.includes(b)) return a;
+      return `${a}\n\n${b}`;
+    };
+
+    const { error } = await supabase
+      .from('jobs')
+      .update({
+        diagnosis: fill.diagnosis || job?.diagnosis || null,
+        customer_summary:
+          fill.customer_summary || job?.customer_summary || null,
+        internal_notes: merge(job?.internal_notes, fill.internal_notes),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', jobId);
+    if (error) return { error: error.message };
+
+    await supabase
+      .from('job_attachments')
+      .update({
+        caption: `Transcript: ${transcript.slice(0, 280)}${transcript.length > 280 ? '…' : ''}`,
+      })
+      .eq('id', attachmentId);
+
+    revalidateTechJob(jobId);
+    return { success: 'Voice transcribed into diagnosis & summary' };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Transcription failed',
+    };
   }
 }
 

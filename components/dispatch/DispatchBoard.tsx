@@ -12,11 +12,23 @@ import { DispatchOfficeTools } from '@/components/dispatch/DispatchOfficeTools';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
 import type { DispatchJob, DispatchTech } from '@/lib/dispatch/types';
 import {
+  DAY_CAPACITY_HOURS,
+  findOverlappingJobIds,
+  isOverloaded,
+} from '@/lib/dispatch/capacity';
+import { mergeRealtimeJob } from '@/lib/dispatch/merge-realtime-job';
+import {
+  buildDayLoad,
+  suggestTechsForJob,
+} from '@/lib/dispatch/suggest';
+import { localDateKey } from '@/lib/calendar/week';
+import {
   deriveLiveStatus,
   formatTimestamp,
   type LiveStatus,
 } from '@/lib/jobs/time-tracking';
 import { toDatetimeLocalValue } from '@/lib/jobs/totals';
+import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 
 const STATUS_FILTERS = [
@@ -44,9 +56,15 @@ function sortJobs(a: DispatchJob, b: DispatchJob) {
 export function DispatchBoard({
   jobs: initialJobs,
   techs,
+  skillAware = false,
+  liveRealtime = false,
+  capacityWarnings = false,
 }: {
   jobs: DispatchJob[];
   techs: DispatchTech[];
+  skillAware?: boolean;
+  liveRealtime?: boolean;
+  capacityWarnings?: boolean;
 }) {
   const router = useRouter();
   const [jobs, setJobs] = useState(initialJobs);
@@ -58,11 +76,68 @@ export function DispatchBoard({
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const [timeEditId, setTimeEditId] = useState<string | null>(null);
   const [timeValue, setTimeValue] = useState('');
+  const [liveState, setLiveState] = useState<'off' | 'connecting' | 'live' | 'error'>(
+    liveRealtime ? 'connecting' : 'off'
+  );
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setJobs(initialJobs);
   }, [initialJobs]);
+
+  useEffect(() => {
+    if (!liveRealtime) {
+      setLiveState('off');
+      return;
+    }
+    setLiveState('connecting');
+    const supabase = createClient();
+    const channel = supabase
+      .channel('dispatch-jobs-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'jobs' },
+        (payload) => {
+          const eventType = payload.eventType;
+          if (eventType === 'DELETE') {
+            const oldId = (payload.old as { id?: string } | null)?.id;
+            if (oldId) {
+              setJobs((prev) => prev.filter((j) => j.id !== oldId));
+            }
+            return;
+          }
+          const row = payload.new as Record<string, unknown> | null;
+          if (!row?.id) return;
+          setJobs((prev) => {
+            const idx = prev.findIndex((j) => j.id === row.id);
+            const merged = mergeRealtimeJob(
+              idx >= 0 ? prev[idx] : undefined,
+              row
+            );
+            if (!merged) {
+              return idx >= 0 ? prev.filter((j) => j.id !== row.id) : prev;
+            }
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = merged;
+              return next;
+            }
+            // New job appeared — keep list lean; refresh for customer phone/address
+            return [merged, ...prev].slice(0, 220);
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') setLiveState('live');
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setLiveState('error');
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [liveRealtime]);
 
   const summary = useMemo(() => {
     const unassigned = jobs.filter((j) => !j.assigned_to).length;
@@ -91,18 +166,40 @@ export function DispatchBoard({
     });
   }, [jobs, search, statusFilter]);
 
+  const dayKey = localDateKey(new Date());
+  const dayLoad = useMemo(
+    () => buildDayLoad(jobs, dayKey),
+    [jobs, dayKey]
+  );
+  const overlappingIds = useMemo(
+    () =>
+      capacityWarnings
+        ? findOverlappingJobIds(jobs, dayKey)
+        : new Set<string>(),
+    [jobs, dayKey, capacityWarnings]
+  );
+
   const columns = useMemo(() => {
     const unassigned = filtered
       .filter((j) => !j.assigned_to)
       .sort(sortJobs);
-    const techCols = techs.map((tech) => ({
-      tech,
-      jobs: filtered
-        .filter((j) => j.assigned_to === tech.id)
-        .sort(sortJobs),
-    }));
+    const techCols = techs.map((tech) => {
+      const load = dayLoad.get(tech.id) || { jobCount: 0, hours: 0 };
+      const overlapCount = filtered.filter(
+        (j) => j.assigned_to === tech.id && overlappingIds.has(j.id)
+      ).length;
+      return {
+        tech,
+        jobs: filtered
+          .filter((j) => j.assigned_to === tech.id)
+          .sort(sortJobs),
+        load,
+        overloaded: capacityWarnings && isOverloaded(load.hours),
+        overlapCount: capacityWarnings ? overlapCount : 0,
+      };
+    });
     return { unassigned, techCols };
-  }, [filtered, techs]);
+  }, [filtered, techs, dayLoad, capacityWarnings, overlappingIds]);
 
   function flash(ok?: string, err?: string) {
     setMessage(ok || null);
@@ -216,6 +313,31 @@ export function DispatchBoard({
     const live = deriveLiveStatus(job) as LiveStatus;
     const high = job.priority === 'High' || job.priority === 'Emergency';
     const busy = pendingJobId === job.id || isPending;
+    const suggestions =
+      skillAware && !job.assigned_to
+        ? suggestTechsForJob(
+            {
+              job_type: job.job_type,
+              est_hours: job.est_hours,
+              site_lat: job.site_lat,
+              site_lng: job.site_lng,
+            },
+            techs,
+            dayLoad
+          ).slice(0, 3)
+        : [];
+    const best = suggestions[0];
+    const orderedTechs =
+      skillAware && suggestions.length
+        ? [
+            ...suggestions.map(
+              (s) => techs.find((t) => t.id === s.techId)!
+            ).filter(Boolean),
+            ...techs.filter(
+              (t) => !suggestions.some((s) => s.techId === t.id)
+            ),
+          ]
+        : techs;
 
     return (
       <article
@@ -229,7 +351,9 @@ export function DispatchBoard({
           'rounded-xl border p-3 text-xs shadow-sm transition',
           high
             ? 'border-red-300 bg-red-50/60'
-            : 'border-ink-200 bg-ink-50/80',
+            : overlappingIds.has(job.id)
+              ? 'border-amber-400 bg-amber-50/70'
+              : 'border-ink-200 bg-ink-50/80',
           busy && 'opacity-60'
         )}
       >
@@ -237,7 +361,17 @@ export function DispatchBoard({
           <span className="font-mono text-[10px] text-ink-400">
             {job.job_number || job.id.slice(0, 8)}
           </span>
-          <LiveStatusBadge status={live} />
+          <div className="flex items-center gap-1">
+            {overlappingIds.has(job.id) && (
+              <span
+                className="rounded bg-amber-200 px-1 py-0.5 text-[9px] font-semibold text-amber-950"
+                title="Overlaps another job for this tech"
+              >
+                Overlap
+              </span>
+            )}
+            <LiveStatusBadge status={live} />
+          </div>
         </div>
         <p className="text-sm font-semibold leading-tight text-ink-900">
           {job.customer_name || 'Customer'}
@@ -282,6 +416,24 @@ export function DispatchBoard({
         )}
 
         <div className="mt-2 space-y-1.5 border-t border-ink-200/80 pt-2">
+          {best && (
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                disabled={busy}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  runAssign(job.id, best.techId);
+                }}
+                className="rounded-lg bg-brand-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                title={best.reason}
+              >
+                Assign AI: {best.name.split(' ')[0]}
+              </button>
+              <span className="text-[10px] text-ink-500">{best.reason}</span>
+            </div>
+          )}
           <div className="flex gap-1">
             <select
               className="flex-1 rounded-lg border border-ink-200 bg-white px-1.5 py-1 text-[11px]"
@@ -294,11 +446,18 @@ export function DispatchBoard({
               }}
             >
               <option value="">Unassigned</option>
-              {techs.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.full_name || 'Tech'}
-                </option>
-              ))}
+              {orderedTechs.map((t) => {
+                const tip = suggestions.find((s) => s.techId === t.id);
+                return (
+                  <option key={t.id} value={t.id}>
+                    {t.full_name || 'Tech'}
+                    {tip ? ` · ${Math.round(tip.skillScore * 100)}%` : ''}
+                    {t.skills?.length
+                      ? ` (${t.skills.slice(0, 2).join(', ')})`
+                      : ''}
+                  </option>
+                );
+              })}
             </select>
             <button
               type="button"
@@ -371,17 +530,23 @@ export function DispatchBoard({
     key: string,
     title: string,
     columnJobs: DispatchJob[],
-    subtitle?: string
+    subtitle?: string,
+    opts?: { overloaded?: boolean; overlapCount?: number }
   ) {
     const active = columnJobs.filter(
       (j) => j.status !== 'Completed' && j.status !== 'Cancelled'
     ).length;
+    const overloaded = Boolean(opts?.overloaded);
+    const overlapCount = opts?.overlapCount || 0;
 
     return (
       <section
         key={key}
         className={cn(
-          'flex min-h-[360px] flex-col rounded-2xl border border-ink-100 bg-white p-4',
+          'flex min-h-[360px] flex-col rounded-2xl border bg-white p-4',
+          overloaded
+            ? 'border-amber-300 bg-amber-50/40'
+            : 'border-ink-100',
           dragOverCol === key && 'ring-2 ring-brand-400'
         )}
         onDragOver={(e) => {
@@ -397,7 +562,24 @@ export function DispatchBoard({
           <div>
             <p className="font-semibold text-ink-800">{title}</p>
             {subtitle && (
-              <p className="text-[10px] text-brand-700">{subtitle}</p>
+              <p
+                className={cn(
+                  'text-[10px]',
+                  overloaded ? 'font-semibold text-amber-800' : 'text-brand-700'
+                )}
+              >
+                {subtitle}
+              </p>
+            )}
+            {overloaded && (
+              <p className="text-[10px] font-semibold text-amber-900">
+                Overbooked (&gt;{DAY_CAPACITY_HOURS}h)
+              </p>
+            )}
+            {overlapCount > 0 && (
+              <p className="text-[10px] font-semibold text-amber-900">
+                {overlapCount} overlapping
+              </p>
             )}
           </div>
           <div className="text-right">
@@ -435,7 +617,29 @@ export function DispatchBoard({
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             Assign techs · Track status · Message customers
+            {skillAware
+              ? ' · Assign AI: skills + load + last location'
+              : ''}
+            {capacityWarnings ? ' · capacity warnings' : ''}
           </p>
+          {liveRealtime && (
+            <p
+              className={cn(
+                'mt-1 text-xs font-medium',
+                liveState === 'live'
+                  ? 'text-emerald-700'
+                  : liveState === 'error'
+                    ? 'text-amber-800'
+                    : 'text-ink-400'
+              )}
+            >
+              {liveState === 'live'
+                ? '● Live — En Route / On Site update automatically'
+                : liveState === 'error'
+                  ? 'Realtime reconnecting… (run supabase/ops-polish.sql if this persists)'
+                  : 'Connecting live updates…'}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -480,13 +684,19 @@ export function DispatchBoard({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {renderColumn('unassigned', 'Unassigned', columns.unassigned)}
-        {columns.techCols.map(({ tech, jobs: techJobs }) =>
-          renderColumn(
-            tech.id,
-            tech.full_name || 'Tech',
-            techJobs,
-            'Field tech'
-          )
+        {columns.techCols.map(
+          ({ tech, jobs: techJobs, load, overloaded, overlapCount }) =>
+            renderColumn(
+              tech.id,
+              tech.full_name || 'Tech',
+              techJobs,
+              `${load.hours.toFixed(1)}h today${
+                skillAware
+                  ? ` · ${tech.skills?.slice(0, 3).join(', ') || 'no skills set'}`
+                  : ''
+              }`,
+              { overloaded, overlapCount }
+            )
         )}
       </div>
 

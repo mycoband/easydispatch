@@ -5,8 +5,11 @@ import { CustomerForm } from '@/components/customers/CustomerForm';
 import { DeleteCustomerButton } from '@/components/customers/DeleteCustomerButton';
 import { EquipmentHistory } from '@/components/equipment/EquipmentHistory';
 import { EquipmentSection } from '@/components/equipment/EquipmentSection';
+import { EquipmentTimeline } from '@/components/equipment/EquipmentTimeline';
+import { CreatePortalLinkButton } from '@/components/portal/CreatePortalLinkButton';
 import { PropertiesSection } from '@/components/properties/PropertiesSection';
 import { requireOffice } from '@/lib/auth';
+import { loadCompanySettings } from '@/lib/company';
 import { formatAddress } from '@/lib/utils';
 
 export default async function CustomerDetailPage({
@@ -15,7 +18,12 @@ export default async function CustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { supabase } = await requireOffice();
+  const [{ supabase }, company] = await Promise.all([
+    requireOffice(),
+    loadCompanySettings(),
+  ]);
+  const showTimeline = Boolean(company.modules.equipment_timeline);
+  const showPortal = Boolean(company.modules.portal);
 
   const { data: customer } = await supabase
     .from('customers')
@@ -30,10 +38,25 @@ export default async function CustomerDetailPage({
       supabase
         .from('equipment')
         .select(
-          'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes'
+          'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes, pm_checklist'
         )
         .eq('customer_id', id)
-        .order('created_at', { ascending: true }),
+        .order('created_at', { ascending: true })
+        .then(async (res) => {
+          if (
+            res.error &&
+            /pm_checklist|column|schema cache/i.test(res.error.message)
+          ) {
+            return supabase
+              .from('equipment')
+              .select(
+                'id, name, equipment_type, manufacturer, model, serial_number, capacity, electrical, refrigerant, filter_size, filter_qty, install_date, notes, photo_url, property_id, warranty_parts_expires, warranty_labor_expires, warranty_notes'
+              )
+              .eq('customer_id', id)
+              .order('created_at', { ascending: true });
+          }
+          return res;
+        }),
       supabase
         .from('jobs')
         .select(
@@ -75,6 +98,13 @@ export default async function CustomerDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {showPortal && (
+            <CreatePortalLinkButton
+              purpose="customer"
+              customerId={customer.id}
+              label="Customer portal link"
+            />
+          )}
           <Link
             href={`/dashboard/estimates/new?customerId=${customer.id}`}
             className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
@@ -112,14 +142,30 @@ export default async function CustomerDetailPage({
         properties={properties.map((p) => ({ id: p.id, name: p.name }))}
       />
 
-      <EquipmentHistory
-        jobs={historyJobs ?? []}
-        equipment={(equipment ?? []).map((e) => ({
-          id: e.id,
-          name: e.name,
-          equipment_type: e.equipment_type,
-        }))}
-      />
+      {showTimeline ? (
+        <EquipmentTimeline
+          customerId={customer.id}
+          equipment={(equipment ?? []).map((e) => ({
+            id: e.id,
+            name: e.name,
+            equipment_type: e.equipment_type,
+            manufacturer: e.manufacturer,
+            model: e.model,
+            serial_number: e.serial_number,
+            pm_checklist: (e as { pm_checklist?: unknown }).pm_checklist,
+          }))}
+          jobs={historyJobs ?? []}
+        />
+      ) : (
+        <EquipmentHistory
+          jobs={historyJobs ?? []}
+          equipment={(equipment ?? []).map((e) => ({
+            id: e.id,
+            name: e.name,
+            equipment_type: e.equipment_type,
+          }))}
+        />
+      )}
     </div>
   );
 }

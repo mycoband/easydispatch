@@ -6,15 +6,22 @@ import {
 } from '@/app/dashboard/inventory/actions';
 import { InventoryForm } from '@/components/inventory/InventoryForm';
 import { InventoryRowActions } from '@/components/inventory/InventoryRowActions';
+import { ReorderPanel } from '@/components/inventory/ReorderPanel';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { requireOffice } from '@/lib/auth';
+import { loadCompanySettings } from '@/lib/company';
 import { requireCompanyModule } from '@/lib/company/require-module';
 import { formatMoney } from '@/lib/jobs/totals';
 
 export default async function InventoryPage() {
   await requireCompanyModule('inventory');
 
-  const { supabase } = await requireOffice();
+  const [{ supabase }, company] = await Promise.all([
+    requireOffice(),
+    loadCompanySettings(),
+  ]);
+  const showPo = Boolean(company.modules.inventory_po);
+
   const { data: items, error } = await supabase
     .from('inventory_items')
     .select('*')
@@ -51,13 +58,32 @@ export default async function InventoryPage() {
         </p>
       )}
 
-      {low.length > 0 && (
+      {low.length > 0 && !showPo && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <p className="font-semibold">Low stock</p>
           <p className="mt-1">
             {low.map((i) => `${i.name} (${i.qty_on_hand})`).join(' · ')}
           </p>
         </div>
+      )}
+
+      {showPo && (
+        <ReorderPanel
+          items={low.map((i) => ({
+            id: i.id,
+            name: i.name,
+            sku: i.sku,
+            qty_on_hand: Number(i.qty_on_hand) || 0,
+            min_qty: Number(i.min_qty) || 0,
+            reorder_qty:
+              (i as { reorder_qty?: number | null }).reorder_qty ?? null,
+            vendor: (i as { vendor?: string | null }).vendor ?? null,
+            cost: Number(i.cost) || 0,
+            reorder_ordered_at:
+              (i as { reorder_ordered_at?: string | null })
+                .reorder_ordered_at ?? null,
+          }))}
+        />
       )}
 
       <div className="panel overflow-hidden">

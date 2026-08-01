@@ -3,12 +3,13 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireOffice } from '@/lib/auth';
-import { allocateNextJobNumber } from '@/lib/jobs/numbers';
 import { computeJobTotals } from '@/lib/jobs/totals';
+import { allocateNextJobNumber } from '@/lib/jobs/numbers';
 import {
   normalizeBillingInterval,
   type BillingInterval,
 } from '@/lib/agreements/billing';
+import { createPmJobForAgreement } from '@/lib/agreements/create-pm-job';
 import { emptyToNull } from '@/lib/validations/customer';
 
 export type ActionState = { error?: string; success?: string };
@@ -16,13 +17,6 @@ export type ActionState = { error?: string; success?: string };
 function formString(formData: FormData, key: string) {
   const v = formData.get(key);
   return typeof v === 'string' ? v : '';
-}
-
-function advanceDueDate(from: string | null, visitsPerYear: number) {
-  const base = from ? new Date(`${from}T12:00:00`) : new Date();
-  const days = Math.max(1, Math.round(365 / Math.max(1, visitsPerYear)));
-  base.setDate(base.getDate() + days);
-  return base.toISOString().slice(0, 10);
 }
 
 /** Advance a bill date by one billing cycle (monthly/quarterly/yearly). */
@@ -134,52 +128,19 @@ export async function createPmJobFromAgreement(
     return { error: error?.message || 'Agreement not found' };
   }
 
-  const due = agreement.next_due_date || new Date().toISOString().slice(0, 10);
-  const scheduled = new Date(`${due}T09:00:00`).toISOString();
-  const jobNumber = await allocateNextJobNumber(supabase, profile.company_id);
+  const result = await createPmJobForAgreement(supabase, agreement, {
+    companyId: profile.company_id,
+    createdBy: user.id,
+  });
 
-  const { data: job, error: jobError } = await supabase
-    .from('jobs')
-    .insert({
-      company_id: profile.company_id,
-      job_number: jobNumber,
-      customer_id: agreement.customer_id,
-      customer_name: agreement.customer_name,
-      job_type: 'Maintenance / PM',
-      priority: 'Medium',
-      status: 'Scheduled',
-      diagnosis: `PM from agreement: ${agreement.plan_name}`,
-      scheduled_start: scheduled,
-      est_hours: 1.5,
-      internal_notes: agreement.notes,
-      created_by: user.id,
-      tax_rate_id: 'kcmo-jackson',
-    })
-    .select('id')
-    .single();
-
-  if (jobError || !job) {
-    return { error: jobError?.message || 'Could not create PM job' };
+  if (!result.jobId) {
+    return { error: result.error || 'Could not create PM job' };
   }
-
-  const nextDue = advanceDueDate(
-    due,
-    Number(agreement.visits_per_year) || 4
-  );
-
-  await supabase
-    .from('service_agreements')
-    .update({
-      next_due_date: nextDue,
-      last_pm_job_id: job.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', agreementId);
 
   revalidatePath('/dashboard/agreements');
   revalidatePath('/dashboard/jobs');
   revalidatePath('/dashboard/calendar');
-  redirect(`/dashboard/jobs/${job.id}`);
+  redirect(`/dashboard/jobs/${result.jobId}`);
 }
 
 /** Mark a membership as billed and advance next_bill_date by its interval. */
