@@ -182,7 +182,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'Needs AI Job Walkthrough on (Settings → Feature modules). Open a job → Job Walkthrough (AI) → Record video walkthrough → allow camera + mic → walk/narrate → Stop (auto-stops at 90s / max ~80MB). Upload video file also works. Then Generate Report (AI tools + XAI_API_KEY). Videos are stored on the job with tag walkthrough (not mixed into Job photos). If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open a job → Job Walkthrough (AI) → Record video walkthrough — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or Choose video from library. Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY). If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
   },
   {
     id: 'ai-walkthrough-pdf',

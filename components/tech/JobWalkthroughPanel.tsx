@@ -126,10 +126,12 @@ export function JobWalkthroughPanel({
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const videoFileRef = useRef<HTMLInputElement>(null);
+  const videoCaptureRef = useRef<HTMLInputElement>(null);
+  const videoLibraryRef = useRef<HTMLInputElement>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
-  const recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const videoCaptureId = `wt-video-cap-${jobId}`;
+  const videoLibraryId = `wt-video-lib-${jobId}`;
 
   const [notes, setNotes] = useState(walkthrough.notes || '');
   const [report, setReport] = useState(() => reportFromWalkthrough(walkthrough));
@@ -138,9 +140,7 @@ export function JobWalkthroughPanel({
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recordingKind, setRecordingKind] = useState<
-    null | 'voice' | 'video'
-  >(null);
+  const [recordingVoice, setRecordingVoice] = useState(false);
 
   useEffect(() => {
     setNotes(walkthrough.notes || '');
@@ -181,18 +181,10 @@ export function JobWalkthroughPanel({
   const showEditForm =
     reportReady && (status === 'generated' || editingSaved || status === 'saved');
   const busy = Boolean(pending);
-  const recording = Boolean(recordingKind);
   const hasCapture = notes.trim().length > 0 || media.length > 0;
   const canRunGenerate =
-    allowGenerate && canEdit && hasCapture && !recording && !busy;
+    allowGenerate && canEdit && hasCapture && !recordingVoice && !busy;
   const canDownloadPdf = allowPdf && reportReady;
-
-  function clearRecordTimer() {
-    if (recordTimer.current) {
-      clearTimeout(recordTimer.current);
-      recordTimer.current = null;
-    }
-  }
 
   function updatePart(
     index: number,
@@ -297,26 +289,20 @@ export function JobWalkthroughPanel({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    await uploadFile(file, 'video');
-  }
-
-  function stopRecording() {
-    clearRecordTimer();
-    if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
-      mediaRecorder.current.stop();
+    if (!file.type.startsWith('video/') && !/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
+      setError('Please choose a video file');
+      return;
     }
-    setRecordingKind(null);
+    setMessage('Uploading video…');
+    await uploadFile(file, 'video');
   }
 
   async function toggleVoice() {
     if (!canMedia) return;
     setError(null);
-    if (recordingKind === 'voice') {
-      stopRecording();
-      return;
-    }
-    if (recordingKind === 'video') {
-      setError('Stop the video recording first');
+    if (recordingVoice && mediaRecorder.current) {
+      mediaRecorder.current.stop();
+      setRecordingVoice(false);
       return;
     }
     try {
@@ -327,7 +313,6 @@ export function JobWalkthroughPanel({
         if (ev.data.size) chunks.current.push(ev.data);
       };
       rec.onstop = async () => {
-        clearRecordTimer();
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks.current, { type: 'audio/webm' });
         const file = new File([blob], `walkthrough-${Date.now()}.webm`, {
@@ -337,66 +322,9 @@ export function JobWalkthroughPanel({
       };
       mediaRecorder.current = rec;
       rec.start();
-      setRecordingKind('voice');
+      setRecordingVoice(true);
     } catch {
       setError('Microphone permission denied');
-    }
-  }
-
-  async function toggleVideo() {
-    if (!canMedia) return;
-    setError(null);
-    if (recordingKind === 'video') {
-      stopRecording();
-      return;
-    }
-    if (recordingKind === 'voice') {
-      setError('Stop the voice recording first');
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-        ? 'video/webm;codecs=vp8,opus'
-        : MediaRecorder.isTypeSupported('video/mp4')
-          ? 'video/mp4'
-          : 'video/webm';
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      chunks.current = [];
-      rec.ondataavailable = (ev) => {
-        if (ev.data.size) chunks.current.push(ev.data);
-      };
-      rec.onstop = async () => {
-        clearRecordTimer();
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunks.current, {
-          type: mime.includes('mp4') ? 'video/mp4' : 'video/webm',
-        });
-        const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-        const file = new File([blob], `walkthrough-${Date.now()}.${ext}`, {
-          type: blob.type,
-        });
-        await uploadFile(file, 'video');
-      };
-      mediaRecorder.current = rec;
-      rec.start(1000);
-      setRecordingKind('video');
-      // Keep clips short for upload size + Grok video limits
-      recordTimer.current = setTimeout(() => {
-        if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
-          setMessage('Video capped at 90 seconds — saving…');
-          stopRecording();
-        }
-      }, 90_000);
-    } catch {
-      setError('Camera / microphone permission denied');
     }
   }
 
@@ -483,29 +411,43 @@ export function JobWalkthroughPanel({
 
           {canMedia && (
             <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                disabled={busy || recordingKind === 'voice'}
-                onClick={() => void toggleVideo()}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2 ${
-                  recordingKind === 'video' ? 'bg-red-600' : 'bg-violet-700'
+              {/*
+                Native camera via <label htmlFor> — more reliable on iOS/Android
+                than getUserMedia + MediaRecorder (often grants mic/cam but never
+                opens the Camera app).
+              */}
+              <label
+                htmlFor={videoCaptureId}
+                className={`rounded-xl px-4 py-3 text-center text-sm font-semibold text-white sm:col-span-2 ${
+                  busy || recordingVoice
+                    ? 'pointer-events-none bg-violet-700/50'
+                    : 'cursor-pointer bg-violet-700'
                 }`}
               >
-                {recordingKind === 'video'
-                  ? 'Stop video (max 90s)'
-                  : pending === 'video'
-                    ? 'Saving video…'
-                    : 'Record video walkthrough'}
-              </button>
+                {pending === 'video'
+                  ? 'Saving video…'
+                  : 'Record video walkthrough'}
+              </label>
+              <input
+                id={videoCaptureId}
+                ref={videoCaptureRef}
+                type="file"
+                accept="video/*"
+                capture="environment"
+                className="sr-only"
+                disabled={busy || recordingVoice}
+                onChange={onPickVideo}
+              />
+
               <button
                 type="button"
-                disabled={busy || recordingKind === 'video'}
+                disabled={busy}
                 onClick={() => void toggleVoice()}
                 className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
-                  recordingKind === 'voice' ? 'bg-red-600' : 'bg-ink-800'
+                  recordingVoice ? 'bg-red-600' : 'bg-ink-800'
                 }`}
               >
-                {recordingKind === 'voice'
+                {recordingVoice
                   ? 'Stop recording'
                   : pending === 'voice'
                     ? 'Saving…'
@@ -513,20 +455,33 @@ export function JobWalkthroughPanel({
               </button>
               <button
                 type="button"
-                disabled={busy || recording}
+                disabled={busy || recordingVoice}
                 onClick={() => fileRef.current?.click()}
                 className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {pending === 'photo' ? 'Uploading…' : 'Add photo'}
               </button>
-              <button
-                type="button"
-                disabled={busy || recording}
-                onClick={() => videoFileRef.current?.click()}
-                className="rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm font-semibold text-ink-800 disabled:opacity-50 sm:col-span-2"
+
+              <label
+                htmlFor={videoLibraryId}
+                className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
+                  busy || recordingVoice
+                    ? 'pointer-events-none opacity-50'
+                    : 'cursor-pointer'
+                }`}
               >
-                Upload video file
-              </button>
+                Choose video from library
+              </label>
+              <input
+                id={videoLibraryId}
+                ref={videoLibraryRef}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/*"
+                className="sr-only"
+                disabled={busy || recordingVoice}
+                onChange={onPickVideo}
+              />
+
               <input
                 ref={fileRef}
                 type="file"
@@ -535,23 +490,13 @@ export function JobWalkthroughPanel({
                 className="hidden"
                 onChange={onPickPhoto}
               />
-              <input
-                ref={videoFileRef}
-                type="file"
-                accept="video/*"
-                capture="environment"
-                className="hidden"
-                onChange={onPickVideo}
-              />
             </div>
           )}
 
-          {recordingKind === 'video' && (
-            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-              Recording video + audio… walk the job and narrate. Tap Stop when
-              done (auto-stops at 90s).
-            </p>
-          )}
+          <p className="text-xs text-ink-400">
+            Record opens your phone camera — narrate while you film (keep clips
+            under ~90 seconds). Or pick an existing video from your library.
+          </p>
 
           {videos.length > 0 && (
             <div className="space-y-2">
@@ -742,7 +687,7 @@ export function JobWalkthroughPanel({
             {canEdit && (
               <button
                 type="button"
-                disabled={busy || recording}
+                disabled={busy || recordingVoice}
                 onClick={saveDraft}
                 className="rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 disabled:opacity-50"
               >
@@ -1152,7 +1097,7 @@ export function JobWalkthroughPanel({
             {canEdit && (
               <button
                 type="button"
-                disabled={busy || recording}
+                disabled={busy || recordingVoice}
                 onClick={() => void saveToJob()}
                 className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
               >
