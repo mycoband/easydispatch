@@ -216,6 +216,23 @@ export async function uploadJobAttachment(
       .from('job-media')
       .getPublicUrl(fileName);
 
+    // Service-role inserts skip auth.uid() company trigger — set company_id
+    // so Job photos RLS can select the row.
+    const { data: jobRow } = await admin
+      .from('jobs')
+      .select('company_id')
+      .eq('id', jobId)
+      .maybeSingle();
+    let companyId = (jobRow?.company_id as string | null) || null;
+    if (!companyId) {
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      companyId = prof?.company_id ?? null;
+    }
+
     const { error } = await admin.from('job_attachments').insert({
       job_id: jobId,
       kind,
@@ -223,6 +240,7 @@ export async function uploadJobAttachment(
       url: urlData.publicUrl,
       caption: caption || null,
       created_by: user.id,
+      ...(companyId ? { company_id: companyId } : {}),
     });
 
     if (error) return { error: error.message };

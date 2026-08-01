@@ -262,8 +262,18 @@ export const COMPANY_MODULES = [
     id: 'ai',
     label: 'AI tools',
     description:
-      'Ticket fill, voice → notes, plate scan, filters, diagnostic, margin coach, Ask Reports, Help bot',
-    help: 'Needs XAI_API_KEY. New job → Fill ticket with AI. Job → diagnostic / margin coach. Voice Transcribe also needs OPENAI_API_KEY + Job photos & voice. Floating Help bot uses this module.',
+      'Ticket fill, voice → notes, plate scan, filters, diagnostic, Job Walkthrough Generate, margin coach, Ask Reports, Help bot',
+    help: 'Needs XAI_API_KEY. New job → Fill ticket with AI. Job → diagnostic / margin coach / Job Walkthrough Generate. Voice Transcribe also needs OPENAI_API_KEY + Job photos & voice. Floating Help bot uses this module.',
+    href: null,
+    defaultEnabled: true,
+    group: 'Field / tech',
+  },
+  {
+    id: 'ai_walkthrough',
+    label: 'AI Job Walkthrough',
+    description:
+      'Free-form voice/photos on a job → AI report (findings, work performed, parts, customer summary)',
+    help: 'On the job → Job Walkthrough (AI). Capture voice/photos → Generate (XAI_API_KEY) → edit fields → Save to Job. Transcribe needs OPENAI_API_KEY. Needs supabase/ai-walkthrough.sql.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

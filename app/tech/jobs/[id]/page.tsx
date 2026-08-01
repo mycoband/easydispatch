@@ -8,9 +8,11 @@ import { JobMessageLog } from '@/components/messages/JobMessageLog';
 import { EquipmentSection } from '@/components/equipment/EquipmentSection';
 import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
+import { pmChecklistPhotosAsAttachments } from '@/lib/equipment/pm-job-photos';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { DiagnosticAssist } from '@/components/tech/DiagnosticAssist';
 import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
+import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { SafetyChecklist } from '@/components/tech/SafetyChecklist';
 import { SignaturePad } from '@/components/tech/SignaturePad';
 import { OfflineSyncBanner } from '@/components/tech/OfflineSyncBanner';
@@ -22,6 +24,11 @@ import { requireTech } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
+import {
+  excludeWalkthroughAttachments,
+  filterWalkthroughAttachments,
+  normalizeWalkthrough,
+} from '@/lib/jobs/walkthrough';
 import type { SafetyChecklistState } from '@/lib/tech/safety';
 import { formatAddress } from '@/lib/utils';
 
@@ -40,15 +47,32 @@ export default async function TechJobDetailPage({
   const allow = (key: Parameters<typeof roleHasPermission>[1]) =>
     roleHasPermission(profile.role, key, rp);
 
-  const { data: job } = await supabase
+  let { data: job, error: jobError } = await supabase
     .from('jobs')
-    .select('*')
+    .select('*, walkthrough')
     .eq('id', id)
     .maybeSingle();
 
-  if (!job || job.assigned_to !== user.id) {
+  if (
+    jobError &&
+    /walkthrough|column|schema cache/i.test(jobError.message)
+  ) {
+    const retry = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    job = retry.data;
+    jobError = retry.error;
+  }
+
+  if (jobError || !job || job.assigned_to !== user.id) {
     notFound();
   }
+
+  const walkthrough = normalizeWalkthrough(
+    (job as { walkthrough?: unknown }).walkthrough
+  );
 
   const [
     { data: customer },
@@ -139,7 +163,7 @@ export default async function TechJobDetailPage({
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  const attachments = attachRes.error ? [] : attachRes.data ?? [];
+  const rawAttachments = attachRes.error ? [] : attachRes.data ?? [];
   const partOrders = partOrdersRes.error ? [] : partOrdersRes.data ?? [];
   const jobEstimates = estimatesRes.error ? [] : estimatesRes.data ?? [];
   const canBuildEstimate =
@@ -151,6 +175,20 @@ export default async function TechJobDetailPage({
     (equipment ?? []).find((e) => e.id === job.equipment_id) ||
     (equipment ?? [])[0] ||
     null;
+
+  const walkthroughMedia = filterWalkthroughAttachments(rawAttachments);
+  const attachments = excludeWalkthroughAttachments(
+    pmChecklistPhotosAsAttachments(
+      id,
+      (equipment ?? []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        equipment_type: e.equipment_type,
+        pm_checklist: (e as { pm_checklist?: unknown }).pm_checklist,
+      })),
+      excludeWalkthroughAttachments(rawAttachments)
+    )
+  );
 
   let site = null as {
     name?: string | null;
@@ -253,6 +291,23 @@ export default async function TechJobDetailPage({
       </ol>
 
       <TechJobPacket packet={packet} />
+
+      {mods.ai_walkthrough && (
+        <JobWalkthroughPanel
+          jobId={job.id}
+          walkthrough={walkthrough}
+          media={walkthroughMedia}
+          canEdit={allow('edit_notes')}
+          canMedia={allow('media')}
+          allowTranscribe={Boolean(
+            mods.ai && mods.ai_walkthrough && allow('edit_notes')
+          )}
+          allowGenerate={Boolean(
+            mods.ai && mods.ai_walkthrough && allow('edit_notes')
+          )}
+          readOnlyHint="Your role cannot edit notes — ask a dispatcher if you need changes saved."
+        />
+      )}
 
       {mods.tech_offline_queue && (
         <OfflineSyncBanner jobId={job.id} enabled />

@@ -35,7 +35,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What is EasyDispatch?',
     answer:
-      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work. Turn categories on/off in Settings → Feature modules.',
+      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, AI Job Walkthrough, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work. Turn categories on/off in Settings → Feature modules.',
   },
   {
     id: 'help-bot-popup',
@@ -63,7 +63,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     question: 'What does each feature module control?',
     answer: `Full catalog (same list as Settings → Feature modules):\n${COMPANY_MODULES.map(
       (m) => `• ${m.label}: ${m.description}`
-    ).join('\n')}\nSQL once as needed: supabase/workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.`,
+    ).join('\n')}\nSQL once as needed: supabase/workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, ai-walkthrough.sql (AI Job Walkthrough).`,
+  },
+  {
+    id: 'ai-walkthrough-settings',
+    category: 'Settings & modules',
+    question: 'How do I turn AI Job Walkthrough on or off?',
+    answer:
+      'Settings → Feature modules → Field / tech → AI Job Walkthrough. Off hides the Job Walkthrough (AI) panel on tech and office jobs. Generate Report also needs AI tools on + XAI_API_KEY. Transcribe voice needs OPENAI_API_KEY. Run supabase/ai-walkthrough.sql once so notes and reports can save.',
   },
   {
     id: 'live-dispatch',
@@ -161,7 +168,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How do PM checklist photos and custom items work?',
     answer:
-      'Needs Equipment timeline on. Open the job PM checklist (or customer Equipment timeline) → Edit items to add/remove/rename checks, or Reset defaults. Add photo on any item. When you’re on a job, each photo is also saved under Job photos with caption “PM: …”. Photos stay on the unit checklist for later visits.',
+      'Needs Equipment timeline on. Open the job PM checklist (or customer Equipment timeline) → Edit items to add/remove/rename checks, or Reset defaults. Add photo on any item. On a job, every PM photo also appears in Job photos (tag “PM checklist”). Regular Job photos uploads show there too. Photos stay on the unit checklist for later visits.',
+  },
+  {
+    id: 'ai-walkthrough',
+    category: 'Tech app',
+    question: 'What is AI Job Walkthrough?',
+    answer:
+      'Enable Feature modules → AI Job Walkthrough (+ AI tools for Generate). On a job → Job Walkthrough (AI): record voice/photos, Generate Report (XAI_API_KEY), edit every field (findings, work, parts, labor, customer summary), then Save to Job. Status becomes Saved; reopen anytime to view, edit, or regenerate. Transcribe needs OPENAI_API_KEY. Run supabase/ai-walkthrough.sql once.',
   },
   {
     id: 'customer-portal-rich',

@@ -15,14 +15,21 @@ import { JobMessageLog } from '@/components/messages/JobMessageLog';
 import { EquipmentSection } from '@/components/equipment/EquipmentSection';
 import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
+import { pmChecklistPhotosAsAttachments } from '@/lib/equipment/pm-job-photos';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
+import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { requireOffice } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
 import { loadJobFormOptions } from '@/lib/jobs/form-data';
 import { computeJobCosting, normalizeCosting } from '@/lib/jobs/costing';
 import { deriveLiveStatus } from '@/lib/jobs/time-tracking';
+import {
+  excludeWalkthroughAttachments,
+  filterWalkthroughAttachments,
+  normalizeWalkthrough,
+} from '@/lib/jobs/walkthrough';
 import { formatMoney } from '@/lib/jobs/totals';
 import { loadPricebookPresets } from '@/lib/pricebook/load';
 import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
@@ -45,13 +52,30 @@ export default async function JobDetailPage({
     canViewCosts &&
     roleHasPermission(profile.role, 'edit_job_costs', company.role_permissions);
 
-  const { data: job } = await supabase
+  let { data: job, error: jobError } = await supabase
     .from('jobs')
-    .select('*')
+    .select('*, walkthrough')
     .eq('id', id)
     .maybeSingle();
 
-  if (!job) notFound();
+  if (
+    jobError &&
+    /walkthrough|column|schema cache/i.test(jobError.message)
+  ) {
+    const retry = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    job = retry.data;
+    jobError = retry.error;
+  }
+
+  if (jobError || !job) notFound();
+
+  const walkthrough = normalizeWalkthrough(
+    (job as { walkthrough?: unknown }).walkthrough
+  );
 
   const [
     lineItemsRes,
@@ -156,9 +180,24 @@ export default async function JobDetailPage({
     }));
   }
 
-  const attachments = attachRes.error ? [] : attachRes.data ?? [];
+  const rawAttachments = attachRes.error ? [] : attachRes.data ?? [];
   const partOrders = partOrdersRes.error ? [] : partOrdersRes.data ?? [];
   const jobEstimates = estimatesRes.error ? [] : estimatesRes.data ?? [];
+
+  const walkthroughMedia = filterWalkthroughAttachments(rawAttachments);
+  // PM checklist photos for this job also appear under Job photos
+  const attachments = excludeWalkthroughAttachments(
+    pmChecklistPhotosAsAttachments(
+      id,
+      (equipment ?? []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        equipment_type: e.equipment_type,
+        pm_checklist: (e as { pm_checklist?: unknown }).pm_checklist,
+      })),
+      excludeWalkthroughAttachments(rawAttachments)
+    )
+  );
 
   const updateAction = updateJob.bind(null, id);
   const hasPhone = Boolean(customer?.phone);
@@ -225,6 +264,18 @@ export default async function JobDetailPage({
       </div>
 
       <TimeTrackingPanel jobId={job.id} job={job} />
+
+      {mods.ai_walkthrough && (
+        <JobWalkthroughPanel
+          jobId={job.id}
+          walkthrough={walkthrough}
+          media={walkthroughMedia}
+          canEdit
+          canMedia
+          allowTranscribe={Boolean(mods.ai && mods.ai_walkthrough)}
+          allowGenerate={Boolean(mods.ai && mods.ai_walkthrough)}
+        />
+      )}
 
       {mods.estimates && (
         <JobEstimatesPanel

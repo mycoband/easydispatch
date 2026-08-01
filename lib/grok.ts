@@ -634,6 +634,131 @@ ${text}`,
   return parsed.data;
 }
 
+export const walkthroughReportSchema = z.object({
+  findings: z.string().trim().max(8000).default(''),
+  work_performed: z.string().trim().max(8000).default(''),
+  parts_used: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(300),
+        quantity: z.number().min(0).max(9999).default(1),
+        estimated_cost: z.number().min(0).max(999999).default(0),
+      })
+    )
+    .max(40)
+    .default([]),
+  recommendations: z.string().trim().max(8000).default(''),
+  customer_summary: z.string().trim().max(8000).default(''),
+  labor_hours_estimated: z.number().min(0).max(999).nullable().optional(),
+  labor_rate: z.number().min(0).max(9999).nullable().optional(),
+});
+
+export type WalkthroughReport = z.infer<typeof walkthroughReportSchema>;
+
+/**
+ * Free-form field notes + voice transcripts (+ optional photos) →
+ * structured HVAC/R walkthrough report JSON.
+ */
+export async function generateWalkthroughReport(input: {
+  notes: string;
+  voiceTranscripts?: string[];
+  photoUrls?: string[];
+  jobType?: string | null;
+  equipmentSummary?: string | null;
+  customerName?: string | null;
+  defaultLaborRate?: number | null;
+}): Promise<WalkthroughReport> {
+  const notes = input.notes.trim();
+  const transcripts = (input.voiceTranscripts || [])
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const photoUrls = (input.photoUrls || []).filter(Boolean).slice(0, 4);
+
+  if (!notes && transcripts.length === 0 && photoUrls.length === 0) {
+    throw new Error(
+      'Add field notes, a voice note, or a photo before generating a report'
+    );
+  }
+
+  const transcriptBlock =
+    transcripts.length > 0
+      ? transcripts.map((t, i) => `Voice ${i + 1}:\n${t}`).join('\n\n')
+      : '(none)';
+
+  const laborHint =
+    input.defaultLaborRate != null && Number.isFinite(input.defaultLaborRate)
+      ? `Default shop labor rate if not stated: $${input.defaultLaborRate}/hr.`
+      : 'If labor rate is unknown, use a typical US HVAC service rate (~$125–175/hr) and note it is an estimate.';
+
+  const systemPrompt = `You are an experienced HVAC and commercial refrigeration service technician and technical writer.
+Turn messy field capture into a clean professional walkthrough report for EasyDispatch.
+Understand RTUs, package units, split systems, furnaces, heat pumps, walk-in coolers/freezers, reach-ins, ice machines, and related controls/refrigeration.
+
+Return ONLY valid JSON:
+{
+  "findings": string (what was observed / diagnosed — tech-facing, clear),
+  "work_performed": string (what was done on site; if nothing done yet, say recommended next steps briefly),
+  "parts_used": [{"name": string, "quantity": number, "estimated_cost": number}],
+  "recommendations": string (follow-ups, safety, maintenance),
+  "customer_summary": string (plain-language summary suitable for invoice / customer),
+  "labor_hours_estimated": number | null,
+  "labor_rate": number | null
+}
+
+Rules:
+- Be concise but complete. Professional tone.
+- Never invent major work, parts, or equipment details that were not mentioned or visible.
+- parts_used only for parts clearly needed or used; estimated_cost in USD (rough OK).
+- Prefer empty string / empty array over inventing content.
+- ${laborHint}
+- If photos are attached, use them only as supporting context (nameplates, damage, filters) — do not invent unread serials.`;
+
+  const textBody = `Job type: ${input.jobType || 'Service'}
+Customer: ${input.customerName || 'unknown'}
+Equipment: ${input.equipmentSummary || 'unknown'}
+
+Field notes:
+${notes || '(none)'}
+
+Voice transcripts:
+${transcriptBlock}
+
+Photos attached: ${photoUrls.length}`;
+
+  const userContent:
+    | string
+    | Array<
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string; detail: string } }
+      > =
+    photoUrls.length > 0
+      ? [
+          ...photoUrls.map((url) => ({
+            type: 'image_url' as const,
+            image_url: { url, detail: 'low' as const },
+          })),
+          { type: 'text' as const, text: textBody },
+        ]
+      : textBody;
+
+  const content = await callGrok(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+    {
+      model: photoUrls.length > 0 ? visionModel() : chatModel(),
+      temperature: 0.2,
+    }
+  );
+
+  const parsed = walkthroughReportSchema.safeParse(parseJsonContent(content));
+  if (!parsed.success) {
+    throw new Error('Could not parse walkthrough report response');
+  }
+  return parsed.data;
+}
+
 export type HelpChatMessage = {
   role: 'user' | 'assistant';
   content: string;

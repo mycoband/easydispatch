@@ -252,16 +252,18 @@ export function JobMediaPanel({
                         : 'Transcribe → notes'}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="text-xs text-red-700 hover:underline"
-                    onClick={async () => {
-                      await deleteJobAttachment(jobId, a.id);
-                      router.refresh();
-                    }}
-                  >
-                    Remove
-                  </button>
+                  {!a.id.startsWith('pm-') && (
+                    <button
+                      type="button"
+                      className="text-xs text-red-700 hover:underline"
+                      onClick={async () => {
+                        await deleteJobAttachment(jobId, a.id);
+                        router.refresh();
+                      }}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
               </div>
             </li>

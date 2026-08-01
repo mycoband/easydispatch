@@ -492,7 +492,8 @@ export async function uploadPmChecklistPhoto(
       serializePmChecklist,
     } = await import('@/lib/equipment/pm-checklist');
     const { createServiceClient } = await import('@/lib/supabase/admin');
-    const { supabase, user } = await requireEquipmentAccess(customerId);
+    const { supabase, user, profile } =
+      await requireEquipmentAccess(customerId);
 
     const jobId = emptyToNull(formString(formData, 'job_id'));
     const file = formData.get('file');
@@ -552,6 +553,18 @@ export async function uploadPmChecklistPhoto(
     if (jobId) {
       const unitLabel =
         equip.name || equip.equipment_type || 'Unit';
+      // Service-role inserts skip auth.uid() trigger — set company_id explicitly
+      // so RLS company_select can see the row in Job photos.
+      const { data: jobRow } = await admin
+        .from('jobs')
+        .select('company_id')
+        .eq('id', jobId)
+        .maybeSingle();
+      const companyId =
+        (jobRow?.company_id as string | null) ||
+        profile.company_id ||
+        null;
+
       const { data: att, error: attErr } = await admin
         .from('job_attachments')
         .insert({
@@ -561,6 +574,7 @@ export async function uploadPmChecklistPhoto(
           url,
           caption: `PM: ${item.label} · ${unitLabel}`,
           created_by: user.id,
+          ...(companyId ? { company_id: companyId } : {}),
         })
         .select('id')
         .maybeSingle();
