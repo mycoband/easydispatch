@@ -1,0 +1,130 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { requireOffice } from '@/lib/auth';
+import { createServiceClient } from '@/lib/supabase/admin';
+
+export type ActionState = {
+  error?: string;
+  success?: string;
+};
+
+function formString(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return typeof value === 'string' ? value : '';
+}
+
+function emptyToNull(value?: string | null) {
+  const v = value?.trim();
+  return v ? v : null;
+}
+
+export async function saveCompanySettings(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  try {
+    const { supabase, profile } = await requireOffice();
+
+    const name = formString(formData, 'name').trim();
+    if (!name) return { error: 'Company name is required' };
+
+    let logoUrl: string | null = emptyToNull(
+      formString(formData, 'existing_logo_url')
+    );
+    const file = formData.get('logo');
+
+    if (file instanceof File && file.size > 0) {
+      const admin = createServiceClient();
+      const ext =
+        file.type === 'image/png'
+          ? 'png'
+          : file.type === 'image/webp'
+            ? 'webp'
+            : file.type === 'image/svg+xml'
+              ? 'svg'
+              : 'jpg';
+      const fileName = `logo/${Date.now()}.${ext}`;
+      const buffer = Buffer.from(await file.arrayBuffer());
+
+      const { error: uploadError } = await admin.storage
+        .from('company-assets')
+        .upload(fileName, buffer, {
+          contentType: file.type || 'image/jpeg',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        return {
+          error: `Logo upload failed: ${uploadError.message}. Confirm the company-assets bucket exists.`,
+        };
+      }
+
+      const { data: urlData } = admin.storage
+        .from('company-assets')
+        .getPublicUrl(fileName);
+      logoUrl = urlData.publicUrl;
+    }
+
+    const payload: Record<string, unknown> = {
+      name,
+      legal_name: emptyToNull(formString(formData, 'legal_name')),
+      phone: emptyToNull(formString(formData, 'phone')),
+      email: emptyToNull(formString(formData, 'email')),
+      website: emptyToNull(formString(formData, 'website')),
+      address: emptyToNull(formString(formData, 'address')),
+      city: emptyToNull(formString(formData, 'city')),
+      state: emptyToNull(formString(formData, 'state')) || 'MO',
+      zip: emptyToNull(formString(formData, 'zip')),
+      license_number: emptyToNull(formString(formData, 'license_number')),
+      logo_url: logoUrl,
+      brand_color: emptyToNull(formString(formData, 'brand_color')) || '#1a7af5',
+      invoice_footer: emptyToNull(formString(formData, 'invoice_footer')),
+      estimate_footer: emptyToNull(formString(formData, 'estimate_footer')),
+      sms_signature: emptyToNull(formString(formData, 'sms_signature')),
+      updated_at: new Date().toISOString(),
+    };
+
+    let error;
+    if (profile.company_id) {
+      const existing = await supabase
+        .from('company_settings')
+        .select('id')
+        .eq('company_id', profile.company_id)
+        .maybeSingle();
+      if (existing.data?.id) {
+        ({ error } = await supabase
+          .from('company_settings')
+          .update(payload)
+          .eq('id', existing.data.id));
+      } else {
+        ({ error } = await supabase.from('company_settings').upsert(
+          { id: 1, company_id: profile.company_id, ...payload },
+          { onConflict: 'id' }
+        ));
+      }
+    } else {
+      ({ error } = await supabase
+        .from('company_settings')
+        .upsert({ id: 1, ...payload }, { onConflict: 'id' }));
+    }
+
+    if (error) return { error: error.message };
+
+    // Keep companies.name in sync for billing UI
+    if (profile.company_id) {
+      await supabase
+        .from('companies')
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq('id', profile.company_id);
+    }
+
+    revalidatePath('/dashboard/settings');
+    revalidatePath('/dashboard');
+    return { success: 'Company settings saved' };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Could not save settings',
+    };
+  }
+}

@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --surface: #f2f5f8;
+  --panel: #ffffff;
+  --ink: #1a222b;
+  --muted: #587189;
+  --line: #d5dee8;
+  --brand: #1a7af5;
+  --brand-ink: #132b57;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #d9efff 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #e4e9ee 0%, transparent 50%),
+    var(--surface);
+}
+
+@layer utilities {
+  .panel {
+    @apply rounded-xl border border-ink-200/80 bg-white shadow-sm;
+  }
+}

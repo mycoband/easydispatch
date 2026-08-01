@@ -1,0 +1,318 @@
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import {
+  approveEstimateViaPortal,
+  approveGbbOptionViaPortal,
+} from '@/app/portal/actions';
+import { CompanyBrandHeader } from '@/components/brand/CompanyBrandHeader';
+import { loadCompanySettingsAdmin } from '@/lib/company';
+import { createServiceClient } from '@/lib/supabase/admin';
+import { formatMoney } from '@/lib/jobs/totals';
+import { cn } from '@/lib/utils';
+
+type LineItemRow = {
+  estimate_id?: string;
+  description: string;
+  qty: number;
+  unit_price: number;
+  taxable: boolean;
+};
+
+export default async function CustomerPortalPage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  let admin;
+  try {
+    admin = createServiceClient();
+  } catch {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center text-sm text-ink-600">
+        Portal unavailable — server config missing.
+      </div>
+    );
+  }
+
+  const company = await loadCompanySettingsAdmin();
+
+  const { data: link } = await admin
+    .from('portal_tokens')
+    .select('*')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (!link) notFound();
+  if (link.expires_at && new Date(link.expires_at) < new Date()) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+        <CompanyBrandHeader company={company} title="Link expired" />
+        <p className="mt-2 text-sm text-ink-500">
+          Ask the office to send a new link.
+        </p>
+      </div>
+    );
+  }
+
+  if (link.purpose === 'estimate' && link.estimate_id) {
+    const { data: estimate } = await admin
+      .from('estimates')
+      .select('*')
+      .eq('id', link.estimate_id)
+      .maybeSingle();
+
+    if (!estimate) notFound();
+
+    // ===== Good / Better / Best package: side-by-side comparison =====
+    if (estimate.package_id) {
+      const { data: options } = await admin
+        .from('estimates')
+        .select('*')
+        .eq('package_id', estimate.package_id)
+        .order('option_label', { ascending: true });
+
+      const optionIds = (options ?? []).map((o) => o.id);
+      const { data: allItems } = optionIds.length
+        ? await admin
+            .from('line_items')
+            .select('estimate_id, description, qty, unit_price, taxable')
+            .in('estimate_id', optionIds)
+            .order('sort_order', { ascending: true })
+        : { data: [] as LineItemRow[] };
+
+      const itemsByEstimate = new Map<string, LineItemRow[]>();
+      for (const item of allItems ?? []) {
+        const key = item.estimate_id as string;
+        const list = itemsByEstimate.get(key) ?? [];
+        list.push(item);
+        itemsByEstimate.set(key, list);
+      }
+
+      const approvedOption = (options ?? []).find(
+        (o) => o.status === 'Approved'
+      );
+
+      return (
+        <div className="mx-auto max-w-5xl space-y-6 px-4 py-12">
+          <CompanyBrandHeader
+            company={company}
+            eyebrow="Choose your option"
+            title={estimate.customer_name || 'Estimate'}
+            subtitle={estimate.description || undefined}
+          />
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {(options ?? []).map((opt) => {
+              const items = itemsByEstimate.get(opt.id) ?? [];
+              const approve = approveGbbOptionViaPortal.bind(
+                null,
+                token,
+                opt.id
+              );
+              const isApproved = opt.status === 'Approved';
+              const isRejected = opt.status === 'Rejected';
+
+              return (
+                <div
+                  key={opt.id}
+                  className={cn(
+                    'panel flex flex-col p-5',
+                    opt.is_recommended && 'border-brand-300 ring-2 ring-brand-200',
+                    isRejected && 'opacity-60'
+                  )}
+                >
+                  {opt.is_recommended && (
+                    <p className="mb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-brand-700">
+                      Recommended
+                    </p>
+                  )}
+                  <h2 className="text-center font-display text-xl font-semibold text-ink-950">
+                    {opt.option_label}
+                  </h2>
+                  {opt.option_headline && (
+                    <p className="mt-1 text-center text-sm text-ink-500">
+                      {opt.option_headline}
+                    </p>
+                  )}
+
+                  <ul className="mt-4 flex-1 space-y-2 border-t border-ink-100 pt-4 text-sm">
+                    {items.map((item, i) => (
+                      <li key={i} className="flex justify-between gap-3">
+                        <span>
+                          {item.description}
+                          {Number(item.qty) !== 1 && (
+                            <span className="text-ink-400">
+                              {' '}
+                              ×{Number(item.qty)}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-4 border-t border-ink-100 pt-3 text-center">
+                    <p className="font-display text-2xl font-semibold text-ink-950">
+                      {formatMoney(Number(opt.total) || 0)}
+                    </p>
+                  </div>
+
+                  {isApproved ? (
+                    <p className="mt-4 rounded-lg bg-emerald-50 py-2 text-center text-sm font-semibold text-emerald-800">
+                      Selected
+                    </p>
+                  ) : approvedOption ? (
+                    <p className="mt-4 rounded-lg bg-ink-50 py-2 text-center text-sm text-ink-500">
+                      Not selected
+                    </p>
+                  ) : (
+                    <form action={approve}>
+                      <button
+                        type="submit"
+                        className="mt-4 w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Choose {opt.option_label}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {company.estimate_footer && (
+            <p className="text-center text-xs text-ink-400">
+              {company.estimate_footer}
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // ===== Single estimate =====
+    const { data: items } = await admin
+      .from('line_items')
+      .select('description, qty, unit_price, taxable')
+      .eq('estimate_id', link.estimate_id)
+      .order('sort_order', { ascending: true });
+
+    const approve = approveEstimateViaPortal.bind(null, token);
+
+    return (
+      <div className="mx-auto max-w-lg space-y-5 px-4 py-12">
+        <CompanyBrandHeader
+          company={company}
+          eyebrow="Estimate"
+          title={estimate.customer_name || 'Estimate'}
+          subtitle={`${estimate.estimate_number || ''} · ${estimate.status}`}
+        />
+
+        <div className="panel p-5">
+          <p className="text-sm text-ink-700 whitespace-pre-wrap">
+            {estimate.description}
+          </p>
+          <ul className="mt-4 space-y-2 border-t border-ink-100 pt-4 text-sm">
+            {(items ?? []).map((item, i) => (
+              <li key={i} className="flex justify-between gap-3">
+                <span>
+                  {item.description}{' '}
+                  <span className="text-ink-400">×{Number(item.qty)}</span>
+                </span>
+                <span>
+                  {formatMoney(Number(item.qty) * Number(item.unit_price))}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 flex justify-between border-t border-ink-100 pt-3 font-semibold">
+            <span>Total</span>
+            <span>{formatMoney(Number(estimate.total) || 0)}</span>
+          </div>
+        </div>
+
+        {estimate.status !== 'Approved' && estimate.status !== 'Rejected' ? (
+          <form action={approve}>
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Approve estimate
+            </button>
+          </form>
+        ) : (
+          <p className="text-center text-sm font-medium text-emerald-700">
+            Status: {estimate.status}
+          </p>
+        )}
+
+        {company.estimate_footer && (
+          <p className="text-center text-xs text-ink-400">
+            {company.estimate_footer}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (link.purpose === 'invoice' && link.job_id) {
+    const { data: job } = await admin
+      .from('jobs')
+      .select(
+        'id, job_number, customer_name, total, invoice_status, payment_status, stripe_payment_link, customer_summary, notes'
+      )
+      .eq('id', link.job_id)
+      .maybeSingle();
+
+    if (!job) notFound();
+
+    return (
+      <div className="mx-auto max-w-lg space-y-5 px-4 py-12">
+        <CompanyBrandHeader
+          company={company}
+          eyebrow="Invoice"
+          title={job.customer_name || 'Invoice'}
+          subtitle={job.job_number || undefined}
+        />
+
+        <div className="panel p-5 text-center">
+          <p className="text-sm text-ink-500">Amount due</p>
+          <p className="mt-1 font-display text-3xl font-semibold">
+            {formatMoney(Number(job.total) || 0)}
+          </p>
+          <p className="mt-2 text-sm text-ink-600">
+            {job.payment_status === 'Paid' ? 'Paid — thank you' : 'Unpaid'}
+          </p>
+          {(job.customer_summary || job.notes) && (
+            <p className="mt-4 text-left text-sm text-ink-700 whitespace-pre-wrap">
+              {job.customer_summary || job.notes}
+            </p>
+          )}
+        </div>
+
+        {job.payment_status !== 'Paid' && job.stripe_payment_link && (
+          <a
+            href={job.stripe_payment_link}
+            className="block w-full rounded-xl bg-ink-900 py-3 text-center text-sm font-semibold text-white"
+          >
+            Pay online
+          </a>
+        )}
+
+        {company.invoice_footer && (
+          <p className="text-center text-xs text-ink-400">
+            {company.invoice_footer}
+          </p>
+        )}
+
+        <p className="text-center text-xs text-ink-400">
+          <Link href="/" className="hover:underline">
+            {company.name}
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
+  notFound();
+}
