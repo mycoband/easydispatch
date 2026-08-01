@@ -136,8 +136,9 @@ export default async function SettingsPage() {
             Feature modules
           </h2>
           <p className="mb-4 text-sm text-ink-500">
-            Cater EasyDispatch to this shop — turn whole categories off if they
-            don&apos;t use them. Job costing & profit can be toggled here.
+            Master on/off for every optional feature (dispatch, AI, PDFs,
+            inventory, portal, offline queue, and more). Save after toggling.
+            Details for each module: Help / FAQ → Settings & modules.
           </p>
           <ModuleToggles initial={company.modules} />
         </section>

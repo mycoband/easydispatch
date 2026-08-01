@@ -1,3 +1,5 @@
+import { COMPANY_MODULES, MODULE_GROUPS } from '@/lib/company/modules';
+
 export type FaqItem = {
   id: string;
   category: string;
@@ -17,13 +19,23 @@ export const FAQ_CATEGORIES = [
   'Billing & account',
 ] as const;
 
-export const FAQ_ITEMS: FaqItem[] = [
+/** Every Feature modules toggle — kept in sync with lib/company/modules.ts */
+export const MODULE_FAQ_ITEMS: FaqItem[] = COMPANY_MODULES.map((m) => ({
+  id: `module-${m.id}`,
+  category: 'Settings & modules',
+  question: `What does “${m.label}” control?`,
+  answer: `${m.description} ${m.help} Toggle in Settings → Feature modules${
+    m.href ? ` (nav: ${m.href})` : ''
+  }. Group: ${m.group}.${m.defaultEnabled ? '' : ' Default: off.'}`,
+}));
+
+const CORE_FAQ_ITEMS: FaqItem[] = [
   {
     id: 'what-is-easydispatch',
     category: 'Getting started',
     question: 'What is EasyDispatch?',
     answer:
-      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work.',
+      'EasyDispatch is AI-first HVAC field service software. Office staff manage customers, jobs, calendar, dispatch, estimates, invoices, job costing, PDFs, and reports. Technicians use the tech app for assigned jobs — time tracking, notes, equipment, photos, run-sheet PDF, and on-site estimates. Use Help (bottom-right) to ask the AI bot while you work. Turn categories on/off in Settings → Feature modules.',
   },
   {
     id: 'help-bot-popup',
@@ -43,15 +55,15 @@ export const FAQ_ITEMS: FaqItem[] = [
     id: 'feature-modules',
     category: 'Settings & modules',
     question: 'How do I turn features on or off?',
-    answer:
-      'Settings → Feature modules. Toggle each category on or off. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: Scheduling (day sheet, dispatch, live dispatch, Assign-tech AI, capacity warnings, calendar), Sales & money, Recurring, Operations, Customer experience (messaging, review ask, portal), Field / tech (AI, photos, offline notes & time, safety).',
+    answer: `Settings → Feature modules. Toggle each module, then Save modules. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: ${MODULE_GROUPS.join(', ')}. Core customers + jobs always stay on. Every module is listed in this FAQ under “What does … control?”`,
   },
   {
     id: 'modules-list',
     category: 'Settings & modules',
     question: 'What does each feature module control?',
-    answer:
-      'Day sheet: daily load + huddle PDF. Dispatch: assign board. Live dispatch board: realtime En Route/On Site (run supabase/ops-polish.sql). Assign-tech AI: skills + load + GPS. Day capacity warnings: overbooked (>8h) and overlapping jobs. Calendar: drag day + edit time. Estimates / GBB / Pricebook / Invoices / Export / Job costing / PDFs: as labeled. Agreements / PM automation / Inventory / Reorder / Parts / Equipment timeline / Callbacks / Reports / Portal / Review ask / Messaging / AI / Photos / Offline notes & time / Safety: as labeled. SQL: workflow-depth, differentiation, ops-polish as needed.',
+    answer: `Full catalog (same list as Settings → Feature modules):\n${COMPANY_MODULES.map(
+      (m) => `• ${m.label}: ${m.description}`
+    ).join('\n')}\nSQL once as needed: supabase/workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.`,
   },
   {
     id: 'live-dispatch',
@@ -79,7 +91,14 @@ export const FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How does Assign-tech AI work?',
     answer:
-      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive (run supabase/differentiation.sql once). Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign AI: [tech] ranked by skills + lighter load + closer location. Assign dropdown is ordered the same way.',
+      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive (run supabase/differentiation.sql once). Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign AI: [tech] ranked by skills + lighter load + closer location.',
+  },
+  {
+    id: 'dispatch-board',
+    category: 'Jobs & calendar',
+    question: 'How do I use the Dispatch board?',
+    answer:
+      'Enable Dispatch board. Drag jobs onto a tech column or use Reassign. Set Time on a card. Message customers from the card when Customer messaging is on. Pair Live dispatch board for realtime En Route/On Site.',
   },
   {
     id: 'voice-notes',
@@ -96,6 +115,13 @@ export const FAQ_ITEMS: FaqItem[] = [
       'Enable Review ask. Set Google / review URL in Company settings. When a job is both Paid and Completed, the customer gets one email with the link (Resend — no Twilio). Triggers on Stripe pay, cash/check paid, clock-out, or signature if the other condition is already met. Needs supabase/differentiation.sql for the review URL column.',
   },
   {
+    id: 'messaging-sms',
+    category: 'Jobs & calendar',
+    question: 'How do OMW / reminder texts work?',
+    answer:
+      'Enable Customer messaging. On Dispatch or the job, use message buttons (OMW, reminder, confirm). Needs Twilio env vars for real SMS; otherwise sends may simulate and still log. SMS signature is under Company settings.',
+  },
+  {
     id: 'pm-automation',
     category: 'Jobs & calendar',
     question: 'Can EasyDispatch auto-create PM jobs from agreements?',
@@ -103,11 +129,25 @@ export const FAQ_ITEMS: FaqItem[] = [
       'Yes. Enable Service agreements and PM job automation (automation is off by default). Active agreements with next due date today or earlier get a Scheduled Maintenance/PM job overnight; next due advances by visits/year. You can still Create PM manually on Agreements.',
   },
   {
+    id: 'service-agreements',
+    category: 'Jobs & calendar',
+    question: 'Where are service agreements / memberships?',
+    answer:
+      'Enable Service agreements → Office → Agreements. Create PM plans, set visits/year and next due, Create PM or bill manually. Turn on PM job automation for nightly auto-create.',
+  },
+  {
     id: 'inventory-po',
     category: 'Jobs & calendar',
     question: 'How do I make a reorder / PO list from low stock?',
     answer:
       'Enable Truck inventory + Reorder / PO list. Set min qty, vendor, and optional reorder qty on items. Inventory shows a reorder panel: Copy PO list or Export PO CSV, Mark ordered. Run supabase/workflow-depth.sql if vendor fields are missing.',
+  },
+  {
+    id: 'part-orders',
+    category: 'Jobs & calendar',
+    question: 'How do special-order parts work?',
+    answer:
+      'Enable Special-order parts. Office → Parts, or the Parts panel on a job. Move items Needed → Ordered → Received → Installed.',
   },
   {
     id: 'equipment-timeline',
@@ -187,11 +227,18 @@ export const FAQ_ITEMS: FaqItem[] = [
       'On New job (AI tools module on), paste or dictate call notes → Fill ticket with AI. Grok drafts job type, priority, diagnosis, notes, and may match an existing customer. Always review before creating the job.',
   },
   {
+    id: 'pricebook',
+    category: 'Estimates',
+    question: 'How do I use the pricebook?',
+    answer:
+      'Enable Pricebook → Office → Pricebook. Add flat-rate items with sell price, your cost, and item type. Import CSV if needed. Presets speed estimates and jobs; costs feed Job costing when that module is on.',
+  },
+  {
     id: 'job-costing-where',
     category: 'Job costing & reports',
     question: 'Where is job costing? I only see Settings and Reports.',
     answer:
-      'No separate “Job Costing” nav tab — turn on Settings → Feature modules → Job costing & profit. Then: Settings → Job costing (wages, target margin, weekly digest); each job’s Sold/Cost/Profit panel; estimate P&L before send; Reports profit KPIs; Export job costing / tech P&L CSV; truck-stock deduct adds costed parts lines. Links also appear on Reports and the job costing panel.',
+      'No separate “Job Costing” nav tab — turn on Settings → Feature modules → Job costing & profit. Then: Settings → Job costing (wages, target margin, weekly digest); each job’s Sold/Cost/Profit panel; estimate P&L before send; Reports profit KPIs; Export job costing / tech P&L CSV; truck-stock deduct adds costed parts lines.',
   },
   {
     id: 'job-costing-how',
@@ -236,6 +283,13 @@ export const FAQ_ITEMS: FaqItem[] = [
       'Enable Feature modules → Good / Better / Best. From Estimates, open Good / Better / Best to build multi-option packages customers can choose (often with the customer portal). Turn the module off to hide GBB if you only use single estimates.',
   },
   {
+    id: 'invoice-send',
+    category: 'Invoices & PDFs',
+    question: 'How do I send an invoice or take payment?',
+    answer:
+      'Enable Invoices & payments. On the job invoice panel or Invoices list: send by email/SMS, open Stripe pay link, or mark cash/check paid. Branded PDF needs PDF documents on.',
+  },
+  {
     id: 'invoice-pdf',
     category: 'Invoices & PDFs',
     question: 'How do I download a branded invoice PDF?',
@@ -264,6 +318,13 @@ export const FAQ_ITEMS: FaqItem[] = [
       'Tech home (My jobs) → Today’s run sheet PDF when PDF documents is enabled. For the full digital run sheet, open an assigned job (packet, drive, diagnose, parts, sign).',
   },
   {
+    id: 'tech-safety',
+    category: 'Tech app',
+    question: 'Where is the safety checklist?',
+    answer:
+      'Enable Safety checklist. On an assigned job → Safety checklist (lockout, ladder, refrigerant, permit). Tech needs the Safety permission under Role permissions.',
+  },
+  {
     id: 'tech-permissions',
     category: 'Tech app',
     question: 'How do I control what techs can do?',
@@ -286,6 +347,9 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 ];
 
+/** All FAQ items: core Q&A + one entry per Feature module toggle. */
+export const FAQ_ITEMS: FaqItem[] = [...CORE_FAQ_ITEMS, ...MODULE_FAQ_ITEMS];
+
 export function faqByCategory() {
   const map = new Map<string, FaqItem[]>();
   for (const item of FAQ_ITEMS) {
@@ -301,7 +365,14 @@ export function faqByCategory() {
 
 /** Compact FAQ text for the help bot system prompt. */
 export function faqPromptBlock() {
-  return FAQ_ITEMS.map(
+  const catalog = COMPANY_MODULES.map(
+    (m, i) =>
+      `M${i + 1}. Module “${m.label}” [${m.group}]: ${m.description} ${m.help}`
+  ).join('\n');
+
+  const faqs = FAQ_ITEMS.filter((f) => !f.id.startsWith('module-')).map(
     (f, i) => `${i + 1}. Q: ${f.question}\nA: ${f.answer}`
   ).join('\n\n');
+
+  return `FEATURE MODULES (Settings → Feature modules — toggle any of these):\n${catalog}\n\nFAQ:\n${faqs}`;
 }

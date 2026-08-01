@@ -2,7 +2,26 @@
  * Per-company feature modules.
  * Each paying HVAC shop can enable/disable categories to match how they work.
  * Always-on core: customers, jobs, tech run sheet basics, settings.
+ *
+ * ModuleToggles, FAQ, and Help bot all read from this list — keep it complete.
  */
+
+export type CompanyModuleDef = {
+  id: string;
+  label: string;
+  description: string;
+  /** Extra how-to for FAQ / Help (shown after description). */
+  help: string;
+  href: string | null;
+  defaultEnabled: boolean;
+  group:
+    | 'Scheduling'
+    | 'Sales & money'
+    | 'Recurring'
+    | 'Operations'
+    | 'Customer experience'
+    | 'Field / tech';
+};
 
 export const COMPANY_MODULES = [
   {
@@ -10,6 +29,7 @@ export const COMPANY_MODULES = [
     label: 'Day sheet',
     description:
       'Daily tech load by tech, stop list, and morning huddle PDF (with PDF documents on)',
+    help: 'Office → Day sheet. With PDF documents on: Print PDF. Techs: My jobs → Today’s run sheet PDF.',
     href: '/dashboard/day-sheet',
     defaultEnabled: true,
     group: 'Scheduling',
@@ -17,7 +37,8 @@ export const COMPANY_MODULES = [
   {
     id: 'dispatch',
     label: 'Dispatch board',
-    description: 'Assign techs and watch live En Route / On Site status',
+    description: 'Assign techs and watch En Route / On Site status',
+    help: 'Office → Dispatch. Drag jobs onto tech columns or use Reassign. Pair with Live dispatch board for realtime status.',
     href: '/dashboard/dispatch',
     defaultEnabled: true,
     group: 'Scheduling',
@@ -27,6 +48,7 @@ export const COMPANY_MODULES = [
     label: 'Live dispatch board',
     description:
       'Realtime En Route / On Site updates without refreshing (needs jobs in Supabase Realtime)',
+    help: 'Keep Dispatch open — Drive/Arrive from the tech app updates badges live. Run supabase/ops-polish.sql once. Status shows “● Live” when connected.',
     href: null,
     defaultEnabled: true,
     group: 'Scheduling',
@@ -36,6 +58,7 @@ export const COMPANY_MODULES = [
     label: 'Assign-tech AI',
     description:
       'Suggest who should take a job from skills + today’s load + last known location',
+    help: 'Settings → Tech roster skills. On Dispatch, unassigned jobs show Assign AI. Run supabase/differentiation.sql for GPS columns. Techs update location on Drive/Arrive.',
     href: null,
     defaultEnabled: true,
     group: 'Scheduling',
@@ -45,6 +68,7 @@ export const COMPANY_MODULES = [
     label: 'Day capacity warnings',
     description:
       'Flag overbooked techs (>8h) and overlapping scheduled jobs on dispatch & day sheet',
+    help: 'Amber columns when est hours exceed ~8h. Overlap badges when scheduled windows collide (uses scheduled end or est hours).',
     href: null,
     defaultEnabled: true,
     group: 'Scheduling',
@@ -54,6 +78,7 @@ export const COMPANY_MODULES = [
     label: 'Calendar',
     description:
       'Week/month view — drag to change day, click to edit start time & duration',
+    help: 'Office → Calendar. Drag a job to another day; click to edit start time and duration hours.',
     href: '/dashboard/calendar',
     defaultEnabled: true,
     group: 'Scheduling',
@@ -62,6 +87,7 @@ export const COMPANY_MODULES = [
     id: 'estimates',
     label: 'Estimates',
     description: 'Quotes, line items, estimated P&L, convert/apply to job',
+    help: 'Office → Estimates, or New/Build estimate from a job. Apply approved lines to the job. Techs need Build estimates permission.',
     href: '/dashboard/estimates',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -71,6 +97,7 @@ export const COMPANY_MODULES = [
     label: 'Good / Better / Best',
     description:
       'Multi-option install packages — from Estimates → Good / Better / Best',
+    help: 'Estimates → Good / Better / Best. Customers can choose an option via the portal when linked.',
     href: '/dashboard/estimates/gbb',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -79,6 +106,7 @@ export const COMPANY_MODULES = [
     id: 'pricebook',
     label: 'Pricebook',
     description: 'Flat-rate presets with sell price, your cost, and item type',
+    help: 'Office → Pricebook. Add presets or Import. Costs feed job costing when that module is on.',
     href: '/dashboard/pricebook',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -88,6 +116,7 @@ export const COMPANY_MODULES = [
     label: 'Invoices & payments',
     description:
       'Send invoices, Stripe links, cash/check; branded PDF when PDF documents is on',
+    help: 'Office → Invoices or job invoice panel. Send email/SMS, mark cash/check, Stripe pay link. PDF button needs PDF documents on.',
     href: '/dashboard/invoices',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -97,6 +126,7 @@ export const COMPANY_MODULES = [
     label: 'Accounting export',
     description:
       'QuickBooks-friendly CSV — paid/unpaid, customers, job costing & tech P&L',
+    help: 'Office → Export. Pick date range and export type (invoices, customers, job costing, tech P&L).',
     href: '/dashboard/export',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -106,6 +136,7 @@ export const COMPANY_MODULES = [
     label: 'Job costing & profit',
     description:
       'Job & estimate P&L, wages, margins, profit reports, weekly digest, costing CSV',
+    help: 'Settings → Job costing (wages, margin, digest). Sold/Cost/Profit on each job; profit KPIs on Reports; Export costing CSV. Needs job-costing.sql once.',
     href: null,
     defaultEnabled: true,
     group: 'Sales & money',
@@ -115,6 +146,7 @@ export const COMPANY_MODULES = [
     label: 'PDF documents',
     description:
       'Branded invoice PDF, office day-sheet PDF, tech today’s run-sheet PDF',
+    help: 'Shows PDF download buttons on invoices, Day sheet, and tech My jobs. Turn off to hide all PDFs.',
     href: null,
     defaultEnabled: true,
     group: 'Sales & money',
@@ -123,6 +155,7 @@ export const COMPANY_MODULES = [
     id: 'agreements',
     label: 'Service agreements',
     description: 'PM plans, memberships, manual Create PM / bill',
+    help: 'Office → Agreements. Create plans, set next due, Create PM or bill manually. Pair with PM job automation for nightly auto jobs.',
     href: '/dashboard/agreements',
     defaultEnabled: true,
     group: 'Recurring',
@@ -132,6 +165,7 @@ export const COMPANY_MODULES = [
     label: 'PM job automation',
     description:
       'Nightly cron creates due maintenance jobs from active agreements',
+    help: 'Off by default. Needs Service agreements on. Overnight job creates Scheduled Maintenance/PM when next due is today or earlier.',
     href: null,
     defaultEnabled: false,
     group: 'Recurring',
@@ -141,6 +175,7 @@ export const COMPANY_MODULES = [
     label: 'Truck inventory',
     description:
       'Stock levels; deduct on jobs (adds costed parts line when costing is on)',
+    help: 'Office → Inventory. Techs deduct truck stock on a job when permitted. Pair with Reorder / PO list for low stock.',
     href: '/dashboard/inventory',
     defaultEnabled: true,
     group: 'Operations',
@@ -150,6 +185,7 @@ export const COMPANY_MODULES = [
     label: 'Reorder / PO list',
     description:
       'Low-stock reorder list, vendor, suggested qty, export PO CSV',
+    help: 'On Inventory when Truck inventory is on. Set min qty, vendor, reorder qty. Copy PO list / Export CSV / Mark ordered. Needs workflow-depth.sql for vendor fields.',
     href: null,
     defaultEnabled: true,
     group: 'Operations',
@@ -158,6 +194,7 @@ export const COMPANY_MODULES = [
     id: 'part_orders',
     label: 'Special-order parts',
     description: 'Needed → ordered → received → installed on jobs',
+    help: 'Office → Parts, or Parts panel on a job. Track special orders from needed through installed.',
     href: '/dashboard/parts',
     defaultEnabled: true,
     group: 'Operations',
@@ -166,7 +203,8 @@ export const COMPANY_MODULES = [
     id: 'equipment_timeline',
     label: 'Equipment timeline',
     description:
-      'Per-unit service history and PM checklist on the customer profile',
+      'Per-unit service history and PM checklist on the customer and on the job',
+    help: 'Customer profile → Equipment timeline. On a job: link unit (Use on job) → PM checklist panel. Needs workflow-depth.sql for pm_checklist.',
     href: null,
     defaultEnabled: true,
     group: 'Operations',
@@ -176,6 +214,7 @@ export const COMPANY_MODULES = [
     label: 'Callbacks & warranty',
     description:
       'Flagged revisits, auto-detected return visits, one-click Schedule revisit',
+    help: 'Office → Callbacks → Schedule revisit opens New job as Callback for that customer/site.',
     href: '/dashboard/callbacks',
     defaultEnabled: true,
     group: 'Operations',
@@ -185,6 +224,7 @@ export const COMPANY_MODULES = [
     label: 'Reports',
     description:
       'Revenue, AR, tech productivity; profit KPIs when job costing is on',
+    help: 'Office → Reports. With AI tools: Ask Reports. With job costing: profit KPIs and lowest-margin jobs.',
     href: '/dashboard/reports',
     defaultEnabled: true,
     group: 'Operations',
@@ -193,6 +233,7 @@ export const COMPANY_MODULES = [
     id: 'messaging',
     label: 'Customer messaging',
     description: 'OMW, reminders, confirm links, SMS log',
+    help: 'On Dispatch cards and job message actions. Needs Twilio env vars for real SMS; otherwise messages may simulate/log.',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',
@@ -202,6 +243,7 @@ export const COMPANY_MODULES = [
     label: 'Review ask',
     description:
       'Email a Google/review link after a job is paid and completed (Resend — no SMS)',
+    help: 'Settings → Company profile → Google / review URL. Sends once when Paid + Completed. Needs differentiation.sql + Resend.',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',
@@ -211,6 +253,7 @@ export const COMPANY_MODULES = [
     label: 'Customer portal',
     description:
       'Customer account link: job status, history, approve estimates, pay invoices; plus estimate/invoice tokens',
+    help: 'Customer profile → Customer portal link. Needs workflow-depth.sql for purpose “customer”. Estimate/invoice token links still work separately.',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',
@@ -220,6 +263,7 @@ export const COMPANY_MODULES = [
     label: 'AI tools',
     description:
       'Ticket fill, voice → notes, plate scan, filters, diagnostic, margin coach, Ask Reports, Help bot',
+    help: 'Needs XAI_API_KEY. New job → Fill ticket with AI. Job → diagnostic / margin coach. Voice Transcribe also needs OPENAI_API_KEY + Job photos & voice. Floating Help bot uses this module.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -229,6 +273,7 @@ export const COMPANY_MODULES = [
     label: 'Job photos & voice',
     description:
       'Before/after photos and voice notes; Transcribe fills diagnosis / customer summary when AI is on',
+    help: 'On the job → Job photos. Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY).',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -238,6 +283,7 @@ export const COMPANY_MODULES = [
     label: 'Offline notes & time',
     description:
       'Queue diagnosis notes and Drive/Arrive/Clock Out when signal drops; sync when back online',
+    help: 'On tech job page: banner shows Offline / Sync now. Queues Save notes and time buttons in the browser until online.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -246,11 +292,12 @@ export const COMPANY_MODULES = [
     id: 'tech_safety',
     label: 'Safety checklist',
     description: 'Lockout, ladder, refrigerant, permit checks',
+    help: 'On the tech job → Safety checklist. Techs need the Safety permission.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
   },
-] as const;
+] as const satisfies readonly CompanyModuleDef[];
 
 export type ModuleId = (typeof COMPANY_MODULES)[number]['id'];
 
@@ -288,7 +335,6 @@ export function moduleForPath(pathname: string): ModuleId | null {
   const exact = COMPANY_MODULES.find((m) => m.href && pathname === m.href);
   if (exact) return exact.id;
 
-  // Nested routes under a module home
   const prefixes: { prefix: string; id: ModuleId }[] = [
     { prefix: '/dashboard/day-sheet', id: 'day_sheet' },
     { prefix: '/dashboard/dispatch', id: 'dispatch' },
@@ -336,3 +382,11 @@ export const MODULE_GROUPS = [
   'Customer experience',
   'Field / tech',
 ] as const;
+
+/** One-line catalog for Help bot / FAQ summary. */
+export function moduleCatalogLines() {
+  return COMPANY_MODULES.map(
+    (m) =>
+      `- ${m.label} (${m.group}${m.defaultEnabled ? '' : ', default off'}): ${m.description}`
+  ).join('\n');
+}

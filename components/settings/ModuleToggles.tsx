@@ -44,10 +44,12 @@ export function ModuleToggles({
     for (const m of COMPANY_MODULES) next[m.id] = false;
     // Lean service-shop starter set
     next.dispatch = true;
+    next.dispatch_realtime = true;
     next.calendar = true;
     next.invoices = true;
     next.messaging = true;
     next.tech_media = true;
+    next.tech_offline_queue = true;
     setModules(next);
   }
 
@@ -69,10 +71,10 @@ export function ModuleToggles({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-ink-500">
-            Turn categories on or off for this company. Disabled items hide from
-            the menu and related buttons (PDFs, GBB, costing, callbacks, etc.).
-            Core customers + jobs stay on. See Help / FAQ for what each module
-            includes.
+            Every optional EasyDispatch feature is listed here. Off hides its
+            nav, pages, and related buttons. Core customers + jobs stay on.
+            Full how-to for each toggle is in Help / FAQ (search the module
+            name).
           </p>
           <p className="mt-1 text-xs font-medium text-ink-400">
             {enabledCount} / {COMPANY_MODULES.length} modules enabled

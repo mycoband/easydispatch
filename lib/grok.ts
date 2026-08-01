@@ -662,26 +662,12 @@ Rules:
 Known product facts:
 - Office app: /dashboard (customers, jobs, calendar, dispatch, estimates, invoices, reports, pricebook, settings).
 - Tech app: /tech (assigned jobs, time, notes, media, equipment, estimates when permitted, today’s run sheet PDF).
-- Feature modules: Settings → Feature modules — Day sheet, Dispatch, Live dispatch board, Assign-tech AI, Day capacity warnings, Calendar, Estimates, GBB, Pricebook, Invoices, Export, Job costing, PDF documents, Agreements, PM job automation, Inventory, Reorder/PO list, Parts, Equipment timeline, Callbacks, Reports, Messaging, Review ask, Portal, AI, Photos, Offline notes & time, Safety. Off hides related UI.
-- Live dispatch: Supabase Realtime on jobs (ops-polish.sql) → En Route/On Site without refresh.
-- Capacity warnings: overbooked >8h est and overlapping scheduled windows on dispatch/day sheet.
-- Offline notes & time: localStorage queue for tech notes + Drive/Arrive/Clock Out; sync when online.
-- Assign-tech AI: Suggest tech from skills + today’s load + last known GPS (Drive/Arrive) on Dispatch.
-- Voice → notes: record voice on job → Transcribe (Whisper + Grok) fills diagnosis / customer summary (needs OPENAI_API_KEY + AI module).
-- Review ask: after paid + completed, email Google review link from Settings (Resend; no Twilio).
-- PM automation: nightly cron creates due PM jobs when module on (default off). Manual Create PM still on Agreements.
-- Reorder/PO: low-stock list by vendor, CSV export, mark ordered (needs workflow-depth.sql).
-- Equipment timeline: per-unit history + PM checklist on customer profile and on the job (office/tech) when a unit is linked.
-- Portal: customer account link (status, history, approve estimates, pay) + estimate/invoice tokens (needs workflow-depth.sql for purpose customer).
-- PDF documents: branded invoice PDF, day-sheet PDF, tech run sheet PDF.
-- Customer import: CSV UTF-8; Housecall Pro multi-site; junk phone names skipped; wipe clears equipment FKs.
-- Calendar: drag day; click job to edit start time & duration.
-- Callbacks: Schedule revisit → New job as Callback.
-- Job costing: Settings → Job costing; P&L on jobs/estimates; Reports; Export CSV. Needs job-costing.sql once.
-- Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help.
-- Floating Help bot: Help button bottom-right on every office/tech page; chat survives navigation in the browser session.
+- Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
+- The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
+- SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.
+- Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help (includes Feature modules catalog).
+- Floating Help bot: Help button bottom-right; needs AI tools module; chat survives navigation in the browser session.
 
-FAQ:
 ${faqBlock}`,
       },
       ...recent.map((m) => ({

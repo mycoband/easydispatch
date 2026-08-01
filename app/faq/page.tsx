@@ -36,9 +36,9 @@ export default function PublicFaqPage() {
             FAQ
           </h1>
           <p className="text-sm text-slate-600">
-            Customers, jobs, job costing, reports, estimates, tech app, and
-            settings. Signed-in users also get the Help chat button
-            (bottom-right) on every page.
+            Customers, jobs, every Feature module toggle, costing, estimates,
+            tech app, and settings. Signed-in users also get Help & FAQ plus
+            the Help chat button (bottom-right).
           </p>
         </header>
 
