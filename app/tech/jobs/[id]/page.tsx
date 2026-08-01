@@ -305,6 +305,7 @@ export default async function TechJobDetailPage({
           allowGenerate={Boolean(
             mods.ai && mods.ai_walkthrough && allow('edit_notes')
           )}
+          allowPdf={Boolean(mods.ai_walkthrough && mods.print_pdfs)}
           readOnlyHint="Your role cannot edit notes — ask a dispatcher if you need changes saved."
         />
       )}

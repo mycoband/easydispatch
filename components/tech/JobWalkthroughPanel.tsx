@@ -110,6 +110,7 @@ export function JobWalkthroughPanel({
   canMedia = true,
   allowTranscribe = false,
   allowGenerate = false,
+  allowPdf = false,
   readOnlyHint,
 }: {
   jobId: string;
@@ -119,6 +120,8 @@ export function JobWalkthroughPanel({
   canMedia?: boolean;
   allowTranscribe?: boolean;
   allowGenerate?: boolean;
+  /** PDF documents module — download walkthrough PDF */
+  allowPdf?: boolean;
   readOnlyHint?: string;
 }) {
   const router = useRouter();
@@ -176,6 +179,7 @@ export function JobWalkthroughPanel({
   const hasCapture = notes.trim().length > 0 || media.length > 0;
   const canRunGenerate =
     allowGenerate && canEdit && hasCapture && !recording && !busy;
+  const canDownloadPdf = allowPdf && reportReady;
 
   function updatePart(
     index: number,
@@ -697,6 +701,14 @@ export function JobWalkthroughPanel({
                 Edit walkthrough
               </button>
             )}
+            {canDownloadPdf && (
+              <a
+                href={`/api/jobs/${jobId}/walkthrough/pdf`}
+                className="rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+              >
+                Download PDF
+              </a>
+            )}
             {canRunGenerate && (
               <button
                 type="button"
@@ -724,6 +736,11 @@ export function JobWalkthroughPanel({
               </button>
             )}
           </div>
+          {!allowPdf && (
+            <p className="text-xs text-ink-400">
+              PDF download needs Feature modules → PDF documents
+            </p>
+          )}
         </div>
       )}
 
@@ -941,16 +958,30 @@ export function JobWalkthroughPanel({
             </div>
           </div>
 
-          {canEdit && (
-            <button
-              type="button"
-              disabled={busy || recording}
-              onClick={() => void saveToJob()}
-              className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
-            >
-              {pending === 'save' ? 'Saving to job…' : 'Save to Job'}
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <button
+                type="button"
+                disabled={busy || recording}
+                onClick={() => void saveToJob()}
+                className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+              >
+                {pending === 'save' ? 'Saving to job…' : 'Save to Job'}
+              </button>
+            )}
+            {canDownloadPdf && (
+              <a
+                href={`/api/jobs/${jobId}/walkthrough/pdf`}
+                className="rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+              >
+                Download PDF
+              </a>
+            )}
+          </div>
+          <p className="text-xs text-ink-400">
+            Save copies findings → diagnosis, customer summary → job summary,
+            and syncs parts/labor to line items (when your role allows).
+          </p>
         </div>
       )}
 

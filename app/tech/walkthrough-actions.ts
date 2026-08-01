@@ -349,18 +349,73 @@ export async function generateWalkthroughReportAction(
       .limit(40);
 
     const media = mediaRows ?? [];
-    const voiceTranscripts = media
-      .filter((m) => m.kind === 'voice')
-      .map((m) => transcriptFromCaption(m.caption))
-      .filter(Boolean);
     const photoUrls = media
       .filter((m) => m.kind === 'photo' && m.url)
       .map((m) => m.url as string);
 
-    if (!notesIn && voiceTranscripts.length === 0 && photoUrls.length === 0) {
+    // Auto-transcribe walkthrough voice notes that lack a caption (Whisper).
+    const voiceTranscripts: string[] = [];
+    let autoTxCount = 0;
+    for (const m of media.filter((row) => row.kind === 'voice')) {
+      let text = transcriptFromCaption(m.caption);
+      if (!text && m.url && process.env.OPENAI_API_KEY?.trim()) {
+        try {
+          const audioRes = await fetch(m.url);
+          if (audioRes.ok) {
+            const buffer = Buffer.from(await audioRes.arrayBuffer());
+            const contentType =
+              audioRes.headers.get('content-type') || 'audio/webm';
+            const filename = m.url.split('/').pop() || 'voice.webm';
+            const { transcribeAudioBuffer } = await import(
+              '@/lib/ai/transcribe'
+            );
+            text = await transcribeAudioBuffer(buffer, filename, contentType);
+            if (text) {
+              const caption = `Transcript: ${text.slice(0, 480)}${
+                text.length > 480 ? '…' : ''
+              }`;
+              await supabase
+                .from('job_attachments')
+                .update({ caption })
+                .eq('id', m.id);
+              autoTxCount += 1;
+            }
+          }
+        } catch {
+          /* best-effort; Generate can still use notes/photos */
+        }
+      }
+      if (text) voiceTranscripts.push(text);
+    }
+
+    // Fold new transcripts into field notes when notes were empty-ish
+    if (autoTxCount > 0) {
+      const joined = voiceTranscripts.join('\n\n');
+      const prev = notesIn.trim();
+      const mergedNotes = prev
+        ? prev.includes(joined.slice(0, 40))
+          ? prev
+          : `${prev}\n\n${joined}`
+        : joined;
+      current = {
+        ...current,
+        notes: mergedNotes || null,
+        status:
+          current.status === 'none' || current.status === 'in_progress'
+            ? 'in_progress'
+            : current.status,
+      };
+    }
+
+    const notesForAi =
+      (autoTxCount > 0 ? current.notes : notesIn)?.trim() ||
+      notesIn ||
+      '';
+
+    if (!notesForAi && voiceTranscripts.length === 0 && photoUrls.length === 0) {
       return {
         error:
-          'Add field notes, record a voice note (and transcribe if possible), or add a photo first',
+          'Add field notes, record a voice note, or add a photo first. Voice auto-transcribe needs OPENAI_API_KEY.',
       };
     }
 
@@ -386,7 +441,7 @@ export async function generateWalkthroughReportAction(
     const { generateWalkthroughReport } = await import('@/lib/grok');
     const ai = await generateWalkthroughReport({
       notes:
-        notesIn ||
+        notesForAi ||
         (jobRow.diagnosis ? `Job diagnosis: ${jobRow.diagnosis}` : ''),
       voiceTranscripts,
       photoUrls,
@@ -395,15 +450,21 @@ export async function generateWalkthroughReportAction(
       customerName: jobRow.customer_name,
     });
 
-    const next = mergeWalkthroughFromAi(current, {
-      findings: ai.findings,
-      work_performed: ai.work_performed,
-      recommendations: ai.recommendations,
-      customer_summary: ai.customer_summary,
-      parts_used: ai.parts_used,
-      labor_hours_estimated: ai.labor_hours_estimated ?? null,
-      labor_rate: ai.labor_rate ?? null,
-    });
+    const next = mergeWalkthroughFromAi(
+      {
+        ...current,
+        notes: current.notes || notesForAi || null,
+      },
+      {
+        findings: ai.findings,
+        work_performed: ai.work_performed,
+        recommendations: ai.recommendations,
+        customer_summary: ai.customer_summary,
+        parts_used: ai.parts_used,
+        labor_hours_estimated: ai.labor_hours_estimated ?? null,
+        labor_rate: ai.labor_rate ?? null,
+      }
+    );
 
     const { error } = await supabase
       .from('jobs')
@@ -415,7 +476,12 @@ export async function generateWalkthroughReportAction(
     if (error) return { error: error.message };
 
     revalidateJob(jobId);
-    return { success: 'Report generated — review below' };
+    return {
+      success:
+        autoTxCount > 0
+          ? `Transcribed ${autoTxCount} voice note${autoTxCount === 1 ? '' : 's'} · report generated — review below`
+          : 'Report generated — review below',
+    };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : 'Generate failed',
@@ -477,8 +543,30 @@ export async function saveWalkthroughToJob(
       return { error: error.message };
     }
 
+    const linePerm = await assertTechCapability('edit_line_items');
+    const { applyWalkthroughToJobFields } = await import(
+      '@/lib/jobs/walkthrough-apply'
+    );
+    let extras = '';
+    try {
+      const applied = await applyWalkthroughToJobFields(
+        supabase,
+        jobId,
+        next,
+        { syncLineItems: linePerm.ok }
+      );
+      if (applied.notesUpdated) {
+        extras += ' · copied to diagnosis / customer summary';
+      }
+      if (applied.lineItemsSynced && linePerm.ok) {
+        extras += ' · parts/labor synced to line items';
+      }
+    } catch {
+      extras += ' · report saved (job field sync skipped)';
+    }
+
     revalidateJob(jobId);
-    return { success: 'Walkthrough saved to job' };
+    return { success: `Walkthrough saved to job${extras}` };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : 'Save failed',

@@ -145,8 +145,8 @@ export const COMPANY_MODULES = [
     id: 'print_pdfs',
     label: 'PDF documents',
     description:
-      'Branded invoice PDF, office day-sheet PDF, tech today’s run-sheet PDF',
-    help: 'Shows PDF download buttons on invoices, Day sheet, and tech My jobs. Turn off to hide all PDFs.',
+      'Branded invoice PDF, job walkthrough PDF, office day-sheet PDF, tech run-sheet PDF',
+    help: 'Shows PDF download on invoices, Day sheet, tech My jobs, and Job Walkthrough (AI). Turn off to hide all PDFs. Walkthrough PDF also needs AI Job Walkthrough on.',
     href: null,
     defaultEnabled: true,
     group: 'Sales & money',
@@ -273,7 +273,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'Free-form voice/photos on a job → AI report (findings, work performed, parts, customer summary)',
-    help: 'On the job → Job Walkthrough (AI). Capture voice/photos → Generate (XAI_API_KEY) → edit fields → Save to Job. Transcribe needs OPENAI_API_KEY. Needs supabase/ai-walkthrough.sql.',
+    help: 'On the job → Job Walkthrough (AI). Capture voice/photos → Generate (XAI_API_KEY; auto-transcribes voice if OPENAI_API_KEY set) → edit → Save to Job (copies diagnosis/customer summary; syncs parts/labor to line items). PDF via PDF documents module. Needs supabase/ai-walkthrough.sql.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

@@ -70,7 +70,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Settings & modules',
     question: 'How do I turn AI Job Walkthrough on or off?',
     answer:
-      'Settings → Feature modules → Field / tech → AI Job Walkthrough. Off hides the Job Walkthrough (AI) panel on tech and office jobs. Generate Report also needs AI tools on + XAI_API_KEY. Transcribe voice needs OPENAI_API_KEY. Run supabase/ai-walkthrough.sql once so notes and reports can save.',
+      'Settings → Feature modules → Field / tech → AI Job Walkthrough. Off hides the Job Walkthrough (AI) panel on tech and office jobs. Generate needs AI tools + XAI_API_KEY. Voice auto-transcribe / Transcribe needs OPENAI_API_KEY. PDF needs PDF documents. Run supabase/ai-walkthrough.sql once so notes and reports can save.',
   },
   {
     id: 'live-dispatch',
@@ -175,7 +175,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Enable Feature modules → AI Job Walkthrough (+ AI tools for Generate). On a job → Job Walkthrough (AI): record voice/photos, Generate Report (XAI_API_KEY), edit every field (findings, work, parts, labor, customer summary), then Save to Job. Status becomes Saved; reopen anytime to view, edit, or regenerate. Transcribe needs OPENAI_API_KEY. Run supabase/ai-walkthrough.sql once.',
+      'Enable Feature modules → AI Job Walkthrough (+ AI tools for Generate). On a job → Job Walkthrough (AI): record voice/photos, Generate Report (XAI_API_KEY; voice auto-transcribes when OPENAI_API_KEY is set), edit every field, then Save to Job. Save copies findings into diagnosis and customer summary onto the job, and syncs parts/labor to line items (needs Edit line items permission). Download PDF when PDF documents is on. Status Saved — reopen anytime to view, edit, or regenerate. Run supabase/ai-walkthrough.sql once.',
+  },
+  {
+    id: 'ai-walkthrough-pdf',
+    category: 'Invoices & PDFs',
+    question: 'How do I download a Job Walkthrough PDF?',
+    answer:
+      'Needs Feature modules → AI Job Walkthrough and PDF documents. On a job with a generated or saved walkthrough, tap Download PDF. File is branded with company info, findings, work performed, parts, labor, and totals.',
   },
   {
     id: 'customer-portal-rich',
@@ -322,7 +329,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Invoices & PDFs',
     question: 'How do day sheet and tech run sheet PDFs work?',
     answer:
-      'PDF documents module on. Office: Day sheet module → Day sheet → Print PDF (stops by tech for that day). Tech: My jobs → Today’s run sheet PDF (today’s assigned stops). Turn PDF documents off to hide all PDF download buttons.',
+      'PDF documents module on. Office: Day sheet → Print PDF; Invoices → PDF; Job → Job Walkthrough → Download PDF (also needs AI Job Walkthrough). Tech: My jobs → Today’s run sheet PDF; job walkthrough PDF on assigned jobs. Turn PDF documents off to hide all PDF download buttons.',
   },
   {
     id: 'tech-estimate',
