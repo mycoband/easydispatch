@@ -229,7 +229,7 @@ export function JobMediaPanel({
               )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium capitalize">
-                  {a.tag || a.kind}
+                  {a.tag === 'pm' ? 'PM checklist' : a.tag || a.kind}
                 </p>
                 <p className="text-xs text-ink-400">
                   {new Date(a.created_at).toLocaleString()}

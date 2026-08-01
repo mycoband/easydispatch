@@ -203,8 +203,8 @@ export const COMPANY_MODULES = [
     id: 'equipment_timeline',
     label: 'Equipment timeline',
     description:
-      'Per-unit service history and PM checklist on the customer and on the job',
-    help: 'Customer profile → Equipment timeline. On a job: link unit (Use on job) → PM checklist panel. Needs workflow-depth.sql for pm_checklist.',
+      'Per-unit history, editable PM checklist, and per-item photos (also → Job photos on a visit)',
+    help: 'Customer → Equipment timeline, or job → PM checklist after linking a unit. Edit items to add/remove checks. Add photo on each item — on a job those photos also appear under Job photos (tag PM). Needs workflow-depth.sql for pm_checklist.',
     href: null,
     defaultEnabled: true,
     group: 'Operations',

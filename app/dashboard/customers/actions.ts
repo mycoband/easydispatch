@@ -431,15 +431,26 @@ export async function deleteEquipment(
 export async function saveEquipmentPmChecklist(
   customerId: string,
   equipmentId: string,
-  checklist: Record<string, { checked: boolean; at?: string | null }>,
+  checklist: unknown,
   jobId?: string | null
 ): Promise<ActionState> {
   try {
+    const { serializePmChecklist, normalizePmChecklist } = await import(
+      '@/lib/equipment/pm-checklist'
+    );
     const { supabase } = await requireEquipmentAccess(customerId);
+    const doc = serializePmChecklist(normalizePmChecklist(checklist));
+    if (!doc.items.length) {
+      return { error: 'Add at least one checklist item' };
+    }
+    if (doc.items.some((i) => !i.label.trim())) {
+      return { error: 'Every item needs a label' };
+    }
+
     const { error } = await supabase
       .from('equipment')
       .update({
-        pm_checklist: checklist,
+        pm_checklist: doc,
         updated_at: new Date().toISOString(),
       })
       .eq('id', equipmentId)
@@ -461,6 +472,148 @@ export async function saveEquipmentPmChecklist(
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : 'Could not save checklist',
+    };
+  }
+}
+
+/**
+ * Upload a photo for a PM checklist item; stores URL on the unit checklist
+ * and also creates a job photo when jobId is provided.
+ */
+export async function uploadPmChecklistPhoto(
+  customerId: string,
+  equipmentId: string,
+  itemId: string,
+  formData: FormData
+): Promise<ActionState & { url?: string }> {
+  try {
+    const {
+      normalizePmChecklist,
+      serializePmChecklist,
+    } = await import('@/lib/equipment/pm-checklist');
+    const { createServiceClient } = await import('@/lib/supabase/admin');
+    const { supabase, user } = await requireEquipmentAccess(customerId);
+
+    const jobId = emptyToNull(formString(formData, 'job_id'));
+    const file = formData.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      return { error: 'Photo required' };
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      return { error: 'File too large (max 20MB)' };
+    }
+    if (!file.type.startsWith('image/')) {
+      return { error: 'Image files only' };
+    }
+
+    const { data: equip, error: loadErr } = await supabase
+      .from('equipment')
+      .select('id, pm_checklist, name, equipment_type')
+      .eq('id', equipmentId)
+      .eq('customer_id', customerId)
+      .maybeSingle();
+    if (loadErr || !equip) {
+      return { error: loadErr?.message || 'Equipment not found' };
+    }
+
+    const doc = normalizePmChecklist(equip.pm_checklist);
+    const item = doc.items.find((i) => i.id === itemId);
+    if (!item) return { error: 'Checklist item not found — save items first' };
+
+    const admin = createServiceClient();
+    const ext =
+      file.type === 'image/png'
+        ? 'png'
+        : file.type === 'image/webp'
+          ? 'webp'
+          : 'jpg';
+    const path = jobId
+      ? `${jobId}/pm-${itemId}-${Date.now()}.${ext}`
+      : `equipment/${equipmentId}/pm-${itemId}-${Date.now()}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const { error: uploadError } = await admin.storage
+      .from('job-media')
+      .upload(path, buffer, {
+        contentType: file.type || 'image/jpeg',
+        upsert: false,
+      });
+    if (uploadError) {
+      return {
+        error: `Upload failed: ${uploadError.message}. Confirm job-media bucket exists.`,
+      };
+    }
+
+    const { data: urlData } = admin.storage.from('job-media').getPublicUrl(path);
+    const url = urlData.publicUrl;
+    const now = new Date().toISOString();
+
+    let attachmentId: string | null = null;
+    if (jobId) {
+      const unitLabel =
+        equip.name || equip.equipment_type || 'Unit';
+      const { data: att, error: attErr } = await admin
+        .from('job_attachments')
+        .insert({
+          job_id: jobId,
+          kind: 'photo',
+          tag: 'pm',
+          url,
+          caption: `PM: ${item.label} · ${unitLabel}`,
+          created_by: user.id,
+        })
+        .select('id')
+        .maybeSingle();
+      if (attErr) {
+        return { error: attErr.message };
+      }
+      attachmentId = att?.id || null;
+    }
+
+    const prev = doc.checks[itemId] || {
+      checked: false,
+      at: null,
+      photos: [],
+    };
+    doc.checks[itemId] = {
+      ...prev,
+      photos: [
+        ...(prev.photos || []),
+        { url, attachmentId, at: now },
+      ],
+    };
+
+    const { error } = await supabase
+      .from('equipment')
+      .update({
+        pm_checklist: serializePmChecklist(doc),
+        updated_at: now,
+      })
+      .eq('id', equipmentId)
+      .eq('customer_id', customerId);
+
+    if (error) {
+      return {
+        error: /pm_checklist|column|schema cache/i.test(error.message)
+          ? 'Run supabase/workflow-depth.sql in Supabase first.'
+          : error.message,
+      };
+    }
+
+    revalidateEquipmentPaths(customerId, jobId);
+    if (jobId) {
+      revalidatePath(`/tech/jobs/${jobId}`);
+      revalidatePath(`/dashboard/jobs/${jobId}`);
+    }
+    return {
+      success: jobId
+        ? 'Photo saved on checklist and job photos'
+        : 'Photo saved on checklist',
+      url,
+    };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Photo upload failed',
     };
   }
 }

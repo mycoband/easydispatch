@@ -154,7 +154,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Customers',
     question: 'Where is the equipment timeline and PM checklist?',
     answer:
-      'Enable Feature modules → Equipment timeline. On a job (office or tech): PM checklist panel appears after you link a unit under Equipment → Use on job. Same checklist is on the customer → Equipment timeline. Saved on the unit. Needs supabase/workflow-depth.sql once for the pm_checklist column.',
+      'Enable Feature modules → Equipment timeline. On a job (office or tech): PM checklist after Equipment → Use on job. Same checklist on customer → Equipment timeline. Edit items to add/remove custom checks. Add photo per item — on a job those photos also go to Job photos (tag PM). Saved on the unit. Needs supabase/workflow-depth.sql for pm_checklist.',
+  },
+  {
+    id: 'pm-checklist-photos',
+    category: 'Tech app',
+    question: 'How do PM checklist photos and custom items work?',
+    answer:
+      'Needs Equipment timeline on. Open the job PM checklist (or customer Equipment timeline) → Edit items to add/remove/rename checks, or Reset defaults. Add photo on any item. When you’re on a job, each photo is also saved under Job photos with caption “PM: …”. Photos stay on the unit checklist for later visits.',
   },
   {
     id: 'customer-portal-rich',

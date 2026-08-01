@@ -1,14 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { saveEquipmentPmChecklist } from '@/app/dashboard/customers/actions';
-import {
-  EQUIPMENT_PM_ITEMS,
-  normalizePmChecklist,
-  type PmChecklistState,
-} from '@/lib/equipment/pm-checklist';
+import { PmChecklistPanel } from '@/components/equipment/PmChecklistPanel';
 import { formatTimestamp } from '@/lib/jobs/time-tracking';
 import { formatMoney } from '@/lib/jobs/totals';
 import { cn } from '@/lib/utils';
@@ -69,7 +63,7 @@ export function EquipmentTimeline({
           Equipment timeline
         </h2>
         <p className="mt-0.5 text-sm text-ink-500">
-          Full history and PM checklist per unit — builds trust on callbacks
+          History, editable PM checklist, and per-item photos per unit
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -112,40 +106,12 @@ function UnitPanel({
   unit: Unit;
   jobs: JobRow[];
 }) {
-  const router = useRouter();
-  const [checklist, setChecklist] = useState<PmChecklistState>(() =>
-    normalizePmChecklist(unit.pm_checklist)
-  );
-  const [pending, setPending] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  async function toggle(id: string) {
-    const next: PmChecklistState = {
-      ...checklist,
-      [id]: {
-        checked: !checklist[id as keyof PmChecklistState]?.checked,
-        at: new Date().toISOString(),
-      },
-    };
-    setChecklist(next);
-    setPending(true);
-    setMsg(null);
-    const result = await saveEquipmentPmChecklist(
-      customerId,
-      unit.id,
-      next
-    );
-    setMsg(result.error || result.success || null);
-    setPending(false);
-    if (!result.error) router.refresh();
-  }
+  const unitLabel = unit.name || unit.equipment_type || 'Unit';
 
   return (
     <div className="space-y-4 rounded-xl border border-ink-100 bg-ink-50/40 p-4">
       <div>
-        <p className="font-semibold text-ink-900">
-          {unit.name || unit.equipment_type || 'Unit'}
-        </p>
+        <p className="font-semibold text-ink-900">{unitLabel}</p>
         <p className="text-xs text-ink-500">
           {[unit.manufacturer, unit.model, unit.serial_number]
             .filter(Boolean)
@@ -153,32 +119,13 @@ function UnitPanel({
         </p>
       </div>
 
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
-          PM checklist {pending ? '· saving…' : ''}
-        </p>
-        <ul className="grid gap-1.5 sm:grid-cols-2">
-          {EQUIPMENT_PM_ITEMS.map((item) => {
-            const checked = Boolean(checklist[item.id]?.checked);
-            return (
-              <li key={item.id}>
-                <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-ink-100 bg-white px-2.5 py-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => void toggle(item.id)}
-                    className="mt-0.5"
-                  />
-                  <span className={checked ? 'text-ink-500 line-through' : ''}>
-                    {item.label}
-                  </span>
-                </label>
-              </li>
-            );
-          })}
-        </ul>
-        {msg && <p className="mt-2 text-xs text-ink-600">{msg}</p>}
-      </div>
+      <PmChecklistPanel
+        customerId={customerId}
+        equipmentId={unit.id}
+        rawChecklist={unit.pm_checklist}
+        unitLabel={unitLabel}
+        compact
+      />
 
       <div>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
@@ -187,7 +134,8 @@ function UnitPanel({
         {jobs.length === 0 ? (
           <p className="text-sm text-ink-400">
             No jobs linked to this unit yet — link equipment on a job to build
-            the timeline.
+            the timeline. Upload PM photos from a job to also file them under
+            Job photos.
           </p>
         ) : (
           <ul className="space-y-2">

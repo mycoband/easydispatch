@@ -13,7 +13,7 @@ comment on column public.inventory_items.reorder_ordered_at is 'When last marked
 alter table public.equipment
   add column if not exists pm_checklist jsonb default '{}'::jsonb;
 
-comment on column public.equipment.pm_checklist is 'Per-unit PM checklist state { itemId: { checked, at } }';
+comment on column public.equipment.pm_checklist is 'Per-unit PM checklist v2: { version:2, items:[{id,label}], checks:{ id:{ checked, at, photos:[{url,attachmentId,at}] } } }. Legacy flat maps are migrated in app code.';
 
 -- Customer account portal links (status, history, approve, pay)
 alter table public.portal_tokens
