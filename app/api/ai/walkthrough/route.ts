@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { generateWalkthroughReportAction } from '@/app/tech/walkthrough-actions';
 import { createClient } from '@/lib/supabase/server';
 
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 const bodySchema = z.object({
   jobId: z.string().uuid(),

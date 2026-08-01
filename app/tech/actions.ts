@@ -178,11 +178,18 @@ export async function uploadJobAttachment(
     if (!(file instanceof File) || file.size === 0) {
       return { error: 'File required' };
     }
-    if (!['photo', 'voice', 'note'].includes(kind)) {
+    if (!['photo', 'voice', 'note', 'video'].includes(kind)) {
       return { error: 'Invalid kind' };
     }
-    if (file.size > 20 * 1024 * 1024) {
-      return { error: 'File too large (max 20MB)' };
+    const maxBytes =
+      kind === 'video' ? 80 * 1024 * 1024 : 20 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      return {
+        error:
+          kind === 'video'
+            ? 'Video too large (max 80MB — keep clips under ~90 seconds)'
+            : 'File too large (max 20MB)',
+      };
     }
 
     const admin = createServiceClient();
@@ -191,18 +198,32 @@ export async function uploadJobAttachment(
         ? file.type.includes('mp4')
           ? 'mp4'
           : 'webm'
-        : file.type === 'image/png'
-          ? 'png'
-          : file.type === 'image/webp'
-            ? 'webp'
-            : 'jpg';
+        : kind === 'video'
+          ? file.type.includes('mp4')
+            ? 'mp4'
+            : file.type.includes('quicktime')
+              ? 'mov'
+              : 'webm'
+          : file.type === 'image/png'
+            ? 'png'
+            : file.type === 'image/webp'
+              ? 'webp'
+              : 'jpg';
     const fileName = `${jobId}/${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    const contentType =
+      file.type ||
+      (kind === 'voice'
+        ? 'audio/webm'
+        : kind === 'video'
+          ? 'video/webm'
+          : 'image/jpeg');
 
     const { error: uploadError } = await admin.storage
       .from('job-media')
       .upload(fileName, buffer, {
-        contentType: file.type || (kind === 'voice' ? 'audio/webm' : 'image/jpeg'),
+        contentType,
         upsert: false,
       });
 
@@ -243,9 +264,24 @@ export async function uploadJobAttachment(
       ...(companyId ? { company_id: companyId } : {}),
     });
 
-    if (error) return { error: error.message };
+    if (error) {
+      if (/kind|check|video/i.test(error.message)) {
+        return {
+          error:
+            'Video not enabled in database. Run supabase/ai-walkthrough-video.sql (or updated ai-walkthrough.sql) in Supabase.',
+        };
+      }
+      return { error: error.message };
+    }
     revalidateTechJob(jobId);
-    return { success: kind === 'voice' ? 'Voice note saved' : 'Photo saved' };
+    return {
+      success:
+        kind === 'voice'
+          ? 'Voice note saved'
+          : kind === 'video'
+            ? 'Video walkthrough saved'
+            : 'Photo saved',
+    };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Upload failed' };
   }

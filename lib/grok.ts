@@ -59,6 +59,16 @@ function chatModel() {
   return process.env.XAI_CHAT_MODEL || process.env.XAI_VISION_MODEL || 'grok-4.5';
 }
 
+/** Model that accepts native video_url content (Grok 4.3+). */
+function videoModel() {
+  return (
+    process.env.XAI_VIDEO_MODEL ||
+    process.env.XAI_CHAT_MODEL ||
+    process.env.XAI_VISION_MODEL ||
+    'grok-4.3'
+  );
+}
+
 export async function callGrok(
   messages: unknown[],
   options: { model?: string; temperature?: number } = {}
@@ -656,13 +666,15 @@ export const walkthroughReportSchema = z.object({
 export type WalkthroughReport = z.infer<typeof walkthroughReportSchema>;
 
 /**
- * Free-form field notes + voice transcripts (+ optional photos) →
+ * Free-form field notes + voice/video (+ optional photos) →
  * structured HVAC/R walkthrough report JSON.
+ * Videos are sent as native video_url when the model supports it.
  */
 export async function generateWalkthroughReport(input: {
   notes: string;
   voiceTranscripts?: string[];
   photoUrls?: string[];
+  videoUrls?: string[];
   jobType?: string | null;
   equipmentSummary?: string | null;
   customerName?: string | null;
@@ -673,16 +685,22 @@ export async function generateWalkthroughReport(input: {
     .map((t) => t.trim())
     .filter(Boolean);
   const photoUrls = (input.photoUrls || []).filter(Boolean).slice(0, 4);
+  const videoUrls = (input.videoUrls || []).filter(Boolean).slice(0, 2);
 
-  if (!notes && transcripts.length === 0 && photoUrls.length === 0) {
+  if (
+    !notes &&
+    transcripts.length === 0 &&
+    photoUrls.length === 0 &&
+    videoUrls.length === 0
+  ) {
     throw new Error(
-      'Add field notes, a voice note, or a photo before generating a report'
+      'Add field notes, a video, a voice note, or a photo before generating a report'
     );
   }
 
   const transcriptBlock =
     transcripts.length > 0
-      ? transcripts.map((t, i) => `Voice ${i + 1}:\n${t}`).join('\n\n')
+      ? transcripts.map((t, i) => `Voice/transcript ${i + 1}:\n${t}`).join('\n\n')
       : '(none)';
 
   const laborHint =
@@ -711,7 +729,8 @@ Rules:
 - parts_used only for parts clearly needed or used; estimated_cost in USD (rough OK).
 - Prefer empty string / empty array over inventing content.
 - ${laborHint}
-- If photos are attached, use them only as supporting context (nameplates, damage, filters) — do not invent unread serials.`;
+- If video is attached, use the spoken narration AND what you see (equipment, damage, nameplates, filters, gauges) as the primary source.
+- If photos are attached, use them as supporting context — do not invent unread serials.`;
 
   const textBody = `Job type: ${input.jobType || 'Service'}
 Customer: ${input.customerName || 'unknown'}
@@ -720,43 +739,76 @@ Equipment: ${input.equipmentSummary || 'unknown'}
 Field notes:
 ${notes || '(none)'}
 
-Voice transcripts:
+Voice / audio transcripts:
 ${transcriptBlock}
 
-Photos attached: ${photoUrls.length}`;
+Videos attached: ${videoUrls.length}
+Photos attached: ${photoUrls.length}
 
-  const userContent:
-    | string
-    | Array<
-        | { type: 'text'; text: string }
-        | { type: 'image_url'; image_url: { url: string; detail: string } }
-      > =
-    photoUrls.length > 0
-      ? [
-          ...photoUrls.map((url) => ({
-            type: 'image_url' as const,
-            image_url: { url, detail: 'low' as const },
-          })),
-          { type: 'text' as const, text: textBody },
-        ]
-      : textBody;
+Watch any attached video walkthrough (picture + narration) and produce the structured report.`;
 
-  const content = await callGrok(
-    [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userContent },
-    ],
-    {
-      model: photoUrls.length > 0 ? visionModel() : chatModel(),
-      temperature: 0.2,
+  type ContentPart =
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string; detail: string } }
+    | { type: 'video_url'; video_url: { url: string } };
+
+  const buildContent = (includeVideo: boolean): string | ContentPart[] => {
+    const parts: ContentPart[] = [];
+    if (includeVideo) {
+      for (const url of videoUrls) {
+        parts.push({ type: 'video_url', video_url: { url } });
+      }
     }
-  );
+    for (const url of photoUrls) {
+      parts.push({
+        type: 'image_url',
+        image_url: { url, detail: 'low' },
+      });
+    }
+    parts.push({ type: 'text', text: textBody });
+    if (parts.length === 1 && parts[0].type === 'text') {
+      return textBody;
+    }
+    return parts;
+  };
 
-  const parsed = walkthroughReportSchema.safeParse(parseJsonContent(content));
-  if (!parsed.success) {
-    throw new Error('Could not parse walkthrough report response');
+  const modelFor = (includeVideo: boolean) => {
+    if (includeVideo && videoUrls.length > 0) return videoModel();
+    if (photoUrls.length > 0) return visionModel();
+    return chatModel();
+  };
+
+  async function run(includeVideo: boolean) {
+    const content = await callGrok(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: buildContent(includeVideo) },
+      ],
+      {
+        model: modelFor(includeVideo),
+        temperature: 0.2,
+      }
+    );
+    const parsed = walkthroughReportSchema.safeParse(parseJsonContent(content));
+    if (!parsed.success) {
+      throw new Error('Could not parse walkthrough report response');
+    }
+    return parsed.data;
   }
-  return parsed.data;
+
+  try {
+    return await run(videoUrls.length > 0);
+  } catch (err) {
+    // Older models reject video_url — retry with photos + transcripts only
+    if (videoUrls.length > 0) {
+      console.warn(
+        'Walkthrough video generate failed; retrying without video_url:',
+        err
+      );
+      return await run(false);
+    }
+    throw err;
+  }
 }
 
 export type HelpChatMessage = {

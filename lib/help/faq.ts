@@ -175,7 +175,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Enable Feature modules → AI Job Walkthrough (+ AI tools for Generate). On a job → Job Walkthrough (AI): record voice/photos, Generate Report (XAI_API_KEY; voice auto-transcribes when OPENAI_API_KEY is set), edit every field, then Save to Job. Save copies findings into diagnosis and customer summary onto the job, and syncs parts/labor to line items (needs Edit line items permission). Download PDF when PDF documents is on. Status Saved — reopen anytime to view, edit, or regenerate. Run supabase/ai-walkthrough.sql once.',
+      'Enable Feature modules → AI Job Walkthrough (+ AI tools for Generate). On a job → Job Walkthrough (AI): best experience is Record video walkthrough (camera + mic, up to ~90s) so Grok sees the site and hears your narration. You can also use voice-only or photos. Generate Report needs XAI_API_KEY (set XAI_VIDEO_MODEL=grok-4.3 if video fails on an older model). Whisper auto-transcribe needs OPENAI_API_KEY. Edit fields → Save to Job (copies diagnosis/customer summary; syncs parts/labor). PDF when PDF documents is on. SQL: supabase/ai-walkthrough.sql once; if video upload errors on kind, run ai-walkthrough-video.sql.',
+  },
+  {
+    id: 'ai-walkthrough-video',
+    category: 'Tech app',
+    question: 'How do I record a video job walkthrough?',
+    answer:
+      'On the job → Job Walkthrough (AI) → Record video walkthrough. Allow camera + mic. Walk the equipment and narrate (under 90 seconds / ~80MB). Upload video file also works. Then Generate Report — Grok uses the video picture and audio. Run supabase/ai-walkthrough-video.sql if the database still rejects kind “video”.',
   },
   {
     id: 'ai-walkthrough-pdf',

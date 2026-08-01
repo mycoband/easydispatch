@@ -126,8 +126,10 @@ export function JobWalkthroughPanel({
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoFileRef = useRef<HTMLInputElement>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [notes, setNotes] = useState(walkthrough.notes || '');
   const [report, setReport] = useState(() => reportFromWalkthrough(walkthrough));
@@ -136,7 +138,9 @@ export function JobWalkthroughPanel({
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [recording, setRecording] = useState(false);
+  const [recordingKind, setRecordingKind] = useState<
+    null | 'voice' | 'video'
+  >(null);
 
   useEffect(() => {
     setNotes(walkthrough.notes || '');
@@ -169,6 +173,7 @@ export function JobWalkthroughPanel({
 
   const voices = media.filter((m) => m.kind === 'voice');
   const photos = media.filter((m) => m.kind === 'photo');
+  const videos = media.filter((m) => m.kind === 'video');
   const status = walkthrough.status;
   const reportReady = hasReportContent(report);
   const showSavedView =
@@ -176,10 +181,18 @@ export function JobWalkthroughPanel({
   const showEditForm =
     reportReady && (status === 'generated' || editingSaved || status === 'saved');
   const busy = Boolean(pending);
+  const recording = Boolean(recordingKind);
   const hasCapture = notes.trim().length > 0 || media.length > 0;
   const canRunGenerate =
     allowGenerate && canEdit && hasCapture && !recording && !busy;
   const canDownloadPdf = allowPdf && reportReady;
+
+  function clearRecordTimer() {
+    if (recordTimer.current) {
+      clearTimeout(recordTimer.current);
+      recordTimer.current = null;
+    }
+  }
 
   function updatePart(
     index: number,
@@ -251,7 +264,7 @@ export function JobWalkthroughPanel({
     setPending(null);
   }
 
-  async function uploadFile(file: File, kind: 'photo' | 'voice') {
+  async function uploadFile(file: File, kind: 'photo' | 'voice' | 'video') {
     if (!canMedia) return;
     setPending(kind);
     setError(null);
@@ -280,12 +293,30 @@ export function JobWalkthroughPanel({
     await uploadFile(file, 'photo');
   }
 
+  async function onPickVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await uploadFile(file, 'video');
+  }
+
+  function stopRecording() {
+    clearRecordTimer();
+    if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+      mediaRecorder.current.stop();
+    }
+    setRecordingKind(null);
+  }
+
   async function toggleVoice() {
     if (!canMedia) return;
     setError(null);
-    if (recording && mediaRecorder.current) {
-      mediaRecorder.current.stop();
-      setRecording(false);
+    if (recordingKind === 'voice') {
+      stopRecording();
+      return;
+    }
+    if (recordingKind === 'video') {
+      setError('Stop the video recording first');
       return;
     }
     try {
@@ -296,6 +327,7 @@ export function JobWalkthroughPanel({
         if (ev.data.size) chunks.current.push(ev.data);
       };
       rec.onstop = async () => {
+        clearRecordTimer();
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunks.current, { type: 'audio/webm' });
         const file = new File([blob], `walkthrough-${Date.now()}.webm`, {
@@ -305,9 +337,66 @@ export function JobWalkthroughPanel({
       };
       mediaRecorder.current = rec;
       rec.start();
-      setRecording(true);
+      setRecordingKind('voice');
     } catch {
       setError('Microphone permission denied');
+    }
+  }
+
+  async function toggleVideo() {
+    if (!canMedia) return;
+    setError(null);
+    if (recordingKind === 'video') {
+      stopRecording();
+      return;
+    }
+    if (recordingKind === 'voice') {
+      setError('Stop the voice recording first');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+        ? 'video/webm;codecs=vp8,opus'
+        : MediaRecorder.isTypeSupported('video/mp4')
+          ? 'video/mp4'
+          : 'video/webm';
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      chunks.current = [];
+      rec.ondataavailable = (ev) => {
+        if (ev.data.size) chunks.current.push(ev.data);
+      };
+      rec.onstop = async () => {
+        clearRecordTimer();
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunks.current, {
+          type: mime.includes('mp4') ? 'video/mp4' : 'video/webm',
+        });
+        const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+        const file = new File([blob], `walkthrough-${Date.now()}.${ext}`, {
+          type: blob.type,
+        });
+        await uploadFile(file, 'video');
+      };
+      mediaRecorder.current = rec;
+      rec.start(1000);
+      setRecordingKind('video');
+      // Keep clips short for upload size + Grok video limits
+      recordTimer.current = setTimeout(() => {
+        if (mediaRecorder.current && mediaRecorder.current.state !== 'inactive') {
+          setMessage('Video capped at 90 seconds — saving…');
+          stopRecording();
+        }
+      }, 90_000);
+    } catch {
+      setError('Camera / microphone permission denied');
     }
   }
 
@@ -396,13 +485,27 @@ export function JobWalkthroughPanel({
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                disabled={busy}
-                onClick={toggleVoice}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
-                  recording ? 'bg-red-600' : 'bg-ink-800'
+                disabled={busy || recordingKind === 'voice'}
+                onClick={() => void toggleVideo()}
+                className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2 ${
+                  recordingKind === 'video' ? 'bg-red-600' : 'bg-violet-700'
                 }`}
               >
-                {recording
+                {recordingKind === 'video'
+                  ? 'Stop video (max 90s)'
+                  : pending === 'video'
+                    ? 'Saving video…'
+                    : 'Record video walkthrough'}
+              </button>
+              <button
+                type="button"
+                disabled={busy || recordingKind === 'video'}
+                onClick={() => void toggleVoice()}
+                className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
+                  recordingKind === 'voice' ? 'bg-red-600' : 'bg-ink-800'
+                }`}
+              >
+                {recordingKind === 'voice'
                   ? 'Stop recording'
                   : pending === 'voice'
                     ? 'Saving…'
@@ -416,6 +519,14 @@ export function JobWalkthroughPanel({
               >
                 {pending === 'photo' ? 'Uploading…' : 'Add photo'}
               </button>
+              <button
+                type="button"
+                disabled={busy || recording}
+                onClick={() => videoFileRef.current?.click()}
+                className="rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm font-semibold text-ink-800 disabled:opacity-50 sm:col-span-2"
+              >
+                Upload video file
+              </button>
               <input
                 ref={fileRef}
                 type="file"
@@ -424,6 +535,85 @@ export function JobWalkthroughPanel({
                 className="hidden"
                 onChange={onPickPhoto}
               />
+              <input
+                ref={videoFileRef}
+                type="file"
+                accept="video/*"
+                capture="environment"
+                className="hidden"
+                onChange={onPickVideo}
+              />
+            </div>
+          )}
+
+          {recordingKind === 'video' && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              Recording video + audio… walk the job and narrate. Tap Stop when
+              done (auto-stops at 90s).
+            </p>
+          )}
+
+          {videos.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+                Videos ({videos.length})
+              </p>
+              <ul className="space-y-2">
+                {videos.map((a, idx) => (
+                  <li
+                    key={a.id}
+                    className="rounded-xl border border-ink-100 bg-white p-3"
+                  >
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-ink-800">
+                        Video {videos.length - idx}
+                      </p>
+                      <p className="text-xs text-ink-400">
+                        {new Date(a.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    {a.url ? (
+                      <video
+                        controls
+                        playsInline
+                        src={a.url}
+                        className="w-full rounded-lg bg-ink-950"
+                      />
+                    ) : (
+                      <p className="text-sm text-ink-400">No video URL</p>
+                    )}
+                    {a.caption && (
+                      <p className="mt-2 whitespace-pre-wrap text-xs text-ink-600">
+                        {a.caption}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      {allowTranscribe && canEdit && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void transcribe(a.id)}
+                          className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50"
+                        >
+                          {pending === `tx-${a.id}`
+                            ? 'Transcribing…'
+                            : 'Transcribe audio → notes'}
+                        </button>
+                      )}
+                      {canMedia && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void removeMedia(a.id)}
+                          className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
+                        >
+                          {pending === `del-${a.id}` ? 'Removing…' : 'Delete'}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -532,7 +722,7 @@ export function JobWalkthroughPanel({
 
           {media.length === 0 && (
             <p className="rounded-xl border border-dashed border-ink-200 bg-ink-50/50 px-3 py-4 text-center text-sm text-ink-400">
-              No walkthrough media yet — record a voice note or add a photo
+              No walkthrough media yet — record a video (best), voice, or photo
             </p>
           )}
 
@@ -679,10 +869,10 @@ export function JobWalkthroughPanel({
             </div>
           )}
 
-          {media.length > 0 && (
+            {media.length > 0 && (
             <p className="text-xs text-ink-500">
-              {voices.length} voice · {photos.length} photo
-              {photos.length !== 1 ? 's' : ''} on this walkthrough
+              {videos.length} video · {voices.length} voice · {photos.length}{' '}
+              photo{photos.length !== 1 ? 's' : ''} on this walkthrough
             </p>
           )}
 

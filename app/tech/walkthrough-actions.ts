@@ -156,11 +156,14 @@ export async function uploadWalkthroughMedia(
   if (result.error) return result;
   await bumpWalkthroughInProgress(jobId);
   revalidateJob(jobId);
+  const kind = String(formData.get('kind') || '');
   return {
     success:
-      String(formData.get('kind') || '') === 'voice'
+      kind === 'voice'
         ? 'Walkthrough voice saved'
-        : 'Walkthrough photo saved',
+        : kind === 'video'
+          ? 'Walkthrough video saved'
+          : 'Walkthrough photo saved',
   };
 }
 
@@ -172,7 +175,7 @@ export async function deleteWalkthroughMedia(
 }
 
 /**
- * Whisper a walkthrough voice note → caption + append into walkthrough.notes.
+ * Whisper a walkthrough voice/video → caption + append into walkthrough.notes.
  * Does not touch diagnosis / customer_summary (those stay on Job photos).
  */
 export async function transcribeWalkthroughVoice(
@@ -211,21 +214,24 @@ export async function transcribeWalkthroughVoice(
     if (attErr || !att) {
       return { error: attErr?.message || 'Attachment not found' };
     }
-    if (att.kind !== 'voice' || !att.url) {
-      return { error: 'Select a walkthrough voice note' };
+    if ((att.kind !== 'voice' && att.kind !== 'video') || !att.url) {
+      return { error: 'Select a walkthrough voice note or video' };
     }
     if (att.tag !== WALKTHROUGH_MEDIA_TAG) {
-      return { error: 'Not a walkthrough voice note' };
+      return { error: 'Not a walkthrough attachment' };
     }
 
     const audioRes = await fetch(att.url);
     if (!audioRes.ok) {
-      return { error: 'Could not download voice file' };
+      return { error: 'Could not download media file' };
     }
     const buffer = Buffer.from(await audioRes.arrayBuffer());
     const contentType =
-      audioRes.headers.get('content-type') || 'audio/webm';
-    const filename = att.url.split('/').pop() || 'voice.webm';
+      audioRes.headers.get('content-type') ||
+      (att.kind === 'video' ? 'video/webm' : 'audio/webm');
+    const filename =
+      att.url.split('/').pop() ||
+      (att.kind === 'video' ? 'walkthrough.webm' : 'voice.webm');
 
     const { transcribeAudioBuffer } = await import('@/lib/ai/transcribe');
     const transcript = await transcribeAudioBuffer(
@@ -268,7 +274,12 @@ export async function transcribeWalkthroughVoice(
     if (error) return { error: error.message };
 
     revalidateJob(jobId);
-    return { success: 'Voice transcribed into walkthrough notes' };
+    return {
+      success:
+        att.kind === 'video'
+          ? 'Video audio transcribed into walkthrough notes'
+          : 'Voice transcribed into walkthrough notes',
+    };
   } catch (err) {
     return {
       error:
@@ -352,11 +363,16 @@ export async function generateWalkthroughReportAction(
     const photoUrls = media
       .filter((m) => m.kind === 'photo' && m.url)
       .map((m) => m.url as string);
+    const videoUrls = media
+      .filter((m) => m.kind === 'video' && m.url)
+      .map((m) => m.url as string);
 
-    // Auto-transcribe walkthrough voice notes that lack a caption (Whisper).
+    // Auto-transcribe walkthrough voice/video that lack a caption (Whisper).
     const voiceTranscripts: string[] = [];
     let autoTxCount = 0;
-    for (const m of media.filter((row) => row.kind === 'voice')) {
+    for (const m of media.filter(
+      (row) => row.kind === 'voice' || row.kind === 'video'
+    )) {
       let text = transcriptFromCaption(m.caption);
       if (!text && m.url && process.env.OPENAI_API_KEY?.trim()) {
         try {
@@ -364,8 +380,11 @@ export async function generateWalkthroughReportAction(
           if (audioRes.ok) {
             const buffer = Buffer.from(await audioRes.arrayBuffer());
             const contentType =
-              audioRes.headers.get('content-type') || 'audio/webm';
-            const filename = m.url.split('/').pop() || 'voice.webm';
+              audioRes.headers.get('content-type') ||
+              (m.kind === 'video' ? 'video/webm' : 'audio/webm');
+            const filename =
+              m.url.split('/').pop() ||
+              (m.kind === 'video' ? 'walkthrough.webm' : 'voice.webm');
             const { transcribeAudioBuffer } = await import(
               '@/lib/ai/transcribe'
             );
@@ -382,7 +401,7 @@ export async function generateWalkthroughReportAction(
             }
           }
         } catch {
-          /* best-effort; Generate can still use notes/photos */
+          /* best-effort; Generate can still use notes/photos/video */
         }
       }
       if (text) voiceTranscripts.push(text);
@@ -412,10 +431,15 @@ export async function generateWalkthroughReportAction(
       notesIn ||
       '';
 
-    if (!notesForAi && voiceTranscripts.length === 0 && photoUrls.length === 0) {
+    if (
+      !notesForAi &&
+      voiceTranscripts.length === 0 &&
+      photoUrls.length === 0 &&
+      videoUrls.length === 0
+    ) {
       return {
         error:
-          'Add field notes, record a voice note, or add a photo first. Voice auto-transcribe needs OPENAI_API_KEY.',
+          'Add a video walkthrough, field notes, voice, or photo first.',
       };
     }
 
@@ -445,6 +469,7 @@ export async function generateWalkthroughReportAction(
         (jobRow.diagnosis ? `Job diagnosis: ${jobRow.diagnosis}` : ''),
       voiceTranscripts,
       photoUrls,
+      videoUrls,
       jobType: jobRow.job_type,
       equipmentSummary,
       customerName: jobRow.customer_name,

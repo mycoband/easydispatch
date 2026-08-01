@@ -272,8 +272,8 @@ export const COMPANY_MODULES = [
     id: 'ai_walkthrough',
     label: 'AI Job Walkthrough',
     description:
-      'Free-form voice/photos on a job → AI report (findings, work performed, parts, customer summary)',
-    help: 'On the job → Job Walkthrough (AI). Capture voice/photos → Generate (XAI_API_KEY; auto-transcribes voice if OPENAI_API_KEY set) → edit → Save to Job (copies diagnosis/customer summary; syncs parts/labor to line items). PDF via PDF documents module. Needs supabase/ai-walkthrough.sql.',
+      'Video/voice/photos on a job → AI report (findings, work performed, parts, customer summary)',
+    help: 'On the job → Job Walkthrough (AI). Best: Record video walkthrough (picture + narration) → Generate (XAI_API_KEY; video via Grok video model / XAI_VIDEO_MODEL). Also voice/photos. Whisper auto-transcribe needs OPENAI_API_KEY. Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql (+ ai-walkthrough-video.sql if kind check blocks video).',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
