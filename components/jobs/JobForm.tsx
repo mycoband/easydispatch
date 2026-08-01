@@ -101,6 +101,7 @@ export function JobForm({
     initial?.customer_summary || ''
   );
   const [notes, setNotes] = useState(initial?.notes || '');
+  const [clientError, setClientError] = useState<string | null>(null);
   // When AI (or edit) pre-fills optional fields, open that section
   const [showMore, setShowMore] = useState(
     !quick ||
@@ -164,7 +165,31 @@ export function JobForm({
   ]);
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form
+      action={formAction}
+      className="space-y-5"
+      noValidate
+      onSubmit={(e) => {
+        // customers[] is often empty (search-only load). Old code disabled
+        // submit when length===0, so Create did nothing on mobile/desktop.
+        // Also: required on a hidden customer_id rarely shows a tooltip on iOS.
+        if (!customerId.trim()) {
+          e.preventDefault();
+          setClientError('Pick a customer before creating the job.');
+          return;
+        }
+        const jobType = new FormData(e.currentTarget)
+          .get('job_type')
+          ?.toString()
+          .trim();
+        if (!jobType) {
+          e.preventDefault();
+          setClientError('Enter a job type (e.g. Service call, No cool).');
+          return;
+        }
+        setClientError(null);
+      }}
+    >
       <section className="space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-ink-900">Who & what</h2>
@@ -186,6 +211,7 @@ export function JobForm({
                 setCustomerId(id);
                 setCustomerLabel(hit?.name || '');
                 setPropertyId('');
+                if (id) setClientError(null);
               }}
             />
           </div>
@@ -492,9 +518,9 @@ export function JobForm({
         />
       )}
 
-      {state.error && (
+      {(clientError || state.error) && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {state.error}
+          {clientError || state.error}
         </p>
       )}
       {state.success && (
@@ -505,11 +531,16 @@ export function JobForm({
 
       <button
         type="submit"
-        disabled={pending || customers.length === 0}
-        className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        disabled={pending}
+        className="w-full rounded-lg bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60 sm:w-auto sm:py-2.5"
       >
         {pending ? 'Saving…' : submitLabel}
       </button>
+      {!customerId && !lockCustomer && (
+        <p className="text-xs text-ink-400">
+          Search and select a customer above, then tap {submitLabel}.
+        </p>
+      )}
     </form>
   );
 }
