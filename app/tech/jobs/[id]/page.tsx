@@ -16,8 +16,10 @@ import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { SafetyChecklist } from '@/components/tech/SafetyChecklist';
 import { SignaturePad } from '@/components/tech/SignaturePad';
 import { OfflineSyncBanner } from '@/components/tech/OfflineSyncBanner';
+import { TechCollapsibleSection } from '@/components/tech/TechCollapsibleSection';
 import { TechJobNotes } from '@/components/tech/TechJobNotes';
 import { TechJobPacket } from '@/components/tech/TechJobPacket';
+import { TechJobTicketShell } from '@/components/tech/TechJobTicketShell';
 import { TruckStockDeduct } from '@/components/tech/TruckStockDeduct';
 import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
 import { requireTech } from '@/lib/auth';
@@ -29,6 +31,7 @@ import {
   filterWalkthroughAttachments,
   normalizeWalkthrough,
 } from '@/lib/jobs/walkthrough';
+import { mapsDirectionsUrl } from '@/lib/tech/maps';
 import type { SafetyChecklistState } from '@/lib/tech/safety';
 import { formatAddress } from '@/lib/utils';
 
@@ -238,98 +241,31 @@ export default async function TechJobDetailPage({
     cachedAt: new Date().toISOString(),
   };
 
-  return (
-    <div className="space-y-5">
-      <div>
-        <Link
-          href="/tech"
-          className="text-sm font-medium text-ink-500 hover:text-ink-800"
-        >
-          ← My jobs
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-2xl font-semibold text-ink-950">
-            {job.customer_name || 'Job'}
-          </h1>
-          <LiveStatusBadge status={deriveLiveStatus(job)} />
-        </div>
-        <p className="mt-1 text-sm text-ink-500">
-          {job.job_number || id.slice(0, 8)} · {job.job_type || 'Job'}
-          {job.priority ? ` · ${job.priority}` : ''}
-        </p>
-        {customer && (
-          <p className="mt-2 text-sm text-ink-700">
-            {formatAddress(customer) || 'No address'}
-            {customer.phone ? ` · ${customer.phone}` : ''}
-          </p>
-        )}
-        {job.scheduled_start && (
-          <p className="mt-1 text-sm text-ink-500">
-            Scheduled {formatTimestamp(job.scheduled_start)}
-          </p>
-        )}
-      </div>
+  const liveStatus = deriveLiveStatus(job);
+  const addressParts = {
+    address: site?.address || customer?.address,
+    city: site?.city || customer?.city,
+    state: site?.state || customer?.state,
+    zip: site?.zip || customer?.zip,
+  };
+  const directionsUrl = mapsDirectionsUrl(addressParts);
+  const addressLine = formatAddress(addressParts) || 'No address';
+  const showWalkthrough = Boolean(mods.ai_walkthrough);
+  const showMedia = Boolean(mods.tech_media && allow('media'));
+  const stillOnSite = !job.check_out_at;
 
-      <ol className="flex flex-wrap gap-1.5 text-xs font-semibold text-ink-500">
-        {[
-          '1 Packet',
-          '2 Drive',
-          '3 Arrive',
-          '4 Diagnose',
-          '5 Parts',
-          '6 Photos',
-          '7 Clock out',
-          '8 Sign / pay',
-        ].map((step) => (
-          <li
-            key={step}
-            className="rounded-full border border-ink-200 bg-white px-2.5 py-1"
-          >
-            {step}
-          </li>
-        ))}
-      </ol>
+  const timePanel = allow('time_track') ? (
+    <TimeTrackingPanel
+      jobId={job.id}
+      job={job}
+      large
+      offlineQueue={Boolean(mods.tech_offline_queue)}
+    />
+  ) : null;
 
-      <TechJobPacket packet={packet} />
-
-      {mods.ai_walkthrough && (
-        <JobWalkthroughPanel
-          jobId={job.id}
-          walkthrough={walkthrough}
-          media={walkthroughMedia}
-          canEdit={allow('edit_notes')}
-          canMedia={allow('media')}
-          allowTranscribe={Boolean(
-            mods.ai && mods.ai_walkthrough && allow('edit_notes')
-          )}
-          allowGenerate={Boolean(
-            mods.ai && mods.ai_walkthrough && allow('edit_notes')
-          )}
-          allowPdf={Boolean(mods.ai_walkthrough && mods.print_pdfs)}
-          readOnlyHint="Your role cannot edit notes — ask a dispatcher if you need changes saved."
-        />
-      )}
-
-      {mods.tech_offline_queue && (
-        <OfflineSyncBanner jobId={job.id} enabled />
-      )}
-
-      {mods.estimates && (
-        <JobEstimatesPanel
-          jobId={job.id}
-          customerName={job.customer_name}
-          estimates={jobEstimates}
-          newHref={`/tech/jobs/${job.id}/estimate/new`}
-          estimateHref={(estId) => `/tech/estimates/${estId}`}
-          canCreate={canBuildEstimate}
-          createLabel="Build estimate"
-        />
-      )}
-
-      {linkedEquipment && (
-        <WarrantyBadge info={linkedEquipment} />
-      )}
-
+  const equipmentBlock = (
+    <>
+      {linkedEquipment && <WarrantyBadge info={linkedEquipment} />}
       {mods.equipment_timeline &&
         job.customer_id &&
         allow('manage_equipment') && (
@@ -348,7 +284,6 @@ export default async function TechJobDetailPage({
             }))}
           />
         )}
-
       {job.customer_id && allow('manage_equipment') ? (
         <EquipmentSection
           customerId={job.customer_id}
@@ -357,33 +292,110 @@ export default async function TechJobDetailPage({
           selectedEquipmentId={job.equipment_id}
         />
       ) : null}
+    </>
+  );
 
-      {mods.tech_media && allow('media') && (
-        <JobMediaPanel
+  const moreOnJob = (
+    <>
+      {mods.estimates && (
+        <JobEstimatesPanel
           jobId={job.id}
-          attachments={attachments}
-          customerApprovedAt={job.customer_approved_at}
-          customerApprovedNote={job.customer_approved_note}
-          allowVoiceTranscribe={Boolean(
-            mods.ai && mods.tech_media && allow('edit_notes')
-          )}
+          customerName={job.customer_name}
+          estimates={jobEstimates}
+          newHref={`/tech/jobs/${job.id}/estimate/new`}
+          estimateHref={(estId) => `/tech/estimates/${estId}`}
+          canCreate={canBuildEstimate}
+          createLabel="Build estimate"
         />
       )}
-
-      {allow('time_track') && (
-        <TimeTrackingPanel
-          jobId={job.id}
-          job={job}
-          large
-          offlineQueue={Boolean(mods.tech_offline_queue)}
-        />
+      {mods.part_orders && allow('part_orders') && (
+        <JobPartsOrders jobId={job.id} orders={partOrders} />
       )}
+      {mods.inventory && allow('inventory_deduct') && (
+        <TruckStockDeduct jobId={job.id} items={inventory ?? []} />
+      )}
+    </>
+  );
 
+  const header = (
+    <div>
+      <Link
+        href="/tech"
+        className="text-sm font-medium text-ink-500 hover:text-ink-800"
+      >
+        ← My jobs
+      </Link>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <h1 className="font-display text-2xl font-semibold text-ink-950">
+          {job.customer_name || 'Job'}
+        </h1>
+        <LiveStatusBadge status={liveStatus} />
+      </div>
+      <p className="mt-1 text-sm text-ink-500">
+        {job.job_number || id.slice(0, 8)} · {job.job_type || 'Job'}
+        {job.priority ? ` · ${job.priority}` : ''}
+        {job.scheduled_start
+          ? ` · ${formatTimestamp(job.scheduled_start)}`
+          : ''}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-700">
+        <span>{addressLine}</span>
+        {customer?.phone && (
+          <a
+            href={`tel:${customer.phone}`}
+            className="font-semibold text-brand-700"
+          >
+            {customer.phone}
+          </a>
+        )}
+        {directionsUrl && (
+          <a
+            href={directionsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-brand-700 hover:underline"
+          >
+            Directions
+          </a>
+        )}
+      </div>
+    </div>
+  );
+
+  const arrive = (
+    <>
+      {mods.tech_offline_queue && (
+        <OfflineSyncBanner jobId={job.id} enabled />
+      )}
+      {timePanel}
+      <TechJobPacket packet={packet} compact hideCustomerBlock />
       {mods.messaging && allow('messaging') && (
         <JobMessageActions
           jobId={job.id}
           hasPhone={Boolean(customer?.phone)}
           large
+        />
+      )}
+    </>
+  );
+
+  const work = (
+    <>
+      {showWalkthrough && (
+        <JobWalkthroughPanel
+          jobId={job.id}
+          walkthrough={walkthrough}
+          media={walkthroughMedia}
+          canEdit={allow('edit_notes')}
+          canMedia={allow('media')}
+          allowTranscribe={Boolean(
+            mods.ai && mods.ai_walkthrough && allow('edit_notes')
+          )}
+          allowGenerate={Boolean(
+            mods.ai && mods.ai_walkthrough && allow('edit_notes')
+          )}
+          allowPdf={Boolean(mods.ai_walkthrough && mods.print_pdfs)}
+          readOnlyHint="Your role cannot edit notes — ask a dispatcher if you need changes saved."
         />
       )}
 
@@ -405,23 +417,77 @@ export default async function TechJobDetailPage({
       )}
 
       {mods.ai && allow('ai_diagnostic') && (
-        <DiagnosticAssist
-          initialSymptoms={job.diagnosis || ''}
-          equipmentType={linkedEquipment?.equipment_type}
-          manufacturer={linkedEquipment?.manufacturer}
-          model={linkedEquipment?.model}
-          jobType={job.job_type}
+        <TechCollapsibleSection
+          title="Diagnostic assist"
+          subtitle="Optional AI help from symptoms"
+        >
+          <DiagnosticAssist
+            initialSymptoms={job.diagnosis || ''}
+            equipmentType={linkedEquipment?.equipment_type}
+            manufacturer={linkedEquipment?.manufacturer}
+            model={linkedEquipment?.model}
+            jobType={job.job_type}
+          />
+        </TechCollapsibleSection>
+      )}
+
+      {(linkedEquipment ||
+        (job.customer_id && allow('manage_equipment'))) && (
+        <TechCollapsibleSection
+          title="Equipment"
+          subtitle="Warranty, PM checklist, units"
+        >
+          <div className="space-y-4">{equipmentBlock}</div>
+        </TechCollapsibleSection>
+      )}
+
+      {showMedia && (
+        <TechCollapsibleSection
+          title={showWalkthrough ? 'Extra photos' : 'Job photos & voice'}
+          subtitle={
+            showWalkthrough
+              ? 'Optional — walkthrough already captures media'
+              : 'Photos, voice, customer approval'
+          }
+          defaultOpen={!showWalkthrough}
+        >
+          <JobMediaPanel
+            jobId={job.id}
+            attachments={attachments}
+            customerApprovedAt={job.customer_approved_at}
+            customerApprovedNote={job.customer_approved_note}
+            allowVoiceTranscribe={Boolean(
+              mods.ai && mods.tech_media && allow('edit_notes')
+            )}
+          />
+        </TechCollapsibleSection>
+      )}
+
+      {(mods.estimates ||
+        (mods.part_orders && allow('part_orders')) ||
+        (mods.inventory && allow('inventory_deduct'))) && (
+        <TechCollapsibleSection
+          title="More on this job"
+          subtitle="Estimates, parts orders, truck stock"
+        >
+          <div className="space-y-4">{moreOnJob}</div>
+        </TechCollapsibleSection>
+      )}
+    </>
+  );
+
+  const wrap = (
+    <>
+      {stillOnSite && timePanel}
+      {allow('edit_notes') && (
+        <TechJobNotes
+          jobId={job.id}
+          diagnosis={job.diagnosis}
+          customerSummary={job.customer_summary}
+          internalNotes={job.internal_notes}
+          offlineQueue={Boolean(mods.tech_offline_queue)}
         />
       )}
-
-      {mods.part_orders && allow('part_orders') && (
-        <JobPartsOrders jobId={job.id} orders={partOrders} />
-      )}
-
-      {mods.inventory && allow('inventory_deduct') && (
-        <TruckStockDeduct jobId={job.id} items={inventory ?? []} />
-      )}
-
       {allow('customer_signature') && (
         <SignaturePad
           jobId={job.id}
@@ -430,7 +496,6 @@ export default async function TechJobDetailPage({
           signedAt={job.signed_at}
         />
       )}
-
       {mods.invoices &&
         (allow('send_invoice') || allow('record_payment')) && (
           <JobInvoicePanel
@@ -449,10 +514,19 @@ export default async function TechJobDetailPage({
             allowPdf={Boolean(mods.print_pdfs)}
           />
         )}
-
       {mods.messaging && allow('messaging') && (
         <JobMessageLog messages={messages ?? []} />
       )}
-    </div>
+    </>
+  );
+
+  return (
+    <TechJobTicketShell
+      liveStatus={liveStatus}
+      header={header}
+      arrive={arrive}
+      work={work}
+      wrap={wrap}
+    />
   );
 }

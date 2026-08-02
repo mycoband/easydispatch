@@ -49,10 +49,21 @@ export type JobPacketData = {
 
 const cacheKey = (jobId: string) => `ed-job-packet:${jobId}`;
 
-export function TechJobPacket({ packet }: { packet: JobPacketData }) {
+export function TechJobPacket({
+  packet,
+  compact = false,
+  hideCustomerBlock = false,
+}: {
+  packet: JobPacketData;
+  /** Summary first; full site/equipment/visits behind Show details */
+  compact?: boolean;
+  /** Hide address/phone when the page header already shows them */
+  hideCustomerBlock?: boolean;
+}) {
   const [offline, setOffline] = useState(false);
   const [fromCache, setFromCache] = useState(false);
   const [display, setDisplay] = useState(packet);
+  const [expanded, setExpanded] = useState(!compact);
 
   useEffect(() => {
     try {
@@ -95,69 +106,19 @@ export function TechJobPacket({ packet }: { packet: JobPacketData }) {
   const directions = mapsDirectionsUrl(display.address);
   const search = mapsSearchUrl(display.address);
   const addressLabel = formatAddress(display.address) || 'No address on file';
+  const eqSummary =
+    display.equipment.length === 0
+      ? 'No equipment on file'
+      : display.equipment.length === 1
+        ? display.equipment[0].name ||
+          display.equipment[0].equipment_type ||
+          '1 unit'
+        : `${display.equipment.length} units on file`;
 
-  return (
-    <section className="panel space-y-4 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
-            Job packet
-          </p>
-          <h2 className="font-display text-lg font-semibold text-ink-950">
-            Site & equipment
-          </h2>
-        </div>
-        <div className="flex flex-wrap gap-1.5 text-xs font-medium">
-          {(offline || fromCache) && (
-            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-900">
-              {offline ? 'Offline · showing cache' : 'Cached on device'}
-            </span>
-          )}
-          {!offline && !fromCache && (
-            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">
-              Saved for offline
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-3">
-        <p className="font-medium text-ink-900">{display.customerName}</p>
-        <p className="mt-1 text-sm text-ink-700">{addressLabel}</p>
-        {display.address.phone && (
-          <a
-            href={`tel:${display.address.phone}`}
-            className="mt-1 inline-block text-sm font-semibold text-brand-700"
-          >
-            {display.address.phone}
-          </a>
-        )}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {directions && (
-            <a
-              href={directions}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-            >
-              Directions
-            </a>
-          )}
-          {search && (
-            <a
-              href={search}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
-            >
-              Open in Maps
-            </a>
-          )}
-        </div>
-      </div>
-
+  const details = (
+    <>
       {(display.accessNotes || display.customerNotes) && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-950">
+        <div className="rounded-xl bg-sky-50 px-3 py-3 text-sm text-sky-950">
           <p className="font-semibold">Site access</p>
           {display.accessNotes && (
             <p className="mt-1 whitespace-pre-wrap">{display.accessNotes}</p>
@@ -171,8 +132,8 @@ export function TechJobPacket({ packet }: { packet: JobPacketData }) {
       )}
 
       {display.internalNotes && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Internal notes</p>
+        <div className="rounded-xl bg-amber-50 px-3 py-3 text-sm text-amber-950">
+          <p className="font-semibold">Dispatcher notes</p>
           <p className="mt-1 whitespace-pre-wrap">{display.internalNotes}</p>
         </div>
       )}
@@ -184,10 +145,7 @@ export function TechJobPacket({ packet }: { packet: JobPacketData }) {
         ) : (
           <ul className="mt-2 space-y-2">
             {display.equipment.map((eq) => (
-              <li
-                key={eq.id}
-                className="rounded-xl border border-ink-100 bg-white p-3"
-              >
+              <li key={eq.id} className="rounded-xl bg-ink-50/60 p-3">
                 <div className="flex gap-3">
                   {eq.photo_url && (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -237,7 +195,7 @@ export function TechJobPacket({ packet }: { packet: JobPacketData }) {
         {display.recentVisits.length === 0 ? (
           <p className="mt-2 text-sm text-ink-400">No prior jobs.</p>
         ) : (
-          <ul className="mt-2 divide-y divide-ink-100 rounded-xl border border-ink-100">
+          <ul className="mt-2 divide-y divide-ink-100 rounded-xl bg-ink-50/40">
             {display.recentVisits.map((v) => (
               <li key={v.id} className="px-3 py-2 text-sm">
                 <p className="font-medium text-ink-800">
@@ -256,6 +214,118 @@ export function TechJobPacket({ packet }: { packet: JobPacketData }) {
           </ul>
         )}
       </div>
+    </>
+  );
+
+  return (
+    <section className="panel space-y-4 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">
+            Job packet
+          </p>
+          <h2 className="font-display text-lg font-semibold text-ink-950">
+            Site & equipment
+          </h2>
+          {compact && !expanded && (
+            <p className="mt-1 text-sm text-ink-500">
+              {eqSummary}
+              {display.accessNotes ? ' · Access notes on file' : ''}
+              {display.recentVisits.length
+                ? ` · ${display.recentVisits.length} prior visit${
+                    display.recentVisits.length === 1 ? '' : 's'
+                  }`
+                : ''}
+            </p>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5 text-xs font-medium">
+          {(offline || fromCache) && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-amber-900">
+              {offline ? 'Offline · showing cache' : 'Cached on device'}
+            </span>
+          )}
+          {!offline && !fromCache && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800">
+              Saved for offline
+            </span>
+          )}
+        </div>
+      </div>
+
+      {!hideCustomerBlock && (
+        <div className="rounded-xl bg-ink-50/60 p-3">
+          <p className="font-medium text-ink-900">{display.customerName}</p>
+          <p className="mt-1 text-sm text-ink-700">{addressLabel}</p>
+          {display.address.phone && (
+            <a
+              href={`tel:${display.address.phone}`}
+              className="mt-1 inline-block text-sm font-semibold text-brand-700"
+            >
+              {display.address.phone}
+            </a>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {directions && (
+              <a
+                href={directions}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                Directions
+              </a>
+            )}
+            {search && (
+              <a
+                href={search}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+              >
+                Open in Maps
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {hideCustomerBlock && (directions || search) && (
+        <div className="flex flex-wrap gap-2">
+          {directions && (
+            <a
+              href={directions}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
+            >
+              Directions
+            </a>
+          )}
+          {search && (
+            <a
+              href={search}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+            >
+              Open in Maps
+            </a>
+          )}
+        </div>
+      )}
+
+      {compact && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="text-sm font-semibold text-brand-700 hover:underline"
+        >
+          {expanded ? 'Hide packet details' : 'Show packet details'}
+        </button>
+      )}
+
+      {(!compact || expanded) && <div className="space-y-4">{details}</div>}
     </section>
   );
 }

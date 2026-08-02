@@ -482,7 +482,7 @@ export function JobWalkthroughPanel({
           <p className="mt-0.5 text-sm text-ink-500">
             {showSavedView
               ? 'Saved on this job — reopen anytime to review or edit'
-              : 'Capture → Generate → edit → Save to Job'}
+              : 'Record → Generate → edit → Save'}
           </p>
         </div>
         <span

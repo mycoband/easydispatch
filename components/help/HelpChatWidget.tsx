@@ -26,7 +26,7 @@ export function HelpChatWidget({ faqHref = '/faq' }: Props) {
   }, [open]);
 
   return (
-    <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
+    <div className="pointer-events-none fixed bottom-20 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-20 sm:right-6">
       {open ? (
         <div
           className="pointer-events-auto w-[min(100vw-2rem,24rem)] overflow-hidden"
