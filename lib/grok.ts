@@ -878,6 +878,41 @@ export type HelpChatMessage = {
   content: string;
 };
 
+/** Office job-scoped assistant grounded in a single job’s data packet. */
+export async function jobOfficeAssistant(
+  messages: HelpChatMessage[],
+  jobContextJson: string
+): Promise<string> {
+  const recent = messages.slice(-10);
+  const content = await callGrok(
+    [
+      {
+        role: 'system',
+        content: `You are the EasyDispatch Job assistant for HVAC office staff on ONE open job.
+
+Rules:
+- Use ONLY the job data JSON provided. Do not invent line items, payments, times, or customer facts.
+- If something is missing from the data, say what is missing and what the office should check in EasyDispatch.
+- Common asks: draft customer SMS/email, what’s still missing to invoice/collect payment, summarize for the owner, next office steps.
+- When drafting customer text: short, professional, no internal notes or costs unless asked. Offer copy-ready wording.
+- Keep answers concise (usually under 200 words). Use short bullets when listing gaps.
+- Never ask for passwords, API keys, or card numbers.
+- You are not the product Help bot — stay on this job.
+
+Job data (JSON):
+${jobContextJson}`,
+      },
+      ...recent.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ],
+    { model: chatModel(), temperature: 0.3 }
+  );
+
+  return content.trim();
+}
+
 /** In-app help assistant grounded in EasyDispatch FAQ + product facts. */
 export async function helpChat(
   messages: HelpChatMessage[],
@@ -909,6 +944,7 @@ Known product facts:
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
 - Shop presets on Feature modules: Simple (lean), Full field (Simple + field/ops extras), Full shop (everything on). Presets set toggles; Save modules still required to persist.
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
+- Job assistant (office): on /dashboard/jobs/[id] when AI tools is on — ask about that job only (draft customer text, what’s missing to invoice, owner summary). Separate from the floating Help bot (FAQ/product).
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.
 - Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help (includes Feature modules catalog).

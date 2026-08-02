@@ -49,7 +49,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What’s the difference between the office dashboard and the tech app?',
     answer:
-      'Office (/dashboard): starts with a Needs you inbox (unassigned jobs, unpaid invoices, today’s callbacks), then today’s board/stats — plus customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): My jobs opens with a Next up card, then quieter Today/Later/Done groups; job tickets use Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay). Real techs see jobs assigned to them. Office can open the same screens via Technician view (Settings → Feature modules → Technician view (office); then Tech view in the header).',
+      'Office (/dashboard): starts with a Needs you inbox (unassigned jobs, unpaid invoices, today’s callbacks), then today’s board/stats — plus customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Open a job for Job assistant (AI tools) to draft texts or check invoice gaps. Tech (/tech): My jobs opens with a Next up card, then quieter Today/Later/Done groups; job tickets use Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay). Real techs see jobs assigned to them. Office can open the same screens via Technician view (Settings → Feature modules → Technician view (office); then Tech view in the header).',
   },
   {
     id: 'needs-you-dashboard',
@@ -318,6 +318,13 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
       'Office → New job. With AI tools on: paste call notes → Fill ticket with AI → review → Create (~30 seconds). Without AI: pick customer + job type (+ diagnosis notes), then Create. Job #, assigned tech, schedule, and priority are under More options (defaults apply if you leave them closed). Line items are added after create.',
   },
   {
+    id: 'job-assistant',
+    category: 'Jobs & calendar',
+    question: 'What is the Job assistant on an office job?',
+    answer:
+      'Needs AI tools on (Settings → Feature modules). Open any office job (/dashboard/jobs/…). Job assistant sits near the top — ask about that ticket only: draft customer SMS/email, what’s still missing to invoice or collect payment, summarize for the owner, or next office steps. Answers use job notes, line items, invoice/payment status, messages, and walkthrough data. Separate from the floating Help bot (product FAQ). Needs XAI_API_KEY.',
+  },
+  {
     id: 'pricebook',
     category: 'Estimates',
     question: 'How do I use the pricebook?',
@@ -350,7 +357,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Job costing & reports',
     question: 'What is AI margin coach and Ask Reports?',
     answer:
-      'Job costing + AI tools on: AI margin coach on a job suggests how to hit target margin. Reports + AI: Ask Reports answers plain-English questions about the date range. Help bot also uses AI tools.',
+      'Job costing + AI tools on: AI margin coach on a job suggests how to hit target margin. Reports + AI: Ask Reports answers plain-English questions about the date range. Office job page also has Job assistant (draft texts, invoice gaps, owner summary) when AI tools is on. Help bot also uses AI tools.',
   },
   {
     id: 'reports-vs-costing',

@@ -34,6 +34,7 @@ import {
 import { formatMoney } from '@/lib/jobs/totals';
 import { loadPricebookPresets } from '@/lib/pricebook/load';
 import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
+import { JobOfficeAssistant } from '@/components/jobs/JobOfficeAssistant';
 
 export default async function JobDetailPage({
   params,
@@ -274,6 +275,8 @@ export default async function JobDetailPage({
       </div>
 
       <TimeTrackingPanel jobId={job.id} job={job} />
+
+      {mods.ai && <JobOfficeAssistant jobId={job.id} />}
 
       {mods.ai_walkthrough && (
         <JobWalkthroughPanel
