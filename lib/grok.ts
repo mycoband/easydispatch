@@ -903,6 +903,8 @@ Known product facts:
 - Tech app: /tech My jobs shows a Next up hero card (first actionable job + stops left today) with quieter Today/Later/Done below; job tickets use Arrive → Work → Wrap up; today’s run sheet PDF when PDF module on.
 - Tech ticket auto-advance: successful Arrive opens Work (?phase=work); successful Clock out opens Wrap up (?phase=wrap). Manual phase tabs still work.
 - Work phase capture: when AI Job Walkthrough is on, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”); Extra photos stays secondary/collapsed.
+- Apply & wrap up: after Generate, primary button saves walkthrough to job (diagnosis/summary/line items) and opens Wrap up (?phase=wrap). Save only stays on Work. Does not auto Clock out — Clock out / Sign are on Wrap.
+- Dispatch Assign for me: with Assign-tech AI on, unassigned cards show Assign for me (top ranked tech + reason) → Confirm to assign; manual pick still available.
 - Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office (assignee names on My jobs cards); Exit to office on the blue banner.
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
 - Shop presets on Feature modules: Simple (lean), Full field (Simple + field/ops extras), Full shop (everything on). Presets set toggles; Save modules still required to persist.

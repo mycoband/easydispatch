@@ -70,7 +70,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How does the tech job ticket work (Arrive / Work / Wrap up)?',
     answer:
-      'Open a job from My jobs (or Next up). Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough hero when enabled, safety, notes, equipment/photos as needed), Wrap up (clock out, signature, invoice). Tapping Arrive auto-opens Work; Clock out auto-opens Wrap up — you can still jump tabs manually. Sticky bar hints match (“Arrive moves you to Work”). Default phase also follows live status (driving → Arrive, on site → Work, completed → Wrap up). Office staff use Technician view to see the same layout.',
+      'Open a job from My jobs (or Next up). Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough hero when enabled — Record → Generate → Apply & wrap up), Wrap up (clock out, signature, invoice). Tapping Arrive auto-opens Work; Clock out auto-opens Wrap up; Apply & wrap up also jumps to Wrap. Manual tab jumps still work. Default phase also follows live status. Office staff use Technician view to see the same layout.',
   },
   {
     id: 'feature-modules',
@@ -126,7 +126,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How does Assign-tech AI work?',
     answer:
-      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive (run supabase/differentiation.sql once). Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign AI: [tech] ranked by skills + lighter load + closer location.',
+      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive (run supabase/differentiation.sql once). Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign for me (top tech + reason from skills + load + proximity) → Confirm to assign. Or pick manually below. Drag onto a tech column still works.',
+  },
+  {
+    id: 'assign-for-me',
+    category: 'Jobs & calendar',
+    question: 'What is Assign for me on Dispatch?',
+    answer:
+      'Needs Assign-tech AI on. On an unassigned Dispatch card, Assign for me is the main button — it shows the recommended tech and why. Tap it, then Confirm (or Cancel). Ranking uses skills match, today’s load, and last known location. Manual select and drag-and-drop remain available.',
   },
   {
     id: 'dispatch-board',
@@ -210,14 +217,21 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On the tech Work phase, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); Extra photos stays collapsed below. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). Edit → Save to Job. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
+      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On the tech Work phase, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); Extra photos stays collapsed below. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Then Apply & wrap up (or Save only). Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
+  },
+  {
+    id: 'apply-wrap-up',
+    category: 'Tech app',
+    question: 'What is Apply & wrap up on a walkthrough?',
+    answer:
+      'After Generate (or when editing a report), Apply & wrap up saves the walkthrough to the job — findings → diagnosis, customer summary, and parts/labor line items — then opens the Wrap up phase so you can Clock out, get a signature, and invoice. It does not clock you out automatically. Save only applies the same data but stays on Work. On an already-saved walkthrough, use Continue to Wrap up.',
   },
   {
     id: 'ai-walkthrough-video',
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job → Work phase → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or use More capture options (voice / library). Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY). If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job → Work phase → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or use More capture options (voice / library). Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY), then Apply & wrap up. If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
   },
   {
     id: 'ai-walkthrough-pdf',

@@ -76,6 +76,10 @@ export function DispatchBoard({
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const [timeEditId, setTimeEditId] = useState<string | null>(null);
   const [timeValue, setTimeValue] = useState('');
+  /** Unassigned job awaiting Confirm for Assign for me */
+  const [confirmAssignJobId, setConfirmAssignJobId] = useState<string | null>(
+    null
+  );
   const [liveState, setLiveState] = useState<'off' | 'connecting' | 'live' | 'error'>(
     liveRealtime ? 'connecting' : 'off'
   );
@@ -416,52 +420,106 @@ export function DispatchBoard({
         )}
 
         <div className="mt-2 space-y-1.5 border-t border-ink-200/80 pt-2">
-          {best && (
-            <div className="flex flex-wrap items-center gap-1">
-              <button
-                type="button"
-                disabled={busy}
-                onMouseDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  runAssign(job.id, best.techId);
-                }}
-                className="rounded-lg bg-brand-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-                title={best.reason}
-              >
-                Assign AI: {best.name.split(' ')[0]}
-              </button>
-              <span className="text-[10px] text-ink-500">{best.reason}</span>
+          {skillAware && !job.assigned_to && best && (
+            <div className="space-y-1.5">
+              {confirmAssignJobId === job.id ? (
+                <div
+                  className="rounded-lg border border-brand-200 bg-brand-50/80 p-2"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <p className="text-[11px] font-semibold text-ink-900">
+                    Assign {best.name.split(' ')[0]}?
+                  </p>
+                  <p className="mt-0.5 text-[10px] text-ink-600">
+                    {best.reason}
+                  </p>
+                  <div className="mt-2 flex gap-1.5">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmAssignJobId(null);
+                        runAssign(job.id, best.techId);
+                      }}
+                      className="flex-1 rounded-lg bg-brand-600 px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmAssignJobId(null);
+                      }}
+                      className="rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-[11px] font-semibold text-ink-700 hover:bg-ink-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmAssignJobId(job.id);
+                  }}
+                  className="w-full rounded-lg bg-brand-600 px-2.5 py-2 text-left text-[12px] font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                  title={best.reason}
+                >
+                  <span className="block">Assign for me</span>
+                  <span className="mt-0.5 block text-[10px] font-normal text-brand-100">
+                    {best.name.split(' ')[0]} · {best.reason}
+                  </span>
+                </button>
+              )}
             </div>
           )}
+          {skillAware && !job.assigned_to && !best && (
+            <p className="text-[10px] text-ink-500">
+              No AI pick — choose a tech below
+            </p>
+          )}
           <div className="flex gap-1">
-            <select
-              className="flex-1 rounded-lg border border-ink-200 bg-white px-1.5 py-1 text-[11px]"
-              value={job.assigned_to || ''}
-              disabled={busy}
-              onMouseDown={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                e.stopPropagation();
-                runAssign(job.id, e.target.value || null);
-              }}
-            >
-              <option value="">Unassigned</option>
-              {orderedTechs.map((t) => {
-                const tip = suggestions.find((s) => s.techId === t.id);
-                return (
-                  <option key={t.id} value={t.id}>
-                    {t.full_name || 'Tech'}
-                    {tip ? ` · ${Math.round(tip.skillScore * 100)}%` : ''}
-                    {t.skills?.length
-                      ? ` (${t.skills.slice(0, 2).join(', ')})`
-                      : ''}
-                  </option>
-                );
-              })}
-            </select>
+            <div className="min-w-0 flex-1">
+              {skillAware && !job.assigned_to && (
+                <p className="mb-0.5 text-[9px] font-medium uppercase tracking-wide text-ink-400">
+                  Or pick manually
+                </p>
+              )}
+              <select
+                className="w-full rounded-lg border border-ink-200 bg-white px-1.5 py-1 text-[11px]"
+                value={job.assigned_to || ''}
+                disabled={busy}
+                onMouseDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  setConfirmAssignJobId(null);
+                  runAssign(job.id, e.target.value || null);
+                }}
+              >
+                <option value="">Unassigned</option>
+                {orderedTechs.map((t) => {
+                  const tip = suggestions.find((s) => s.techId === t.id);
+                  return (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name || 'Tech'}
+                      {tip ? ` · ${Math.round(tip.skillScore * 100)}%` : ''}
+                      {t.skills?.length
+                        ? ` (${t.skills.slice(0, 2).join(', ')})`
+                        : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
             <button
               type="button"
-              className="rounded-lg border border-ink-200 bg-white px-2 py-1 text-[11px] hover:bg-ink-50"
+              className="self-end rounded-lg border border-ink-200 bg-white px-2 py-1 text-[11px] hover:bg-ink-50"
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -618,7 +676,7 @@ export function DispatchBoard({
           <p className="mt-1 text-sm text-ink-500">
             Assign techs · Track status · Message customers
             {skillAware
-              ? ' · Assign AI: skills + load + last location'
+              ? ' · Assign for me: skills + load + last location'
               : ''}
             {capacityWarnings ? ' · capacity warnings' : ''}
           </p>

@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   deleteWalkthroughMedia,
   saveWalkthroughDraft,
@@ -15,6 +15,7 @@ import {
   transcribeWalkthroughVoice,
   uploadWalkthroughMedia,
 } from '@/app/tech/walkthrough-actions';
+import { setTechJobPhase } from '@/lib/tech/advance-phase';
 import {
   computeWalkthroughTotals,
   WALKTHROUGH_STATUS_LABELS,
@@ -132,6 +133,7 @@ export function JobWalkthroughPanel({
   heroCapture?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const fileRef = useRef<HTMLInputElement>(null);
   const videoCaptureRef = useRef<HTMLInputElement>(null);
   const videoLibraryRef = useRef<HTMLInputElement>(null);
@@ -239,9 +241,10 @@ export function JobWalkthroughPanel({
     setPending(null);
   }
 
-  async function saveToJob() {
+  async function saveToJob(opts?: { wrapUp?: boolean }) {
     if (!canEdit) return;
-    setPending('save');
+    const wrapUp = Boolean(opts?.wrapUp);
+    setPending(wrapUp ? 'wrap' : 'save');
     setError(null);
     setMessage(null);
     try {
@@ -257,8 +260,15 @@ export function JobWalkthroughPanel({
       });
       if (result.error) setError(result.error);
       else {
-        setMessage(result.success || 'Saved to job');
+        setMessage(
+          wrapUp
+            ? result.success || 'Applied — opening Wrap up'
+            : result.success || 'Saved to job'
+        );
         setEditingSaved(false);
+        if (wrapUp) {
+          setTechJobPhase(pathname, router, 'wrap');
+        }
         router.refresh();
       }
     } catch {
@@ -966,6 +976,13 @@ export function JobWalkthroughPanel({
           )}
 
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setTechJobPhase(pathname, router, 'wrap')}
+              className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 sm:w-auto"
+            >
+              Continue to Wrap up
+            </button>
             {canEdit && (
               <button
                 type="button"
@@ -975,7 +992,7 @@ export function JobWalkthroughPanel({
                   setMessage(null);
                   setError(null);
                 }}
-                className="rounded-xl bg-ink-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="rounded-xl border border-ink-200 bg-white px-4 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50 disabled:opacity-50"
               >
                 Edit walkthrough
               </button>
@@ -1239,14 +1256,26 @@ export function JobWalkthroughPanel({
 
           <div className="flex flex-wrap items-center gap-2">
             {canEdit && (
-              <button
-                type="button"
-                disabled={busy || recordingVoice}
-                onClick={() => void saveToJob()}
-                className="w-full rounded-xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
-              >
-                {pending === 'save' ? 'Saving to job…' : 'Save to Job'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={busy || recordingVoice}
+                  onClick={() => void saveToJob({ wrapUp: true })}
+                  className="w-full rounded-xl bg-emerald-700 px-4 py-3.5 text-base font-semibold text-white disabled:opacity-50 sm:w-auto"
+                >
+                  {pending === 'wrap'
+                    ? 'Applying…'
+                    : 'Apply & wrap up'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || recordingVoice}
+                  onClick={() => void saveToJob()}
+                  className="rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm font-semibold text-ink-800 hover:bg-ink-50 disabled:opacity-50"
+                >
+                  {pending === 'save' ? 'Saving…' : 'Save only'}
+                </button>
+              </>
             )}
             {canDownloadPdf && (
               <a
@@ -1258,8 +1287,9 @@ export function JobWalkthroughPanel({
             )}
           </div>
           <p className="text-xs text-ink-400">
-            Save copies findings → diagnosis, customer summary → job summary,
-            and syncs parts/labor to line items (when your role allows).
+            Apply & wrap up saves findings → diagnosis, customer summary, and
+            line items, then opens Wrap up (Clock out / Sign). Save only stays
+            on Work.
           </p>
         </div>
       )}
@@ -1274,7 +1304,7 @@ export function JobWalkthroughPanel({
             </span>
           </p>
           <p className="text-sm text-ink-400">
-            After Generate you can edit every field, then Save to Job.
+            After Generate you can edit every field, then Apply & wrap up.
           </p>
         </div>
       )}

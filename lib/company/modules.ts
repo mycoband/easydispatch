@@ -57,8 +57,8 @@ export const COMPANY_MODULES = [
     id: 'skill_dispatch',
     label: 'Assign-tech AI',
     description:
-      'Suggest who should take a job from skills + today’s load + last known location',
-    help: 'Settings → Tech roster skills. On Dispatch, unassigned jobs show Assign AI. Run supabase/differentiation.sql for GPS columns. Techs update location on Drive/Arrive.',
+      'Assign for me on Dispatch — ranks techs by skills + load + location, then Confirm',
+    help: 'Settings → Tech roster skills. On Dispatch, unassigned jobs show Assign for me (top pick + reason) → Confirm to assign. Or pick manually. Run supabase/differentiation.sql for GPS columns. Techs update location on Drive/Arrive.',
     href: null,
     defaultEnabled: true,
     group: 'Scheduling',
@@ -282,8 +282,8 @@ export const COMPANY_MODULES = [
     id: 'ai_walkthrough',
     label: 'AI Job Walkthrough',
     description:
-      'On-job video (camera+mic), voice, and photos → AI report you edit and save',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs. On tech Work phase, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”). Generate: frames so Grok can see + Whisper so Grok can hear (needs XAI_API_KEY, OPENAI_API_KEY, AI tools). Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
+      'On-job video (camera+mic), voice, and photos → AI report; Apply & wrap up',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. On tech Work phase, Record video walkthrough is the hero CTA. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then opens Wrap up (Clock out / Sign). Save only stays on Work. Generate needs XAI_API_KEY, OPENAI_API_KEY, AI tools. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

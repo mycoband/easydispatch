@@ -44,7 +44,7 @@ function stickyForPhase(
   }
   if (phase === 'work') {
     return {
-      hint: 'Record walkthrough first — then wrap up',
+      hint: 'Record → Generate → Apply & wrap up',
       primaryLabel: 'Go to Wrap up',
       primaryPhase: 'wrap',
       secondaryLabel: 'Back to Arrive',

@@ -15,21 +15,8 @@ import {
   enqueueOfflineItem,
   isBrowserOffline,
 } from '@/lib/tech/offline-queue';
-import type { TechJobPhase } from '@/lib/tech/job-phases';
+import { setTechJobPhase } from '@/lib/tech/advance-phase';
 import { cn } from '@/lib/utils';
-
-function advanceTechPhaseIfOnTicket(
-  pathname: string,
-  router: ReturnType<typeof useRouter>,
-  phase: TechJobPhase
-) {
-  if (!pathname.includes('/tech/jobs/')) return;
-  const params = new URLSearchParams(
-    typeof window !== 'undefined' ? window.location.search : ''
-  );
-  params.set('phase', phase);
-  router.replace(`${pathname}?${params.toString()}`, { scroll: true });
-}
 
 export function TimeTrackingPanel({
   jobId,
@@ -115,9 +102,9 @@ export function TimeTrackingPanel({
 
     function afterSuccess(act: 'drive' | 'arrive' | 'clock_out') {
       if (act === 'arrive') {
-        advanceTechPhaseIfOnTicket(pathname, router, 'work');
+        setTechJobPhase(pathname, router, 'work');
       } else if (act === 'clock_out') {
-        advanceTechPhaseIfOnTicket(pathname, router, 'wrap');
+        setTechJobPhase(pathname, router, 'wrap');
       }
       router.refresh();
     }
