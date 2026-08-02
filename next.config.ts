@@ -10,9 +10,15 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  serverExternalPackages: ['ffmpeg-static'],
+  // Include ffmpeg binary in serverless traces (Whisper needs MP3 extract from phone video)
+  outputFileTracingIncludes: {
+    '/*': ['./node_modules/ffmpeg-static/**/*'],
+  },
   experimental: {
     serverActions: {
-      bodySizeLimit: '8mb',
+      // Walkthrough video uploads can be large (phone camera clips)
+      bodySizeLimit: '100mb',
     },
   },
 };
