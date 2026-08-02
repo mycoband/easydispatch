@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { JobTableRow } from '@/components/jobs/JobTableRow';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
 import { requireOffice } from '@/lib/auth';
 import { deriveLiveStatus } from '@/lib/jobs/time-tracking';
@@ -41,7 +42,8 @@ export default async function JobsPage({
             Jobs
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Tickets with diagnosis, line items, tax, and internal notes.
+            Tickets with diagnosis, line items, tax, and internal notes. Click a
+            row to open.
           </p>
         </div>
         <Link
@@ -107,7 +109,9 @@ export default async function JobsPage({
               <th className="hidden px-4 py-3 font-medium xl:table-cell">
                 Total
               </th>
-              <th className="px-4 py-3 font-medium" />
+              <th className="px-4 py-3 font-medium">
+                <span className="sr-only">Open</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -119,17 +123,14 @@ export default async function JobsPage({
               </tr>
             ) : (
               (jobs ?? []).map((job) => (
-                <tr
+                <JobTableRow
                   key={job.id}
-                  className="border-b border-ink-100 last:border-0 hover:bg-ink-50/50"
+                  href={`/dashboard/jobs/${job.id}`}
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/dashboard/jobs/${job.id}`}
-                      className="font-medium text-ink-900 hover:text-brand-700"
-                    >
+                    <p className="font-medium text-ink-900 group-hover:text-brand-700">
                       {job.customer_name || 'Customer'}
-                    </Link>
+                    </p>
                     <p className="mt-0.5 text-xs text-ink-500">
                       {job.job_number || job.id.slice(0, 8)} ·{' '}
                       {job.job_type || 'Job'}
@@ -154,14 +155,11 @@ export default async function JobsPage({
                     {formatMoney(Number(job.total) || 0)}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Link
-                      href={`/dashboard/jobs/${job.id}`}
-                      className="text-sm font-medium text-brand-700 hover:text-brand-800"
-                    >
+                    <span className="text-sm font-medium text-brand-700">
                       Open
-                    </Link>
+                    </span>
                   </td>
-                </tr>
+                </JobTableRow>
               ))
             )}
           </tbody>
