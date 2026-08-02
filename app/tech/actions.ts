@@ -199,11 +199,10 @@ export async function uploadJobAttachment(
           ? 'mp4'
           : 'webm'
         : kind === 'video'
-          ? file.type.includes('mp4')
-            ? 'mp4'
-            : file.type.includes('quicktime')
-              ? 'mov'
-              : 'webm'
+          ? // Prefer mp4 for Whisper (rejects .mov); iPhone often sends quicktime
+            file.type.includes('webm')
+              ? 'webm'
+              : 'mp4'
           : file.type === 'image/png'
             ? 'png'
             : file.type === 'image/webp'
@@ -213,12 +212,12 @@ export async function uploadJobAttachment(
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const contentType =
-      file.type ||
-      (kind === 'voice'
-        ? 'audio/webm'
-        : kind === 'video'
+      kind === 'video'
+        ? file.type.includes('webm')
           ? 'video/webm'
-          : 'image/jpeg');
+          : 'video/mp4'
+        : file.type ||
+          (kind === 'voice' ? 'audio/webm' : 'image/jpeg');
 
     const { error: uploadError } = await admin.storage
       .from('job-media')
@@ -330,13 +329,15 @@ export async function transcribeVoiceToNotes(
     const buffer = Buffer.from(await audioRes.arrayBuffer());
     const contentType =
       audioRes.headers.get('content-type') || 'audio/webm';
-    const filename = att.url.split('/').pop() || 'voice.webm';
+    const filename =
+      att.url.split('?')[0].split('/').pop() || 'voice.webm';
 
     const { transcribeAudioBuffer } = await import('@/lib/ai/transcribe');
     const transcript = await transcribeAudioBuffer(
       buffer,
       filename,
-      contentType
+      contentType,
+      'voice'
     );
 
     const { data: job } = await supabase

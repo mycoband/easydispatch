@@ -228,16 +228,17 @@ export async function transcribeWalkthroughVoice(
     const buffer = Buffer.from(await audioRes.arrayBuffer());
     const contentType =
       audioRes.headers.get('content-type') ||
-      (att.kind === 'video' ? 'video/webm' : 'audio/webm');
+      (att.kind === 'video' ? 'video/mp4' : 'audio/webm');
     const filename =
-      att.url.split('/').pop() ||
-      (att.kind === 'video' ? 'walkthrough.webm' : 'voice.webm');
+      att.url.split('?')[0].split('/').pop() ||
+      (att.kind === 'video' ? 'walkthrough.mp4' : 'voice.webm');
 
     const { transcribeAudioBuffer } = await import('@/lib/ai/transcribe');
     const transcript = await transcribeAudioBuffer(
       buffer,
       filename,
-      contentType
+      contentType,
+      att.kind
     );
 
     const caption = `Transcript: ${transcript.slice(0, 480)}${
@@ -405,12 +406,17 @@ export async function generateWalkthroughReportAction(
               audioRes.headers.get('content-type') ||
               (m.kind === 'video' ? 'video/mp4' : 'audio/webm');
             const filename =
-              m.url.split('/').pop() ||
+              m.url.split('?')[0].split('/').pop() ||
               (m.kind === 'video' ? 'walkthrough.mp4' : 'voice.webm');
             const { transcribeAudioBuffer } = await import(
               '@/lib/ai/transcribe'
             );
-            text = await transcribeAudioBuffer(buffer, filename, contentType);
+            text = await transcribeAudioBuffer(
+              buffer,
+              filename,
+              contentType,
+              m.kind
+            );
             if (text) {
               const caption = `Transcript: ${text.slice(0, 480)}${
                 text.length > 480 ? '…' : ''
