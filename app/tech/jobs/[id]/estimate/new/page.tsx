@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { NewEstimateBuilder } from '@/components/estimates/NewEstimateBuilder';
-import { requireTech } from '@/lib/auth';
+import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
 import { loadPricebookPresets } from '@/lib/pricebook/load';
@@ -12,10 +12,8 @@ export default async function TechNewJobEstimatePage({
   params: Promise<{ id: string }>;
 }) {
   const { id: jobId } = await params;
-  const [{ supabase, user, profile }, company] = await Promise.all([
-    requireTech(),
-    loadCompanySettings(),
-  ]);
+  const [{ supabase, user, profile, techViewPreview }, company] =
+    await Promise.all([requireTechApp(), loadCompanySettings()]);
 
   if (!company.modules.estimates) notFound();
   if (
@@ -30,7 +28,11 @@ export default async function TechNewJobEstimatePage({
     .eq('id', jobId)
     .maybeSingle();
 
-  if (!job || job.assigned_to !== user.id || !job.customer_id) {
+  if (
+    !job ||
+    !job.customer_id ||
+    (!techViewPreview && job.assigned_to !== user.id)
+  ) {
     notFound();
   }
 

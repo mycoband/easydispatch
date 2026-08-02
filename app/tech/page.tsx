@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
-import { requireTech } from '@/lib/auth';
+import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
 import {
@@ -38,9 +38,16 @@ type JobRow = {
   check_in_at: string | null;
   check_out_at: string | null;
   internal_notes: string | null;
+  assigned_to_name?: string | null;
 };
 
-function JobCard({ job }: { job: JobRow }) {
+function JobCard({
+  job,
+  showAssignee,
+}: {
+  job: JobRow;
+  showAssignee?: boolean;
+}) {
   const live = deriveLiveStatus(job);
   const phase = phaseFromLiveStatus(live);
   const hint = nextActionHint(live);
@@ -60,6 +67,9 @@ function JobCard({ job }: { job: JobRow }) {
             {job.priority ? ` · ${job.priority}` : ''}
             {job.scheduled_start
               ? ` · ${formatTimestamp(job.scheduled_start)}`
+              : ''}
+            {showAssignee
+              ? ` · ${job.assigned_to_name || 'Unassigned'}`
               : ''}
           </p>
           <p className="mt-2 text-sm font-semibold text-brand-800">
@@ -81,10 +91,12 @@ function JobGroup({
   title,
   jobs,
   empty,
+  showAssignee,
 }: {
   title: string;
   jobs: JobRow[];
   empty?: string;
+  showAssignee?: boolean;
 }) {
   if (jobs.length === 0) {
     if (!empty) return null;
@@ -110,7 +122,7 @@ function JobGroup({
       </h2>
       <div className="space-y-3">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} />
+          <JobCard key={job.id} job={job} showAssignee={showAssignee} />
         ))}
       </div>
     </section>
@@ -118,19 +130,24 @@ function JobGroup({
 }
 
 export default async function TechHomePage() {
-  const { profile, supabase, user } = await requireTech();
+  const { profile, supabase, user, techViewPreview } = await requireTechApp();
   const company = await loadCompanySettings();
   const allowPdf = Boolean(company.modules.print_pdfs);
 
-  const { data: jobs } = await supabase
+  let query = supabase
     .from('jobs')
     .select(
-      'id, job_number, customer_name, status, scheduled_start, priority, drive_started_at, check_in_at, check_out_at, internal_notes'
+      'id, job_number, customer_name, status, scheduled_start, priority, drive_started_at, check_in_at, check_out_at, internal_notes, assigned_to_name'
     )
-    .eq('assigned_to', user.id)
     .neq('status', 'Cancelled')
     .order('scheduled_start', { ascending: true, nullsFirst: false })
-    .limit(30);
+    .limit(techViewPreview ? 50 : 30);
+
+  if (!techViewPreview) {
+    query = query.eq('assigned_to', user.id);
+  }
+
+  const { data: jobs } = await query;
 
   const list = (jobs ?? []) as JobRow[];
   const today = new Date();
@@ -171,11 +188,13 @@ export default async function TechHomePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold text-ink-950">
-            My jobs
+            {techViewPreview ? 'Shop jobs (tech view)' : 'My jobs'}
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Hi{profile.full_name ? ` ${profile.full_name}` : ''}. Open a job —
-            Arrive, Work, then Wrap up.
+            Hi{profile.full_name ? ` ${profile.full_name}` : ''}.{' '}
+            {techViewPreview
+              ? 'Browsing the technician ticket UI for your company.'
+              : 'Open a job — Arrive, Work, then Wrap up.'}
           </p>
         </div>
         {allowPdf && (
@@ -191,25 +210,43 @@ export default async function TechHomePage() {
       {list.length === 0 ? (
         <div className="panel p-6">
           <p className="text-sm text-ink-600">
-            No jobs assigned yet. Once office assigns you, they&apos;ll show up
-            here.
+            {techViewPreview
+              ? 'No open jobs for this company yet.'
+              : 'No jobs assigned yet. Once office assigns you, they’ll show up here.'}
           </p>
         </div>
       ) : (
         <div className="space-y-8">
-          <JobGroup title="In progress" jobs={inProgress} />
+          <JobGroup
+            title="In progress"
+            jobs={inProgress}
+            showAssignee={techViewPreview}
+          />
           <JobGroup
             title="Today"
             jobs={todayJobs}
+            showAssignee={techViewPreview}
             empty={
               inProgress.length === 0
                 ? 'Nothing scheduled for today.'
                 : undefined
             }
           />
-          <JobGroup title="Later" jobs={laterJobs} />
-          <JobGroup title="Done today" jobs={doneToday} />
-          <JobGroup title="Other" jobs={otherJobs} />
+          <JobGroup
+            title="Later"
+            jobs={laterJobs}
+            showAssignee={techViewPreview}
+          />
+          <JobGroup
+            title="Done today"
+            jobs={doneToday}
+            showAssignee={techViewPreview}
+          />
+          <JobGroup
+            title="Other"
+            jobs={otherJobs}
+            showAssignee={techViewPreview}
+          />
         </div>
       )}
     </div>

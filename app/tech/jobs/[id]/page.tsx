@@ -22,7 +22,7 @@ import { TechJobPacket } from '@/components/tech/TechJobPacket';
 import { TechJobTicketShell } from '@/components/tech/TechJobTicketShell';
 import { TruckStockDeduct } from '@/components/tech/TruckStockDeduct';
 import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
-import { requireTech } from '@/lib/auth';
+import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
@@ -41,10 +41,8 @@ export default async function TechJobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [{ supabase, user, profile }, company] = await Promise.all([
-    requireTech(),
-    loadCompanySettings(),
-  ]);
+  const [{ supabase, user, profile, techViewPreview }, company] =
+    await Promise.all([requireTechApp(), loadCompanySettings()]);
   const mods = company.modules;
   const rp = company.role_permissions;
   const allow = (key: Parameters<typeof roleHasPermission>[1]) =>
@@ -69,7 +67,18 @@ export default async function TechJobDetailPage({
     jobError = retry.error;
   }
 
-  if (jobError || !job || job.assigned_to !== user.id) {
+  if (jobError || !job) {
+    notFound();
+  }
+  if (!techViewPreview && job.assigned_to !== user.id) {
+    notFound();
+  }
+  if (
+    techViewPreview &&
+    profile.company_id &&
+    job.company_id &&
+    job.company_id !== profile.company_id
+  ) {
     notFound();
   }
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ProductMark } from '@/components/brand/ProductMark';
 import { SignOutButton } from '@/components/SignOutButton';
 import { roleLabel, type AppRole } from '@/lib/roles';
@@ -37,6 +37,7 @@ export function AppNav({
   companyLogoUrl = null,
   settingsHref,
   helpHref,
+  trailing,
 }: {
   brandHref: string;
   items: NavItem[];
@@ -47,6 +48,8 @@ export function AppNav({
   companyLogoUrl?: string | null;
   settingsHref?: string;
   helpHref?: string;
+  /** Extra controls before profile (e.g. Technician view toggle) */
+  trailing?: ReactNode;
 }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -113,6 +116,7 @@ export function AppNav({
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          {trailing}
           {helpHref && (
             <Link
               href={helpHref}

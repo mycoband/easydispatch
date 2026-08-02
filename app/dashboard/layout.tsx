@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { AppNav } from '@/components/AppNav';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
-import { requireOffice } from '@/lib/auth';
+import { TechViewToggle } from '@/components/tech/TechViewToggle';
+import { isOfficeTechViewEnabled, requireOffice } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { navItemsForModules } from '@/lib/company/modules';
 import { roleHasPermission } from '@/lib/company/permissions';
@@ -31,9 +32,10 @@ export default async function OfficeLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [{ profile }, company] = await Promise.all([
+  const [{ profile }, company, techViewOn] = await Promise.all([
     requireOffice(),
     loadCompanySettings(),
+    isOfficeTechViewEnabled(),
   ]);
 
   let billingBanner: string | null = null;
@@ -90,6 +92,7 @@ export default async function OfficeLayout({
         companyLogoUrl={company.logo_url}
         settingsHref="/dashboard/settings"
         helpHref="/dashboard/help"
+        trailing={<TechViewToggle enabled={techViewOn} variant="nav" />}
       />
       {billingBanner && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950">

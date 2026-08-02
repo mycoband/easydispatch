@@ -1,6 +1,7 @@
 import { AppNav } from '@/components/AppNav';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
-import { requireTech } from '@/lib/auth';
+import { TechViewToggle } from '@/components/tech/TechViewToggle';
+import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 
 const techNav = [
@@ -13,8 +14,8 @@ export default async function TechLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [{ profile }, company] = await Promise.all([
-    requireTech(),
+  const [{ profile, techViewPreview }, company] = await Promise.all([
+    requireTechApp(),
     loadCompanySettings(),
   ]);
 
@@ -28,6 +29,7 @@ export default async function TechLayout({
         companyLogoUrl={company.logo_url}
         helpHref="/tech/help"
       />
+      {techViewPreview && <TechViewToggle enabled variant="banner" />}
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">{children}</main>
       <HelpChatWidget faqHref="/tech/help" />
     </div>

@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
@@ -14,6 +15,10 @@ import {
   provisionCompanyForUser,
   type CompanyRecord,
 } from '@/lib/tenant';
+import {
+  isTechViewCookie,
+  TECH_VIEW_COOKIE,
+} from '@/lib/tech/tech-view';
 
 export type { AppRole };
 export { homeForRole, isOfficeRole };
@@ -218,6 +223,30 @@ export async function requireTech() {
     redirect('/dashboard');
   }
   return ctx;
+}
+
+/**
+ * Access the technician app UI.
+ * Real technicians always; office/owner/dispatcher only with Technician view cookie.
+ */
+export async function requireTechApp() {
+  const ctx = await requireProfile();
+  if (ctx.profile.role === 'technician') {
+    return { ...ctx, techViewPreview: false as const };
+  }
+  if (isOfficeRole(ctx.profile.role)) {
+    const jar = await cookies();
+    if (isTechViewCookie(jar.get(TECH_VIEW_COOKIE)?.value)) {
+      return { ...ctx, techViewPreview: true as const };
+    }
+    redirect('/dashboard');
+  }
+  redirect('/dashboard');
+}
+
+export async function isOfficeTechViewEnabled() {
+  const jar = await cookies();
+  return isTechViewCookie(jar.get(TECH_VIEW_COOKIE)?.value);
 }
 
 export async function requireCompany(): Promise<{

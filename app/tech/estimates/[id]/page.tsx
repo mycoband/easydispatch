@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { EstimateActions } from '@/components/estimates/EstimateActions';
 import { EstimateLineItemsEditor } from '@/components/estimates/EstimateLineItemsEditor';
-import { requireTech } from '@/lib/auth';
+import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
 import { formatMoney } from '@/lib/jobs/totals';
@@ -14,10 +14,8 @@ export default async function TechEstimateDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [{ supabase, user, profile }, company] = await Promise.all([
-    requireTech(),
-    loadCompanySettings(),
-  ]);
+  const [{ supabase, user, profile, techViewPreview }, company] =
+    await Promise.all([requireTechApp(), loadCompanySettings()]);
 
   if (!company.modules.estimates) notFound();
   if (
@@ -40,7 +38,12 @@ export default async function TechEstimateDetailPage({
     .eq('id', estimate.job_id)
     .maybeSingle();
 
-  if (!job || job.assigned_to !== user.id) notFound();
+  if (
+    !job ||
+    (!techViewPreview && job.assigned_to !== user.id)
+  ) {
+    notFound();
+  }
 
   const [{ data: lineItems }, { data: taxRates }, presets] = await Promise.all([
     supabase

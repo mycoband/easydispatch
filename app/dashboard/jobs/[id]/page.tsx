@@ -19,6 +19,7 @@ import { pmChecklistPhotosAsAttachments } from '@/lib/equipment/pm-job-photos';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
 import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
+import { TechViewToggle } from '@/components/tech/TechViewToggle';
 import { requireOffice } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
@@ -260,7 +261,14 @@ export default async function JobDetailPage({
             </p>
           )}
         </div>
-        <DeleteJobButton jobId={job.id} />
+        <div className="flex flex-wrap items-center gap-2">
+          <TechViewToggle
+            enabled={false}
+            variant="button"
+            jobId={job.id}
+          />
+          <DeleteJobButton jobId={job.id} />
+        </div>
       </div>
 
       <TimeTrackingPanel jobId={job.id} job={job} />

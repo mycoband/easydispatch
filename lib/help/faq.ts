@@ -171,6 +171,13 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
       'Needs Equipment timeline on. Open the job PM checklist (or customer Equipment timeline) → Edit items to add/remove/rename checks, or Reset defaults. Add photo on any item. On a job, every PM photo also appears in Job photos (tag “PM checklist”). Regular Job photos uploads show there too. Photos stay on the unit checklist for later visits.',
   },
   {
+    id: 'technician-view-office',
+    category: 'Settings & modules',
+    question: 'Can office / owners see the technician app?',
+    answer:
+      'Yes. In the office dashboard header, check Tech view — or on a job click Open technician view. You get the same Arrive → Work → Wrap up screens techs use. A blue banner lets you Exit to office anytime. Shop jobs are listed (with assignee names); your office permissions still apply to actions.',
+  },
+  {
     id: 'ai-walkthrough',
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
