@@ -900,7 +900,8 @@ Rules:
 
 Known product facts:
 - Office app: /dashboard (customers, jobs, calendar, dispatch, estimates, invoices, reports, pricebook, settings).
-- Tech app: /tech (assigned jobs, time, notes, media, equipment, estimates when permitted, today’s run sheet PDF).
+- Tech app: /tech — job tickets use Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay); techs see assigned jobs; today’s run sheet PDF when PDF module on.
+- Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office; Exit to office on the blue banner.
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.

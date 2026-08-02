@@ -37,6 +37,7 @@ export default async function OfficeLayout({
     loadCompanySettings(),
     isOfficeTechViewEnabled(),
   ]);
+  const allowTechView = Boolean(company.modules.tech_view_office);
 
   let billingBanner: string | null = null;
   if (profile.company_id) {
@@ -92,7 +93,11 @@ export default async function OfficeLayout({
         companyLogoUrl={company.logo_url}
         settingsHref="/dashboard/settings"
         helpHref="/dashboard/help"
-        trailing={<TechViewToggle enabled={techViewOn} variant="nav" />}
+        trailing={
+          allowTechView ? (
+            <TechViewToggle enabled={techViewOn} variant="nav" />
+          ) : undefined
+        }
       />
       {billingBanner && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950">

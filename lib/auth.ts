@@ -237,6 +237,12 @@ export async function requireTechApp() {
   if (isOfficeRole(ctx.profile.role)) {
     const jar = await cookies();
     if (isTechViewCookie(jar.get(TECH_VIEW_COOKIE)?.value)) {
+      const { loadCompanySettings } = await import('@/lib/company');
+      const company = await loadCompanySettings();
+      if (!company.modules.tech_view_office) {
+        jar.delete(TECH_VIEW_COOKIE);
+        redirect('/dashboard');
+      }
       return { ...ctx, techViewPreview: true as const };
     }
     redirect('/dashboard');

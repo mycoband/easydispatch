@@ -262,11 +262,13 @@ export default async function JobDetailPage({
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <TechViewToggle
-            enabled={false}
-            variant="button"
-            jobId={job.id}
-          />
+          {mods.tech_view_office && (
+            <TechViewToggle
+              enabled={false}
+              variant="button"
+              jobId={job.id}
+            />
+          )}
           <DeleteJobButton jobId={job.id} />
         </div>
       </div>

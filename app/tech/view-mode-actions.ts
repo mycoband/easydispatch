@@ -3,19 +3,26 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { requireProfile, isOfficeRole } from '@/lib/auth';
+import { loadCompanySettings } from '@/lib/company';
 import { TECH_VIEW_COOKIE } from '@/lib/tech/tech-view';
 
-async function assertOffice() {
+async function assertOfficeTechViewAllowed() {
   const { profile } = await requireProfile();
   if (!isOfficeRole(profile.role)) {
     throw new Error('Only office roles can toggle Technician view');
+  }
+  const company = await loadCompanySettings();
+  if (!company.modules.tech_view_office) {
+    throw new Error(
+      'Technician view is off. Turn it on in Settings → Feature modules.'
+    );
   }
   return profile;
 }
 
 /** Enter the tech app UI (same screens technicians use). */
 export async function enableTechnicianView(jobId?: string) {
-  await assertOffice();
+  await assertOfficeTechViewAllowed();
   const jar = await cookies();
   jar.set(TECH_VIEW_COOKIE, '1', {
     path: '/',
@@ -31,7 +38,10 @@ export async function enableTechnicianView(jobId?: string) {
 
 /** Leave tech preview and return to the office dashboard. */
 export async function disableTechnicianView() {
-  await assertOffice();
+  const { profile } = await requireProfile();
+  if (!isOfficeRole(profile.role)) {
+    throw new Error('Only office roles can toggle Technician view');
+  }
   const jar = await cookies();
   jar.delete(TECH_VIEW_COOKIE);
   redirect('/dashboard');

@@ -259,6 +259,16 @@ export const COMPANY_MODULES = [
     group: 'Customer experience',
   },
   {
+    id: 'tech_view_office',
+    label: 'Technician view (office)',
+    description:
+      'Owners, dispatchers, and office staff can open the same tech app screens field techs use',
+    help: 'Settings → Feature modules → Technician view (office). On: dashboard header shows Tech view checkbox; job pages show Open technician view. Opens /tech with Arrive → Work → Wrap up. Blue banner → Exit to office. Off: hides those controls. Actions still use office permissions.',
+    href: '/tech',
+    defaultEnabled: true,
+    group: 'Field / tech',
+  },
+  {
     id: 'ai',
     label: 'AI tools',
     description:
@@ -273,7 +283,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'On-job video (camera+mic), voice, and photos → AI report you edit and save',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video → Generate: frames extracted so Grok can see + Whisper so Grok can hear (needs XAI_API_KEY, OPENAI_API_KEY, AI tools). Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs (Work phase on tech tickets). Record video → Generate: frames extracted so Grok can see + Whisper so Grok can hear (needs XAI_API_KEY, OPENAI_API_KEY, AI tools). Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -283,7 +293,7 @@ export const COMPANY_MODULES = [
     label: 'Job photos & voice',
     description:
       'Before/after photos and voice notes on the job (separate from Walkthrough video)',
-    help: 'On the job → Job photos. Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY). Walkthrough video/voice lives under AI Job Walkthrough (tag walkthrough), not this panel.',
+    help: 'On the tech job Work phase → Extra photos (or Job photos if Walkthrough is off). Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY). Walkthrough video/voice lives under AI Job Walkthrough (tag walkthrough), not this panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -293,7 +303,7 @@ export const COMPANY_MODULES = [
     label: 'Offline notes & time',
     description:
       'Queue diagnosis notes and Drive/Arrive/Clock Out when signal drops; sync when back online',
-    help: 'On tech job page: banner shows Offline / Sync now. Queues Save notes and time buttons in the browser until online.',
+    help: 'On tech job (Arrive / Wrap): banner shows Offline / Sync now. Queues Save notes and time buttons in the browser until online.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -302,7 +312,7 @@ export const COMPANY_MODULES = [
     id: 'tech_safety',
     label: 'Safety checklist',
     description: 'Lockout, ladder, refrigerant, permit checks',
-    help: 'On the tech job → Safety checklist. Techs need the Safety permission.',
+    help: 'On the tech job → Work phase → Safety checklist. Techs need the Safety permission.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

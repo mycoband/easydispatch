@@ -49,7 +49,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What’s the difference between the office dashboard and the tech app?',
     answer:
-      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): only jobs assigned to that technician (time, notes, Job Walkthrough video/voice/photos, sign). Same company data; different screens and permissions.',
+      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): field ticket with Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay). Real techs see jobs assigned to them. Office can open the same screens via Technician view (Settings → Feature modules → Technician view (office); then Tech view in the header).',
+  },
+  {
+    id: 'tech-ticket-phases',
+    category: 'Tech app',
+    question: 'How does the tech job ticket work (Arrive / Work / Wrap up)?',
+    answer:
+      'Open a job on /tech. Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough, safety, notes, equipment/photos as needed), Wrap up (clock out, signature, invoice). Tabs switch phases; sticky bar advances. Default phase follows live status (driving → Arrive, on site → Work, completed → Wrap up). Office staff use Technician view to see the same layout.',
   },
   {
     id: 'feature-modules',
@@ -175,7 +182,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Settings & modules',
     question: 'Can office / owners see the technician app?',
     answer:
-      'Yes. In the office dashboard header, check Tech view — or on a job click Open technician view. You get the same Arrive → Work → Wrap up screens techs use. A blue banner lets you Exit to office anytime. Shop jobs are listed (with assignee names); your office permissions still apply to actions.',
+      'Yes — Settings → Feature modules → Field / tech → Technician view (office) (on by default). Then in the dashboard header check Tech view, or on a job click Open technician view. Same Arrive → Work → Wrap up screens. Blue banner → Exit to office. Shop jobs list shows assignee names; actions use your office permissions. Turn the module off to hide the toggle for everyone.',
   },
   {
     id: 'ai-walkthrough',
