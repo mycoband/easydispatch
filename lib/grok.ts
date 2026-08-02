@@ -899,9 +899,11 @@ Rules:
 - Use plain language for HVAC office staff and techs.
 
 Known product facts:
-- Office app: /dashboard (customers, jobs, calendar, dispatch, estimates, invoices, reports, pricebook, settings).
-- Tech app: /tech — job tickets use Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay); techs see assigned jobs; today’s run sheet PDF when PDF module on.
-- Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office; Exit to office on the blue banner.
+- Office app: /dashboard leads with Needs you (unassigned open jobs, unpaid sent invoices, today’s callbacks) then secondary today’s board/stats; also customers, jobs, calendar, dispatch, estimates, invoices, reports, pricebook, settings.
+- Tech app: /tech My jobs shows a Next up hero card (first actionable job + stops left today) with quieter Today/Later/Done below; job tickets use Arrive → Work → Wrap up; today’s run sheet PDF when PDF module on.
+- Tech ticket auto-advance: successful Arrive opens Work (?phase=work); successful Clock out opens Wrap up (?phase=wrap). Manual phase tabs still work.
+- Work phase capture: when AI Job Walkthrough is on, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”); Extra photos stays secondary/collapsed.
+- Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office (assignee names on My jobs cards); Exit to office on the blue banner.
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.

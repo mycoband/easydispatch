@@ -404,6 +404,7 @@ export default async function TechJobDetailPage({
             mods.ai && mods.ai_walkthrough && allow('edit_notes')
           )}
           allowPdf={Boolean(mods.ai_walkthrough && mods.print_pdfs)}
+          heroCapture
           readOnlyHint="Your role cannot edit notes — ask a dispatcher if you need changes saved."
         />
       )}
@@ -455,7 +456,7 @@ export default async function TechJobDetailPage({
           title={showWalkthrough ? 'Extra photos' : 'Job photos & voice'}
           subtitle={
             showWalkthrough
-              ? 'Optional — walkthrough already captures media'
+              ? 'Optional extras — use Record walkthrough above first'
               : 'Photos, voice, customer approval'
           }
           defaultOpen={!showWalkthrough}

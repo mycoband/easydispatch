@@ -5,6 +5,7 @@ import { loadCompanySettings } from '@/lib/company';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
 import {
   nextActionHint,
+  nextUpCtaLabel,
   phaseFromLiveStatus,
 } from '@/lib/tech/job-phases';
 
@@ -44,9 +45,11 @@ type JobRow = {
 function JobCard({
   job,
   showAssignee,
+  quiet,
 }: {
   job: JobRow;
   showAssignee?: boolean;
+  quiet?: boolean;
 }) {
   const live = deriveLiveStatus(job);
   const phase = phaseFromLiveStatus(live);
@@ -55,11 +58,21 @@ function JobCard({
   return (
     <Link
       href={`/tech/jobs/${job.id}?phase=${phase}`}
-      className="panel block p-4 transition hover:border-brand-300 active:bg-ink-50/40 sm:p-5"
+      className={
+        quiet
+          ? 'block rounded-xl border border-ink-100 bg-white px-4 py-3 transition hover:border-brand-300'
+          : 'panel block p-4 transition hover:border-brand-300 active:bg-ink-50/40 sm:p-5'
+      }
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-base font-semibold text-ink-900 sm:text-lg">
+          <p
+            className={
+              quiet
+                ? 'font-medium text-ink-900'
+                : 'text-base font-semibold text-ink-900 sm:text-lg'
+            }
+          >
             {job.customer_name || 'Customer'}
           </p>
           <p className="mt-1 text-sm text-ink-500">
@@ -72,10 +85,12 @@ function JobCard({
               ? ` · ${job.assigned_to_name || 'Unassigned'}`
               : ''}
           </p>
-          <p className="mt-2 text-sm font-semibold text-brand-800">
-            Next: {hint}
-          </p>
-          {job.internal_notes && (
+          {!quiet && (
+            <p className="mt-2 text-sm font-semibold text-brand-800">
+              Next: {hint}
+            </p>
+          )}
+          {job.internal_notes && !quiet && (
             <p className="mt-2 line-clamp-2 text-sm text-amber-900">
               {job.internal_notes}
             </p>
@@ -92,37 +107,42 @@ function JobGroup({
   jobs,
   empty,
   showAssignee,
+  quiet,
 }: {
   title: string;
   jobs: JobRow[];
   empty?: string;
   showAssignee?: boolean;
+  quiet?: boolean;
 }) {
   if (jobs.length === 0) {
     if (!empty) return null;
     return (
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">
+      <section className="space-y-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">
           {title}
         </h2>
-        <div className="panel p-4">
-          <p className="text-sm text-ink-600">{empty}</p>
-        </div>
+        <p className="text-sm text-ink-500">{empty}</p>
       </section>
     );
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-500">
+    <section className="space-y-2">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">
         {title}
-        <span className="ml-2 font-medium normal-case text-ink-400">
+        <span className="ml-2 font-medium normal-case text-ink-300">
           ({jobs.length})
         </span>
       </h2>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {jobs.map((job) => (
-          <JobCard key={job.id} job={job} showAssignee={showAssignee} />
+          <JobCard
+            key={job.id}
+            job={job}
+            showAssignee={showAssignee}
+            quiet={quiet}
+          />
         ))}
       </div>
     </section>
@@ -183,6 +203,13 @@ export default async function TechHomePage() {
   );
   const otherJobs = list.filter((j) => !groupedIds.has(j.id));
 
+  const nextUp = inProgress[0] || todayJobs[0] || null;
+  const nextLive = nextUp ? deriveLiveStatus(nextUp) : null;
+  const nextPhase = nextLive ? phaseFromLiveStatus(nextLive) : 'arrive';
+  const stopsLeftToday =
+    inProgress.length +
+    todayJobs.filter((j) => deriveLiveStatus(j) !== 'Completed').length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -194,7 +221,7 @@ export default async function TechHomePage() {
             Hi{profile.full_name ? ` ${profile.full_name}` : ''}.{' '}
             {techViewPreview
               ? 'Browsing the technician ticket UI for your company.'
-              : 'Open a job — Arrive, Work, then Wrap up.'}
+              : 'Your next stop is up top.'}
           </p>
         </div>
         {allowPdf && (
@@ -217,36 +244,81 @@ export default async function TechHomePage() {
         </div>
       ) : (
         <div className="space-y-8">
-          <JobGroup
-            title="In progress"
-            jobs={inProgress}
-            showAssignee={techViewPreview}
-          />
-          <JobGroup
-            title="Today"
-            jobs={todayJobs}
-            showAssignee={techViewPreview}
-            empty={
-              inProgress.length === 0
-                ? 'Nothing scheduled for today.'
-                : undefined
-            }
-          />
-          <JobGroup
-            title="Later"
-            jobs={laterJobs}
-            showAssignee={techViewPreview}
-          />
-          <JobGroup
-            title="Done today"
-            jobs={doneToday}
-            showAssignee={techViewPreview}
-          />
-          <JobGroup
-            title="Other"
-            jobs={otherJobs}
-            showAssignee={techViewPreview}
-          />
+          {nextUp && nextLive && (
+            <section className="overflow-hidden rounded-2xl border border-brand-200 bg-gradient-to-b from-brand-50 to-white p-5 shadow-sm sm:p-6">
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">
+                Next up
+              </p>
+              <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-display text-xl font-semibold text-ink-950 sm:text-2xl">
+                    {nextUp.customer_name || 'Customer'}
+                  </h2>
+                  <p className="mt-1 text-sm text-ink-600">
+                    {nextUp.job_number || nextUp.id.slice(0, 8)}
+                    {nextUp.scheduled_start
+                      ? ` · ${formatTimestamp(nextUp.scheduled_start)}`
+                      : ''}
+                    {techViewPreview
+                      ? ` · ${nextUp.assigned_to_name || 'Unassigned'}`
+                      : ''}
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-brand-900">
+                    {nextActionHint(nextLive)}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-500">
+                    {stopsLeftToday} stop{stopsLeftToday === 1 ? '' : 's'} left
+                    today
+                  </p>
+                </div>
+                <LiveStatusBadge status={nextLive} />
+              </div>
+              <Link
+                href={`/tech/jobs/${nextUp.id}?phase=${nextPhase}`}
+                className="mt-5 flex w-full items-center justify-center rounded-xl bg-brand-600 px-4 py-4 text-base font-semibold text-white hover:bg-brand-700"
+              >
+                {nextUpCtaLabel(nextLive)}
+              </Link>
+            </section>
+          )}
+
+          <div className="space-y-6 opacity-95">
+            <JobGroup
+              title="In progress"
+              jobs={inProgress.filter((j) => j.id !== nextUp?.id)}
+              showAssignee={techViewPreview}
+              quiet
+            />
+            <JobGroup
+              title="Today"
+              jobs={todayJobs.filter((j) => j.id !== nextUp?.id)}
+              showAssignee={techViewPreview}
+              quiet
+              empty={
+                !nextUp && inProgress.length === 0
+                  ? 'Nothing scheduled for today.'
+                  : undefined
+              }
+            />
+            <JobGroup
+              title="Later"
+              jobs={laterJobs}
+              showAssignee={techViewPreview}
+              quiet
+            />
+            <JobGroup
+              title="Done today"
+              jobs={doneToday}
+              showAssignee={techViewPreview}
+              quiet
+            />
+            <JobGroup
+              title="Other"
+              jobs={otherJobs}
+              showAssignee={techViewPreview}
+              quiet
+            />
+          </div>
         </div>
       )}
     </div>

@@ -49,14 +49,28 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What’s the difference between the office dashboard and the tech app?',
     answer:
-      'Office (/dashboard): owners, dispatchers, and office staff — customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): field ticket with Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay). Real techs see jobs assigned to them. Office can open the same screens via Technician view (Settings → Feature modules → Technician view (office); then Tech view in the header).',
+      'Office (/dashboard): starts with a Needs you inbox (unassigned jobs, unpaid invoices, today’s callbacks), then today’s board/stats — plus customers, calendar, dispatch, estimates, invoices, reports, job costing, settings. Tech (/tech): My jobs opens with a Next up card, then quieter Today/Later/Done groups; job tickets use Arrive → Work → Wrap up (time, walkthrough, notes, sign/pay). Real techs see jobs assigned to them. Office can open the same screens via Technician view (Settings → Feature modules → Technician view (office); then Tech view in the header).',
+  },
+  {
+    id: 'needs-you-dashboard',
+    category: 'Getting started',
+    question: 'What is Needs you on the dashboard?',
+    answer:
+      'Office home (/dashboard) leads with Needs you — not another stats strip. It lists unassigned open jobs (→ Dispatch or the job), unpaid sent invoices (→ Invoices), and today’s callbacks when Callbacks is on. Each row is one line with a deep link. Today’s schedule and counts stay below as secondary. Uses existing Dispatch and Invoices modules (no separate toggle).',
+  },
+  {
+    id: 'tech-next-up',
+    category: 'Tech app',
+    question: 'What’s Next up on My jobs?',
+    answer:
+      'Tech home (/tech) shows a large Next up card: the first actionable job (In progress, else the first Today job). One primary button opens that job at the right phase (?phase= from live status). A secondary line shows how many stops are left today. Today / Later / Done groups stay below, quieter. Office Technician view keeps assignee names on cards.',
   },
   {
     id: 'tech-ticket-phases',
     category: 'Tech app',
     question: 'How does the tech job ticket work (Arrive / Work / Wrap up)?',
     answer:
-      'Open a job on /tech. Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough, safety, notes, equipment/photos as needed), Wrap up (clock out, signature, invoice). Tabs switch phases; sticky bar advances. Default phase follows live status (driving → Arrive, on site → Work, completed → Wrap up). Office staff use Technician view to see the same layout.',
+      'Open a job from My jobs (or Next up). Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough hero when enabled, safety, notes, equipment/photos as needed), Wrap up (clock out, signature, invoice). Tapping Arrive auto-opens Work; Clock out auto-opens Wrap up — you can still jump tabs manually. Sticky bar hints match (“Arrive moves you to Work”). Default phase also follows live status (driving → Arrive, on site → Work, completed → Wrap up). Office staff use Technician view to see the same layout.',
   },
   {
     id: 'feature-modules',
@@ -189,14 +203,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). Record video on a job → Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). Edit → Save to Job. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
+      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On the tech Work phase, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); Extra photos stays collapsed below. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). Edit → Save to Job. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
   },
   {
     id: 'ai-walkthrough-video',
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'Needs AI Job Walkthrough on (Settings → Feature modules). Open a job → Job Walkthrough (AI) → Record video walkthrough — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or Choose video from library. Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY). If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job → Work phase → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or use More capture options (voice / library). Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY). If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
   },
   {
     id: 'ai-walkthrough-pdf',
@@ -364,7 +378,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'Where is my printable run sheet?',
     answer:
-      'Tech home (My jobs) → Today’s run sheet PDF when PDF documents is enabled. For the full digital run sheet, open an assigned job (packet, drive, diagnose, parts, sign).',
+      'Tech home (My jobs) shows Next up, then Today/Later/Done; Today’s run sheet PDF when PDF documents is enabled. For the full digital run sheet, open Next up or an assigned job (Arrive → Work → Wrap up).',
   },
   {
     id: 'tech-safety',

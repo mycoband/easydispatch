@@ -34,17 +34,17 @@ function stickyForPhase(
     return {
       hint:
         liveStatus === 'En Route'
-          ? 'Mark Arrive when you’re on site'
+          ? 'Tap Arrive — you’ll move to Work automatically'
           : liveStatus === 'On Site'
             ? 'You’re on site — continue to Work'
-            : 'Start Drive, then Arrive',
+            : 'Start Drive, then Arrive (auto-opens Work)',
       primaryLabel: 'Continue to Work',
       primaryPhase: 'work',
     };
   }
   if (phase === 'work') {
     return {
-      hint: 'Capture, notes, then wrap up',
+      hint: 'Record walkthrough first — then wrap up',
       primaryLabel: 'Go to Wrap up',
       primaryPhase: 'wrap',
       secondaryLabel: 'Back to Arrive',
@@ -55,7 +55,7 @@ function stickyForPhase(
     hint:
       liveStatus === 'Completed'
         ? 'Sign, invoice, then you’re done'
-        : 'Clock out, then sign & pay',
+        : 'Clock out moves you here — then sign & pay',
     primaryLabel: 'Back to My jobs',
     primaryHref: '/tech',
     secondaryLabel: 'Back to Work',

@@ -38,3 +38,17 @@ export function nextActionHint(status: LiveStatus): string {
       return 'Start drive';
   }
 }
+
+/** Primary CTA label for the Next up card. */
+export function nextUpCtaLabel(status: LiveStatus): string {
+  switch (status) {
+    case 'En Route':
+      return 'Open · Arrive';
+    case 'On Site':
+      return 'Open · Continue work';
+    case 'Completed':
+      return 'Open · Wrap up';
+    default:
+      return 'Open · Start drive';
+  }
+}

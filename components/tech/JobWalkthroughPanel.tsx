@@ -116,6 +116,7 @@ export function JobWalkthroughPanel({
   allowGenerate = false,
   allowPdf = false,
   readOnlyHint,
+  heroCapture = false,
 }: {
   jobId: string;
   walkthrough: JobWalkthrough;
@@ -127,6 +128,8 @@ export function JobWalkthroughPanel({
   /** PDF documents module — download walkthrough PDF */
   allowPdf?: boolean;
   readOnlyHint?: string;
+  /** Emphasize Record video as the primary Work-phase action */
+  heroCapture?: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -482,7 +485,9 @@ export function JobWalkthroughPanel({
           <p className="mt-0.5 text-sm text-ink-500">
             {showSavedView
               ? 'Saved on this job — reopen anytime to review or edit'
-              : 'Record → Generate → edit → Save'}
+              : heroCapture
+                ? 'Film + narrate — AI writes the report'
+                : 'Record → Generate → edit → Save'}
           </p>
         </div>
         <span
@@ -501,8 +506,34 @@ export function JobWalkthroughPanel({
       {/* ——— Capture (always available; compact when viewing saved) ——— */}
       {!showSavedView && (
         <div className="space-y-3">
+          {heroCapture && canMedia ? (
+            <div className="rounded-2xl border border-violet-200 bg-violet-50/80 p-4">
+              <p className="text-sm font-semibold text-violet-950">
+                Main capture
+              </p>
+              <p className="mt-1 text-sm text-violet-900/80">
+                Film + narrate — AI writes the report. Keep clips under ~90
+                seconds.
+              </p>
+              <label
+                htmlFor={videoCaptureId}
+                className={`mt-3 flex w-full items-center justify-center rounded-xl px-4 py-4 text-center text-base font-semibold text-white ${
+                  busy || recordingVoice
+                    ? 'pointer-events-none bg-violet-700/50'
+                    : 'cursor-pointer bg-violet-700 hover:bg-violet-800'
+                }`}
+              >
+                {pending === 'video'
+                  ? 'Saving video…'
+                  : 'Record video walkthrough'}
+              </label>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-sm font-medium text-ink-700">Walkthrough media</p>
+            <p className="text-sm font-medium text-ink-700">
+              {heroCapture ? 'More capture options' : 'Walkthrough media'}
+            </p>
             <p className="text-xs text-ink-400">
               Stored on this job · tag walkthrough
             </p>
@@ -515,6 +546,7 @@ export function JobWalkthroughPanel({
                 than getUserMedia + MediaRecorder (often grants mic/cam but never
                 opens the Camera app).
               */}
+              {!heroCapture && (
               <label
                 htmlFor={videoCaptureId}
                 className={`rounded-xl px-4 py-3 text-center text-sm font-semibold text-white sm:col-span-2 ${
@@ -527,6 +559,7 @@ export function JobWalkthroughPanel({
                   ? 'Saving video…'
                   : 'Record video walkthrough'}
               </label>
+              )}
               <input
                 id={videoCaptureId}
                 ref={videoCaptureRef}
@@ -592,11 +625,13 @@ export function JobWalkthroughPanel({
             </div>
           )}
 
-          <p className="text-xs text-ink-400">
-            Record opens your phone camera — narrate while you film (keep clips
-            under ~90 seconds). We extract frames (so Grok can see) and
-            transcribe audio (so Grok can hear) when you Generate.
-          </p>
+          {!heroCapture && (
+            <p className="text-xs text-ink-400">
+              Record opens your phone camera — narrate while you film (keep
+              clips under ~90 seconds). We extract frames (so Grok can see) and
+              transcribe audio (so Grok can hear) when you Generate.
+            </p>
+          )}
 
           {videos.length > 0 && (
             <div className="space-y-2">

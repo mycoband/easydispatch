@@ -29,7 +29,7 @@ export const COMPANY_MODULES = [
     label: 'Day sheet',
     description:
       'Daily tech load by tech, stop list, and morning huddle PDF (with PDF documents on)',
-    help: 'Office → Day sheet. With PDF documents on: Print PDF. Techs: My jobs → Today’s run sheet PDF.',
+    help: 'Office → Day sheet. With PDF documents on: Print PDF. Techs: My jobs shows Next up + Today/Later/Done; Today’s run sheet PDF when PDF documents is on.',
     href: '/dashboard/day-sheet',
     defaultEnabled: true,
     group: 'Scheduling',
@@ -38,7 +38,7 @@ export const COMPANY_MODULES = [
     id: 'dispatch',
     label: 'Dispatch board',
     description: 'Assign techs and watch En Route / On Site status',
-    help: 'Office → Dispatch. Drag jobs onto tech columns or use Reassign. Pair with Live dispatch board for realtime status.',
+    help: 'Office → Dispatch. Drag jobs onto tech columns or use Reassign. Unassigned open jobs also appear in Dashboard → Needs you. Pair with Live dispatch board for realtime status.',
     href: '/dashboard/dispatch',
     defaultEnabled: true,
     group: 'Scheduling',
@@ -116,7 +116,7 @@ export const COMPANY_MODULES = [
     label: 'Invoices & payments',
     description:
       'Send invoices, Stripe links, cash/check; branded PDF when PDF documents is on',
-    help: 'Office → Invoices or job invoice panel. Send email/SMS, mark cash/check, Stripe pay link. PDF button needs PDF documents on.',
+    help: 'Office → Invoices or job invoice panel. Unpaid sent invoices also surface on Dashboard → Needs you. Send email/SMS, mark cash/check, Stripe pay link. PDF button needs PDF documents on.',
     href: '/dashboard/invoices',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -263,7 +263,7 @@ export const COMPANY_MODULES = [
     label: 'Technician view (office)',
     description:
       'Owners, dispatchers, and office staff can open the same tech app screens field techs use',
-    help: 'Settings → Feature modules → Technician view (office). On: dashboard header shows Tech view checkbox; job pages show Open technician view. Opens /tech with Arrive → Work → Wrap up. Blue banner → Exit to office. Off: hides those controls. Actions still use office permissions.',
+    help: 'Settings → Feature modules → Technician view (office). On: dashboard header shows Tech view checkbox; job pages show Open technician view. Opens /tech with Next up on My jobs and Arrive → Work → Wrap up tickets (assignee names stay visible). Blue banner → Exit to office. Off: hides those controls. Actions still use office permissions.',
     href: '/tech',
     defaultEnabled: true,
     group: 'Field / tech',
@@ -283,7 +283,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'On-job video (camera+mic), voice, and photos → AI report you edit and save',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs (Work phase on tech tickets). Record video → Generate: frames extracted so Grok can see + Whisper so Grok can hear (needs XAI_API_KEY, OPENAI_API_KEY, AI tools). Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. On tech Work phase, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”). Generate: frames so Grok can see + Whisper so Grok can hear (needs XAI_API_KEY, OPENAI_API_KEY, AI tools). Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -293,7 +293,7 @@ export const COMPANY_MODULES = [
     label: 'Job photos & voice',
     description:
       'Before/after photos and voice notes on the job (separate from Walkthrough video)',
-    help: 'On the tech job Work phase → Extra photos (or Job photos if Walkthrough is off). Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY). Walkthrough video/voice lives under AI Job Walkthrough (tag walkthrough), not this panel.',
+    help: 'On the tech job Work phase → Extra photos (collapsed when Walkthrough is on) or Job photos if Walkthrough is off. Prefer Record walkthrough first when AI Job Walkthrough is enabled. Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY).',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -303,7 +303,7 @@ export const COMPANY_MODULES = [
     label: 'Offline notes & time',
     description:
       'Queue diagnosis notes and Drive/Arrive/Clock Out when signal drops; sync when back online',
-    help: 'On tech job (Arrive / Wrap): banner shows Offline / Sync now. Queues Save notes and time buttons in the browser until online.',
+    help: 'On tech job (Arrive / Wrap): banner shows Offline / Sync now. Queues Save notes and time buttons in the browser until online. After sync, Arrive still advances to Work and Clock out to Wrap up on the tech ticket.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

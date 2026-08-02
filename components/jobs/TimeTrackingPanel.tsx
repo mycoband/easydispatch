@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { trackJobTime } from '@/app/dashboard/jobs/time-actions';
 import { notifyOfflineQueueChanged } from '@/components/tech/OfflineSyncBanner';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
@@ -15,7 +15,21 @@ import {
   enqueueOfflineItem,
   isBrowserOffline,
 } from '@/lib/tech/offline-queue';
+import type { TechJobPhase } from '@/lib/tech/job-phases';
 import { cn } from '@/lib/utils';
+
+function advanceTechPhaseIfOnTicket(
+  pathname: string,
+  router: ReturnType<typeof useRouter>,
+  phase: TechJobPhase
+) {
+  if (!pathname.includes('/tech/jobs/')) return;
+  const params = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : ''
+  );
+  params.set('phase', phase);
+  router.replace(`${pathname}?${params.toString()}`, { scroll: true });
+}
 
 export function TimeTrackingPanel({
   jobId,
@@ -30,6 +44,7 @@ export function TimeTrackingPanel({
   offlineQueue?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [local, setLocal] = useState(job);
   const [pending, setPending] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -98,11 +113,21 @@ export function TimeTrackingPanel({
       }
     }
 
+    function afterSuccess(act: 'drive' | 'arrive' | 'clock_out') {
+      if (act === 'arrive') {
+        advanceTechPhaseIfOnTicket(pathname, router, 'work');
+      } else if (act === 'clock_out') {
+        advanceTechPhaseIfOnTicket(pathname, router, 'wrap');
+      }
+      router.refresh();
+    }
+
     if (offlineQueue && isBrowserOffline()) {
       enqueueOfflineItem({ kind: 'time', jobId, action, coords });
       notifyOfflineQueueChanged();
       applyOptimistic(action);
       setMessage('Queued — will sync when online');
+      afterSuccess(action);
       setPending(null);
       return;
     }
@@ -116,12 +141,13 @@ export function TimeTrackingPanel({
           applyOptimistic(action);
           setMessage('Saved offline — will sync when online');
           setError(null);
+          afterSuccess(action);
         } else {
           setError(result.error);
         }
       } else {
         setMessage(result.success || 'Updated');
-        router.refresh();
+        afterSuccess(action);
       }
     } catch {
       if (offlineQueue) {
@@ -129,6 +155,7 @@ export function TimeTrackingPanel({
         notifyOfflineQueueChanged();
         applyOptimistic(action);
         setMessage('Saved offline — will sync when online');
+        afterSuccess(action);
       } else {
         setError('Network error — try again');
       }
@@ -148,7 +175,7 @@ export function TimeTrackingPanel({
             Time tracking
           </h2>
           <p className="mt-0.5 text-sm text-ink-500">
-            Drive Start → Arrive / Start Work → Clock Out
+            Drive → Arrive (opens Work) → Clock Out (opens Wrap up)
             {offlineQueue ? ' · works offline' : ''}
           </p>
         </div>
