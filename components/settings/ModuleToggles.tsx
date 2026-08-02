@@ -8,6 +8,11 @@ import {
   MODULE_GROUPS,
   type ModuleId,
 } from '@/lib/company/modules';
+import {
+  SHOP_PRESETS,
+  modulesForPreset,
+  type ShopPresetId,
+} from '@/lib/company/module-presets';
 
 export function ModuleToggles({
   initial,
@@ -19,6 +24,7 @@ export function ModuleToggles({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastPreset, setLastPreset] = useState<ShopPresetId | null>(null);
 
   const grouped = useMemo(() => {
     return MODULE_GROUPS.map((group) => ({
@@ -30,30 +36,15 @@ export function ModuleToggles({
   const enabledCount = COMPANY_MODULES.filter((m) => modules[m.id]).length;
 
   function toggle(id: ModuleId) {
+    setLastPreset(null);
     setModules((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  function enableAll() {
-    const next = { ...modules };
-    for (const m of COMPANY_MODULES) next[m.id] = true;
-    setModules(next);
-  }
-
-  function essentialsOnly() {
-    const next = { ...modules };
-    for (const m of COMPANY_MODULES) next[m.id] = false;
-    // Lean service-shop starter set
-    next.dispatch = true;
-    next.dispatch_realtime = true;
-    next.calendar = true;
-    next.invoices = true;
-    next.messaging = true;
-    next.tech_media = true;
-    next.tech_offline_queue = true;
-    next.ai = true;
-    next.ai_walkthrough = true;
-    next.print_pdfs = true;
-    setModules(next);
+  function applyPreset(id: ShopPresetId) {
+    setLastPreset(id);
+    setModules(modulesForPreset(id));
+    setMessage(null);
+    setError(null);
   }
 
   async function save() {
@@ -71,33 +62,47 @@ export function ModuleToggles({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm text-ink-500">
-            Every optional EasyDispatch feature is listed here. Off hides its
-            nav, pages, and related buttons. Core customers + jobs stay on.
-            Full how-to for each toggle is in Help / FAQ (search the module
-            name).
-          </p>
-          <p className="mt-1 text-xs font-medium text-ink-400">
-            {enabledCount} / {COMPANY_MODULES.length} modules enabled
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={enableAll}
-            className="rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
-          >
-            Enable all
-          </button>
-          <button
-            type="button"
-            onClick={essentialsOnly}
-            className="rounded-lg border border-ink-200 px-3 py-1.5 text-xs font-semibold text-ink-700 hover:bg-ink-50"
-          >
-            Essentials only
-          </button>
+      <div>
+        <p className="text-sm text-ink-500">
+          Every optional EasyDispatch feature is listed here. Off hides its
+          nav, pages, and related buttons. Core customers + jobs stay on.
+          Full how-to for each toggle is in Help / FAQ (search the module
+          name).
+        </p>
+        <p className="mt-1 text-xs font-medium text-ink-400">
+          {enabledCount} / {COMPANY_MODULES.length} modules enabled
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-ink-200 bg-ink-50/50 p-4">
+        <p className="text-sm font-semibold text-ink-900">Shop presets</p>
+        <p className="mt-0.5 text-xs text-ink-500">
+          Presets set the toggles below — click Save modules to apply.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {SHOP_PRESETS.map((preset) => {
+            const active = lastPreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                title={preset.description}
+                onClick={() => applyPreset(preset.id)}
+                className={`rounded-xl border px-3 py-3 text-left transition ${
+                  active
+                    ? 'border-brand-500 bg-white ring-2 ring-brand-500/30'
+                    : 'border-ink-200 bg-white hover:border-ink-300 hover:bg-ink-50'
+                }`}
+              >
+                <span className="block text-sm font-semibold text-ink-900">
+                  {preset.label}
+                </span>
+                <span className="mt-0.5 block text-xs text-ink-500">
+                  {preset.description}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

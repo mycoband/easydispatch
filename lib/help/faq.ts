@@ -76,7 +76,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     id: 'feature-modules',
     category: 'Settings & modules',
     question: 'How do I turn features on or off?',
-    answer: `Settings → Feature modules. Toggle each module, then Save modules. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: ${MODULE_GROUPS.join(', ')}. Core customers + jobs always stay on. Example: AI Job Walkthrough (Field / tech) shows/hides the video walkthrough panel; AI tools gates Generate Report. Every module is listed in this FAQ under “What does … control?”`,
+    answer: `Settings → Feature modules. Use shop presets (Simple, Full field, Full shop) to set many toggles at once, or flip individual switches — then Save modules. Off hides its nav/pages and related buttons. Owner/dispatcher needs the “Feature modules” permission. Groups: ${MODULE_GROUPS.join(', ')}. Core customers + jobs always stay on. Example: AI Job Walkthrough (Field / tech) shows/hides the video walkthrough panel; AI tools gates Generate Report. Every module is listed in this FAQ under “What does … control?”`,
+  },
+  {
+    id: 'shop-presets',
+    category: 'Settings & modules',
+    question: 'What are Simple / Full field / Full shop presets?',
+    answer:
+      'Settings → Feature modules → Shop presets. Simple: lean shop (dispatch, calendar, invoices, messaging, AI field tools, PDFs, Technician view). Full field: Simple plus day sheet, Assign-tech AI, capacity warnings, safety, equipment timeline, callbacks, review ask, customer portal. Full shop: every module on. Presets only change the toggles on screen — click Save modules to apply. You can still tweak individual modules after picking a preset.',
   },
   {
     id: 'modules-list',
@@ -245,7 +252,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Customers',
     question: 'How do I pick a customer on a new job?',
     answer:
-      'On New job, click Customer to browse or search by name, city, or phone. From a customer profile, New job pre-fills that customer. Double-click a site/property — or New job on that site — to start a job for that address. After the job is created, the customer is locked.',
+      'On New job, click Customer to browse or search by name, city, or phone (or use AI ticket fill to match from call notes). From a customer profile, New job pre-fills that customer. Double-click a site/property — or New job on that site — to start a job for that address. After the job is created, the customer is locked.',
   },
   {
     id: 'multi-site',
@@ -259,7 +266,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do job numbers work?',
     answer:
-      'New jobs default to the next number (#1, #2, #3…). Rename anytime in Job details → Job # / name (e.g. “River Market Bistro”), then Save.',
+      'New jobs default to the next number (#1, #2, #3…) even if Job # stays under More options. Rename anytime on create under More options, or later in Job details → Job # / name (e.g. “River Market Bistro”), then Save.',
   },
   {
     id: 'calendar-drag',
@@ -287,7 +294,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'What does AI ticket fill do?',
     answer:
-      'On New job (AI tools module on), paste or dictate call notes → Fill ticket with AI. Grok drafts job type, priority, diagnosis, notes, and may match an existing customer. Always review before creating the job.',
+      'On New job (AI tools module on), the Fastest path block is at the top: paste or dictate call notes → Fill ticket with AI. Grok drafts job type, priority, diagnosis, notes, and may match an existing customer. Review fields below, then Create job. Schedule, assign, and other details are under More options.',
+  },
+  {
+    id: 'create-job-quickly',
+    category: 'Jobs & calendar',
+    question: 'How do I create a job quickly?',
+    answer:
+      'Office → New job. With AI tools on: paste call notes → Fill ticket with AI → review → Create (~30 seconds). Without AI: pick customer + job type (+ diagnosis notes), then Create. Job #, assigned tech, schedule, and priority are under More options (defaults apply if you leave them closed). Line items are added after create.',
   },
   {
     id: 'pricebook',

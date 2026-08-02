@@ -38,6 +38,24 @@ type JobValues = {
 
 const initialState: ActionState = {};
 
+function initialShowMore(quick: boolean, initial?: JobValues, force?: boolean) {
+  if (!quick) return true;
+  if (force) return true;
+  return Boolean(
+    initial?.assigned_to ||
+      initial?.scheduled_start ||
+      (initial?.priority && initial.priority !== 'Medium') ||
+      (initial?.status && initial.status !== 'New') ||
+      initial?.equipment_id ||
+      initial?.est_hours ||
+      initial?.internal_notes ||
+      initial?.customer_summary ||
+      initial?.notes ||
+      initial?.is_callback ||
+      initial?.warranty_flag
+  );
+}
+
 export function JobForm({
   action,
   customers = [],
@@ -48,6 +66,7 @@ export function JobForm({
   initial,
   submitLabel,
   quick = false,
+  forceShowMore = false,
   suggestedJobNumber,
   lockCustomer = false,
 }: {
@@ -61,6 +80,8 @@ export function JobForm({
   submitLabel: string;
   /** Compact create flow — hide advanced fields until expanded. */
   quick?: boolean;
+  /** Open More options on mount (e.g. after AI fill). */
+  forceShowMore?: boolean;
   /** Prefill for new jobs (e.g. #12). Ignored when editing an existing job_number. */
   suggestedJobNumber?: string;
   /** When true (existing job), customer cannot be changed. */
@@ -102,20 +123,12 @@ export function JobForm({
   );
   const [notes, setNotes] = useState(initial?.notes || '');
   const [clientError, setClientError] = useState<string | null>(null);
-  // When AI (or edit) pre-fills optional fields, open that section
-  const [showMore, setShowMore] = useState(
-    !quick ||
-      Boolean(
-        initial?.diagnosis ||
-          initial?.internal_notes ||
-          initial?.customer_summary ||
-          initial?.notes ||
-          initial?.est_hours ||
-          initial?.equipment_id ||
-          initial?.is_callback ||
-          initial?.warranty_flag
-      )
+  const [showMore, setShowMore] = useState(() =>
+    initialShowMore(quick, initial, forceShowMore)
   );
+
+  const jobNumberDefault =
+    initial?.job_number || suggestedJobNumber || '';
 
   useEffect(() => {
     if (!customerId) {
@@ -164,15 +177,66 @@ export function JobForm({
     initial?.property_id,
   ]);
 
+  const scheduleAssignBlock = (
+    <>
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-ink-700">
+          Assigned tech
+        </span>
+        <select
+          name="assigned_to"
+          defaultValue={initial?.assigned_to || ''}
+          className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
+        >
+          <option value="">Unassigned</option>
+          {techs.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.full_name || 'Technician'}
+              {t.skills?.length
+                ? ` · ${t.skills.slice(0, 3).join(', ')}`
+                : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-ink-700">
+          Scheduled start
+        </span>
+        <input
+          type="datetime-local"
+          name="scheduled_start"
+          defaultValue={toDatetimeLocalValue(initial?.scheduled_start)}
+          className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
+        />
+      </label>
+
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium text-ink-700">
+          Priority
+        </span>
+        <select
+          name="priority"
+          defaultValue={initial?.priority || 'Medium'}
+          className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
+        >
+          {JOB_PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+
   return (
     <form
       action={formAction}
       className="space-y-5"
       noValidate
       onSubmit={(e) => {
-        // customers[] is often empty (search-only load). Old code disabled
-        // submit when length===0, so Create did nothing on mobile/desktop.
-        // Also: required on a hidden customer_id rarely shows a tooltip on iOS.
         if (!customerId.trim()) {
           e.preventDefault();
           setClientError('Pick a customer before creating the job.');
@@ -192,9 +256,13 @@ export function JobForm({
     >
       <section className="space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-ink-900">Who & what</h2>
+          <h2 className="text-sm font-semibold text-ink-900">
+            {quick ? 'Customer & problem' : 'Who & what'}
+          </h2>
           <p className="text-xs text-ink-400">
-            Customer, job type, and schedule — line items come after create.
+            {quick
+              ? 'Required: customer and job type. Schedule & assign are under More options.'
+              : 'Customer, job type, and schedule — line items come after create.'}
           </p>
         </div>
 
@@ -216,22 +284,22 @@ export function JobForm({
             />
           </div>
 
-          <label className="block sm:col-span-2">
-            <span className="mb-1.5 block text-sm font-medium text-ink-700">
-              Job # / name
-            </span>
-            <input
-              name="job_number"
-              defaultValue={
-                initial?.job_number || suggestedJobNumber || ''
-              }
-              placeholder="#1 or River Market Bistro"
-              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
-            />
-            <p className="mt-1 text-xs text-ink-400">
-              Defaults to the next number (#1, #2…). You can rename it anytime.
-            </p>
-          </label>
+          {!quick && (
+            <label className="block sm:col-span-2">
+              <span className="mb-1.5 block text-sm font-medium text-ink-700">
+                Job # / name
+              </span>
+              <input
+                name="job_number"
+                defaultValue={jobNumberDefault}
+                placeholder="#1 or River Market Bistro"
+                className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
+              />
+              <p className="mt-1 text-xs text-ink-400">
+                Defaults to the next number (#1, #2…). You can rename it anytime.
+              </p>
+            </label>
+          )}
 
           {propertyOptions.length > 0 && (
             <label className="block sm:col-span-2">
@@ -272,58 +340,25 @@ export function JobForm({
             </datalist>
           </label>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-700">
-              Assigned tech
-            </span>
-            <select
-              name="assigned_to"
-              defaultValue={initial?.assigned_to || ''}
-              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
-            >
-              <option value="">Unassigned</option>
-              {techs.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.full_name || 'Technician'}
-                  {t.skills?.length
-                    ? ` · ${t.skills.slice(0, 3).join(', ')}`
-                    : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+          {quick && (
+            <label className="block sm:col-span-2">
+              <span className="mb-1.5 block text-sm font-medium text-ink-700">
+                Diagnosis / problem notes
+              </span>
+              <DictationField
+                name="diagnosis"
+                value={diagnosis}
+                onChange={setDiagnosis}
+                rows={3}
+                micLabel="Speak diagnosis"
+                placeholder="Symptoms, call notes, what the customer said…"
+              />
+            </label>
+          )}
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-700">
-              Scheduled start
-            </span>
-            <input
-              type="datetime-local"
-              name="scheduled_start"
-              defaultValue={toDatetimeLocalValue(initial?.scheduled_start)}
-              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
-            />
-          </label>
+          {!quick && scheduleAssignBlock}
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-700">
-              Priority
-            </span>
-            <select
-              name="priority"
-              defaultValue={initial?.priority || 'Medium'}
-              className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
-            >
-              {JOB_PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {/* Status: default New on create; still editable when expanding or editing */}
-          {(showMore || !quick) && (
+          {!quick && (
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium text-ink-700">
                 Status
@@ -341,9 +376,6 @@ export function JobForm({
               </select>
             </label>
           )}
-          {quick && !showMore && (
-            <input type="hidden" name="status" value={initial?.status || 'New'} />
-          )}
         </div>
       </section>
 
@@ -353,16 +385,55 @@ export function JobForm({
           onClick={() => setShowMore((v) => !v)}
           className="text-sm font-semibold text-brand-700 hover:underline"
         >
-          {showMore ? 'Hide optional details' : 'Add equipment, notes, tax…'}
+          {showMore ? 'Hide more options' : 'More options'}
         </button>
       )}
 
-      {showMore && (
+      {(showMore || !quick) && (
         <section className="space-y-4 border-t border-ink-100 pt-5">
           <h2 className="text-sm font-semibold text-ink-900">
-            Optional details
+            {quick ? 'More options' : 'Optional details'}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
+            {quick && (
+              <label className="block sm:col-span-2">
+                <span className="mb-1.5 block text-sm font-medium text-ink-700">
+                  Job # / name
+                </span>
+                <input
+                  name="job_number"
+                  defaultValue={jobNumberDefault}
+                  placeholder="#1 or River Market Bistro"
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
+                />
+                <p className="mt-1 text-xs text-ink-400">
+                  Defaults to the next number (#1, #2…). You can rename it
+                  anytime.
+                </p>
+              </label>
+            )}
+
+            {quick && scheduleAssignBlock}
+
+            {quick && (
+              <label className="block">
+                <span className="mb-1.5 block text-sm font-medium text-ink-700">
+                  Status
+                </span>
+                <select
+                  name="status"
+                  defaultValue={initial?.status || 'New'}
+                  className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2.5 text-sm outline-none ring-brand-500/30 focus:ring-4"
+                >
+                  {JOB_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
             <label className="block sm:col-span-2">
               <span className="mb-1.5 block text-sm font-medium text-ink-700">
                 Equipment
@@ -426,19 +497,21 @@ export function JobForm({
             </label>
           </div>
 
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-ink-700">
-              Diagnosis
-            </span>
-            <DictationField
-              name="diagnosis"
-              value={diagnosis}
-              onChange={setDiagnosis}
-              rows={3}
-              micLabel="Speak diagnosis"
-              placeholder="Symptoms, findings, recommended work…"
-            />
-          </label>
+          {!quick && (
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink-700">
+                Diagnosis
+              </span>
+              <DictationField
+                name="diagnosis"
+                value={diagnosis}
+                onChange={setDiagnosis}
+                rows={3}
+                micLabel="Speak diagnosis"
+                placeholder="Symptoms, findings, recommended work…"
+              />
+            </label>
+          )}
 
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-sm text-ink-700">
@@ -509,13 +582,73 @@ export function JobForm({
         </section>
       )}
 
-      {/* Ensure tax has a default even when optional section collapsed */}
+      {/* Defaults when More options is collapsed */}
       {quick && !showMore && (
-        <input
-          type="hidden"
-          name="tax_rate_id"
-          value={initial?.tax_rate_id || 'kcmo-jackson'}
-        />
+        <>
+          <input type="hidden" name="job_number" value={jobNumberDefault} />
+          <input
+            type="hidden"
+            name="status"
+            value={initial?.status || 'New'}
+          />
+          <input
+            type="hidden"
+            name="priority"
+            value={initial?.priority || 'Medium'}
+          />
+          <input
+            type="hidden"
+            name="assigned_to"
+            value={initial?.assigned_to || ''}
+          />
+          <input
+            type="hidden"
+            name="scheduled_start"
+            value={toDatetimeLocalValue(initial?.scheduled_start)}
+          />
+          <input
+            type="hidden"
+            name="tax_rate_id"
+            value={initial?.tax_rate_id || 'kcmo-jackson'}
+          />
+          {initial?.is_callback ? (
+            <input type="hidden" name="is_callback" value="on" />
+          ) : null}
+          {initial?.warranty_flag ? (
+            <input type="hidden" name="warranty_flag" value="on" />
+          ) : null}
+          {initial?.equipment_id ? (
+            <input
+              type="hidden"
+              name="equipment_id"
+              value={initial.equipment_id}
+            />
+          ) : null}
+          {initial?.est_hours != null && initial.est_hours !== '' ? (
+            <input
+              type="hidden"
+              name="est_hours"
+              value={String(initial.est_hours)}
+            />
+          ) : null}
+          {initial?.internal_notes ? (
+            <input
+              type="hidden"
+              name="internal_notes"
+              value={initial.internal_notes}
+            />
+          ) : null}
+          {initial?.customer_summary ? (
+            <input
+              type="hidden"
+              name="customer_summary"
+              value={initial.customer_summary}
+            />
+          ) : null}
+          {initial?.notes ? (
+            <input type="hidden" name="notes" value={initial.notes} />
+          ) : null}
+        </>
       )}
 
       {(clientError || state.error) && (

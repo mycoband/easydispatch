@@ -59,7 +59,10 @@ export function TicketAiFill({
       }
 
       onFilled({ ...fill, matched_customer_id, matched_customer_name });
-      setLastSummary(fill.summary || 'Fields filled — review before saving.');
+      setLastSummary(
+        fill.summary ||
+          'Filled — review fields below, then Create job.'
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ticket fill failed');
     } finally {
@@ -68,20 +71,18 @@ export function TicketAiFill({
   }
 
   return (
-    <section className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 sm:p-5">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-violet-800">
-            AI ticket fill
-          </p>
-          <h2 className="font-display text-lg font-semibold text-ink-950">
-            Paste or speak the call notes
-          </h2>
-          <p className="mt-0.5 text-sm text-ink-500">
-            Grok fills job type, priority, diagnosis, schedule hints, and more —
-            you still review before create.
-          </p>
-        </div>
+    <section className="rounded-2xl border-2 border-violet-300 bg-violet-50/60 p-5 sm:p-6">
+      <div className="mb-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-violet-800">
+          Fastest path
+        </p>
+        <h2 className="mt-1 font-display text-xl font-semibold text-ink-950">
+          Paste or speak the call notes
+        </h2>
+        <p className="mt-1 text-sm text-ink-600">
+          Paste call notes, review, Create — AI fills customer, job type,
+          diagnosis, and schedule hints.
+        </p>
       </div>
 
       <DictationField
@@ -94,13 +95,13 @@ export function TicketAiFill({
         className="border-violet-200 outline-none ring-violet-500/25 focus:ring-4"
       />
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
           disabled={pending || text.trim().length < 8}
           onClick={() => void run()}
           className={cn(
-            'rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50'
+            'w-full rounded-xl bg-violet-700 px-5 py-3.5 text-base font-semibold text-white hover:bg-violet-800 disabled:opacity-50 sm:w-auto'
           )}
         >
           {pending ? 'Filling…' : 'Fill ticket with AI'}
@@ -126,8 +127,8 @@ export function TicketAiFill({
         </p>
       )}
       {lastSummary && !error && (
-        <p className="mt-3 rounded-lg bg-white/80 px-3 py-2 text-sm text-violet-950 ring-1 ring-violet-200">
-          {lastSummary}
+        <p className="mt-3 rounded-lg bg-white/90 px-3 py-2.5 text-sm font-medium text-violet-950 ring-1 ring-violet-200">
+          {lastSummary} Review fields below, then Create job.
         </p>
       )}
     </section>

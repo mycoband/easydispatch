@@ -66,12 +66,12 @@ export default async function NewJobPage({
           {isCallback
             ? `Callback / revisit${prefilledCustomer ? ` for ${prefilledCustomer.name}` : ''} — flagged as callback and ready to schedule.`
             : prefilledCustomer
-              ? `For ${prefilledCustomer.name}${propertyId ? ' · site selected' : ''}. You can change the customer anytime.`
+              ? `For ${prefilledCustomer.name}${propertyId ? ' · site selected' : ''}. ~30 seconds: confirm details, Create job.`
               : date
-                ? `Pre-filled for ${date} at 9:00 AM — change time as needed.`
+                ? `Pre-filled for ${date} at 9:00 AM — change time under More options if needed.`
                 : company.modules.ai
-                  ? 'Search for a customer, or paste call notes for AI fill.'
-                  : 'Search and pick a customer, then fill out the ticket.'}
+                  ? 'Create in ~30 seconds: paste call notes for AI, or pick a customer + job type.'
+                  : 'Pick a customer and job type — schedule & assign are under More options.'}
         </p>
       </div>
 

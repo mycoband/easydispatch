@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { ActionState } from '@/app/dashboard/jobs/actions';
 import { JobForm } from '@/components/jobs/JobForm';
 import {
@@ -46,6 +46,22 @@ function localToIso(local: string | null | undefined): string | null {
   return d.toISOString();
 }
 
+function shouldExpandMore(values: JobValues): boolean {
+  return Boolean(
+    values.assigned_to ||
+      values.scheduled_start ||
+      (values.priority && values.priority !== 'Medium') ||
+      (values.status && values.status !== 'New') ||
+      values.equipment_id ||
+      values.est_hours ||
+      values.internal_notes ||
+      values.customer_summary ||
+      values.notes ||
+      values.is_callback ||
+      values.warranty_flag
+  );
+}
+
 export function JobFormWithAi({
   action,
   customers,
@@ -71,53 +87,51 @@ export function JobFormWithAi({
 }) {
   const [values, setValues] = useState<JobValues>(initial || {});
   const [formKey, setFormKey] = useState(0);
-  const [expandOptional, setExpandOptional] = useState(false);
+  const [expandMore, setExpandMore] = useState(() =>
+    shouldExpandMore(initial || {})
+  );
+  const [reviewHint, setReviewHint] = useState(false);
   const [suggestedLines, setSuggestedLines] = useState<
     TicketAiFillResult['suggested_line_items']
   >([]);
 
-  const hasOptional = useMemo(() => {
-    return Boolean(
-      values.diagnosis ||
-        values.internal_notes ||
-        values.customer_summary ||
-        values.notes ||
-        values.est_hours ||
-        values.is_callback ||
-        values.warranty_flag ||
-        expandOptional
-    );
-  }, [values, expandOptional]);
-
   function applyFill(fill: TicketAiFillResult) {
     const scheduledIso = localToIso(fill.scheduled_start_local || null);
-    setValues((prev) => ({
-      ...prev,
-      customer_id: fill.matched_customer_id || prev.customer_id,
-      customer_name: fill.matched_customer_name || prev.customer_name,
-      job_type: fill.job_type || prev.job_type,
-      priority: fill.priority || prev.priority,
-      status: scheduledIso ? 'Scheduled' : fill.status || prev.status || 'New',
-      diagnosis: fill.diagnosis || prev.diagnosis,
-      customer_summary: fill.customer_summary ?? prev.customer_summary,
-      internal_notes: fill.internal_notes ?? prev.internal_notes,
-      notes: fill.notes ?? prev.notes,
+    const next: JobValues = {
+      ...values,
+      customer_id: fill.matched_customer_id || values.customer_id,
+      customer_name: fill.matched_customer_name || values.customer_name,
+      job_type: fill.job_type || values.job_type,
+      priority: fill.priority || values.priority,
+      status: scheduledIso ? 'Scheduled' : fill.status || values.status || 'New',
+      diagnosis: fill.diagnosis || values.diagnosis,
+      customer_summary: fill.customer_summary ?? values.customer_summary,
+      internal_notes: fill.internal_notes ?? values.internal_notes,
+      notes: fill.notes ?? values.notes,
       est_hours:
         fill.est_hours === null || fill.est_hours === undefined
-          ? prev.est_hours
+          ? values.est_hours
           : fill.est_hours,
       is_callback: fill.is_callback,
       warranty_flag: fill.warranty_flag,
-      scheduled_start: scheduledIso || prev.scheduled_start,
-    }));
+      scheduled_start: scheduledIso || values.scheduled_start,
+    };
+    setValues(next);
     setSuggestedLines(fill.suggested_line_items || []);
-    setExpandOptional(true);
+    setExpandMore(shouldExpandMore(next));
+    setReviewHint(true);
     setFormKey((k) => k + 1);
   }
 
   return (
     <div className="space-y-5">
       {enableAi && <TicketAiFill onFilled={applyFill} />}
+
+      {reviewHint && (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+          Review fields below, then Create job.
+        </p>
+      )}
 
       {suggestedLines.length > 0 && (
         <div className="rounded-xl border border-ink-200 bg-ink-50/70 px-4 py-3 text-sm">
@@ -150,7 +164,8 @@ export function JobFormWithAi({
         taxRates={taxRates}
         initial={values}
         submitLabel={submitLabel}
-        quick={!hasOptional}
+        quick
+        forceShowMore={expandMore}
         suggestedJobNumber={suggestedJobNumber}
       />
     </div>

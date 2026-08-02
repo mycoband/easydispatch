@@ -136,10 +136,9 @@ export default async function SettingsPage() {
             Feature modules
           </h2>
           <p className="mb-4 text-sm text-ink-500">
-            Master on/off for every optional feature (dispatch, AI Job
-            Walkthrough video, AI tools, PDFs, inventory, portal, offline
-            queue, and more). Save after toggling. Each toggle has a FAQ under
-            Help → Settings & modules (same list as below).
+            Master on/off for every optional feature. Use shop presets (Simple,
+            Full field, Full shop) to set many toggles at once, then Save
+            modules. Each toggle has a FAQ under Help → Settings & modules.
           </p>
           <ModuleToggles initial={company.modules} />
         </section>

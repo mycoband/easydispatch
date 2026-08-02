@@ -905,6 +905,8 @@ Known product facts:
 - Work phase capture: when AI Job Walkthrough is on, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”); Extra photos stays secondary/collapsed.
 - Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office (assignee names on My jobs cards); Exit to office on the blue banner.
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
+- Shop presets on Feature modules: Simple (lean), Full field (Simple + field/ops extras), Full shop (everything on). Presets set toggles; Save modules still required to persist.
+- New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.
 - Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help (includes Feature modules catalog).

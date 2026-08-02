@@ -273,7 +273,7 @@ export const COMPANY_MODULES = [
     label: 'AI tools',
     description:
       'Ticket fill, voice → notes, plate scan, filters, diagnostic, Walkthrough Generate, margin coach, Ask Reports, Help bot',
-    help: 'Needs XAI_API_KEY. Required for Job Walkthrough → Generate Report (video/voice/photos). Also: New job → Fill ticket; diagnostic / margin coach; Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough module for the walkthrough panel.',
+    help: 'Needs XAI_API_KEY. On New job, AI ticket fill is the fastest path (paste call notes → Fill → review → Create); schedule/assign live under More options. Also required for Job Walkthrough → Generate Report, diagnostic / margin coach, Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough for the walkthrough panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
