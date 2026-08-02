@@ -25,6 +25,7 @@ import { requireOffice } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
 import { loadJobFormOptions } from '@/lib/jobs/form-data';
+import { computeCloseoutGaps } from '@/lib/jobs/closeout-gaps';
 import { computeJobCosting, normalizeCosting } from '@/lib/jobs/costing';
 import { deriveLiveStatus } from '@/lib/jobs/time-tracking';
 import {
@@ -237,6 +238,18 @@ export default async function JobDetailPage({
   const updateAction = updateJob.bind(null, id);
   const hasPhone = Boolean(customer?.phone);
   const hasEmail = Boolean(customer?.email);
+  const closeoutGaps = computeCloseoutGaps({
+    checkOutAt: job.check_out_at,
+    signatureData: job.signature_data,
+    signedAt: job.signed_at,
+    total: Number(job.total) || 0,
+    invoiceStatus: job.invoice_status,
+    paymentStatus: job.payment_status,
+    hasPhone,
+    hasEmail,
+    requireSignature: true,
+    requireInvoice: Boolean(mods.invoices),
+  });
 
   const partOrderCosts = partOrders
     .filter((o) =>
@@ -307,9 +320,17 @@ export default async function JobDetailPage({
         </div>
       </div>
 
-      <TimeTrackingPanel jobId={job.id} job={job} />
+      <div id="job-time" className="scroll-mt-24">
+        <TimeTrackingPanel jobId={job.id} job={job} />
+      </div>
 
-      {mods.ai && <JobOfficeAssistant jobId={job.id} />}
+      {mods.ai && (
+        <JobOfficeAssistant
+          jobId={job.id}
+          gaps={closeoutGaps}
+          paymentStatus={job.payment_status}
+        />
+      )}
 
       {mods.ai_walkthrough && (
         <JobWalkthroughPanel
@@ -388,19 +409,21 @@ export default async function JobDetailPage({
       </div>
 
       {mods.invoices && (
-        <JobInvoicePanel
-          jobId={job.id}
-          customerId={job.customer_id}
-          total={Number(job.total) || 0}
-          invoiceStatus={job.invoice_status}
-          paymentStatus={job.payment_status}
-          invoiceSentAt={job.invoice_sent_at}
-          paymentMethod={job.payment_method}
-          paymentLink={job.stripe_payment_link}
-          hasPhone={hasPhone}
-          hasEmail={hasEmail}
-          allowPdf={Boolean(mods.print_pdfs)}
-        />
+        <div id="job-invoice" className="scroll-mt-24">
+          <JobInvoicePanel
+            jobId={job.id}
+            customerId={job.customer_id}
+            total={Number(job.total) || 0}
+            invoiceStatus={job.invoice_status}
+            paymentStatus={job.payment_status}
+            invoiceSentAt={job.invoice_sent_at}
+            paymentMethod={job.payment_method}
+            paymentLink={job.stripe_payment_link}
+            hasPhone={hasPhone}
+            hasEmail={hasEmail}
+            allowPdf={Boolean(mods.print_pdfs)}
+          />
+        </div>
       )}
 
       {mods.part_orders && (

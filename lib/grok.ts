@@ -1001,6 +1001,7 @@ Rules:
 - Use ONLY the job data JSON provided. Do not invent line items, payments, times, or customer facts.
 - If something is missing from the data, say what is missing and what the office should check in EasyDispatch.
 - Common asks: draft customer SMS/email, what’s still missing to invoice/collect payment, summarize for the owner, next office steps.
+- Prefer the closeout_gaps array in the job JSON for “what’s missing” (done/blocked/hint). Do not invent gaps not listed.
 - When drafting customer text: short, professional, no internal notes or costs unless asked. Offer copy-ready wording.
 - Keep answers concise (usually under 200 words). Use short bullets when listing gaps.
 - Never ask for passwords, API keys, or card numbers.
@@ -1046,12 +1047,13 @@ Known product facts:
 - Tech ticket auto-advance: successful Arrive opens Work (?phase=work); successful Clock out opens Wrap up (?phase=wrap). Manual phase tabs still work.
 - Work phase capture: when AI Job Walkthrough is on, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”); Extra photos stays secondary/collapsed.
 - Apply & wrap up: after Generate, primary button saves walkthrough to job (diagnosis/summary/line items) and opens Wrap up (?phase=wrap). Save only stays on Work. Does not auto Clock out — Clock out / Sign are on Wrap.
+- Finish this stop (tech Wrap): checklist Clock out → signature → pricing → send invoice → paid; tap a step to jump; sticky footer shows next incomplete step. Does not auto-send.
 - Dispatch Assign for me: with Assign-tech AI on, unassigned cards show Assign for me (top ranked tech + reason) → Confirm to assign; manual pick still available.
 - Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office (assignee names on My jobs cards); Exit to office on the blue banner.
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.
 - Shop presets on Feature modules: Simple (lean), Full field (Simple + field/ops extras), Full shop (everything on). Presets set toggles; Save modules still required to persist.
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
-- Job assistant (office): on /dashboard/jobs/[id] when AI tools is on — ask about that job only (draft customer text, what’s missing to invoice, owner summary). Separate from the floating Help bot (FAQ/product).
+- Job assistant (office): on /dashboard/jobs/[id] when AI tools is on — proactive Missing to invoice banner with Fix jumps (time/invoice) plus chat (draft customer text, owner summary). Separate from the floating Help bot (FAQ/product).
 - Pick tickets: on a job (office or assigned tech) with Special-order parts on — upload counter slip photo → Extract with AI → review lines → Add parts to that job # (Received). SQL: pick-tickets.sql for saved extracts.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, pick-tickets.sql.

@@ -70,7 +70,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How does the tech job ticket work (Arrive / Work / Wrap up)?',
     answer:
-      'Open a job from My jobs (or Next up). Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough hero when enabled — Record → Generate → Apply & wrap up), Wrap up (clock out, signature, invoice). Tapping Arrive auto-opens Work; Clock out auto-opens Wrap up; Apply & wrap up also jumps to Wrap. Manual tab jumps still work. Default phase also follows live status. Office staff use Technician view to see the same layout.',
+      'Open a job from My jobs (or Next up). Three phases: Arrive (Drive/Arrive, packet, message), Work (walkthrough hero when enabled — Record → Generate → Apply & wrap up), Wrap up (Finish this stop: Clock out → signature → price → send invoice). Tapping Arrive auto-opens Work; Clock out auto-opens Wrap up; Apply & wrap up also jumps to Wrap. Manual tab jumps still work. Default phase also follows live status. Office staff use Technician view to see the same layout.',
+  },
+  {
+    id: 'finish-this-stop',
+    category: 'Tech app',
+    question: 'What is Finish this stop on Wrap up?',
+    answer:
+      'On the tech job Wrap phase, Finish this stop is a checklist at the top: Clock out → customer signature (if allowed) → add pricing → send invoice/pay link → collect payment. Tap a step to jump to that panel. The sticky footer hint shows the next incomplete step. When send is done (or paid), you can Back to My jobs. Does not auto-send the invoice — you still tap Send.',
   },
   {
     id: 'feature-modules',
@@ -231,7 +238,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is Apply & wrap up on a walkthrough?',
     answer:
-      'After Generate (or when editing a report), Apply & wrap up saves the walkthrough to the job — findings → diagnosis, customer summary, and parts/labor line items — then opens the Wrap up phase so you can Clock out, get a signature, and invoice. It does not clock you out automatically. Save only applies the same data but stays on Work. On an already-saved walkthrough, use Continue to Wrap up.',
+      'After Generate (or when editing a report), Apply & wrap up saves the walkthrough to the job — findings → diagnosis, customer summary, and parts/labor line items — then opens the Wrap up phase with Finish this stop (Clock out → Sign → invoice). It does not clock you out automatically. Save only applies the same data but stays on Work. On an already-saved walkthrough, use Continue to Wrap up.',
   },
   {
     id: 'ai-walkthrough-video',
@@ -329,7 +336,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'What is the Job assistant on an office job?',
     answer:
-      'Needs AI tools on (Settings → Feature modules). Open any office job (/dashboard/jobs/…). Job assistant sits near the top — ask about that ticket only: draft customer SMS/email, what’s still missing to invoice or collect payment, summarize for the owner, or next office steps. Answers use job notes, line items, invoice/payment status, messages, and walkthrough data. Separate from the floating Help bot (product FAQ). Needs XAI_API_KEY.',
+      'Needs AI tools on (Settings → Feature modules). Open any office job (/dashboard/jobs/…). Job assistant sits near the top and shows a proactive Missing to invoice banner (clock out, signature, pricing, send, paid) with Fix buttons that jump to time or invoice on the page — or Paid — nothing missing when collected. You can still ask chat: draft customer SMS/email, summarize for the owner, or next office steps. Answers use job notes, line items, invoice/payment status, closeout gaps, messages, and walkthrough data. Separate from the floating Help bot (product FAQ). Needs XAI_API_KEY.',
   },
   {
     id: 'pricebook',

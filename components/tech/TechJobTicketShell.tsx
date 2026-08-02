@@ -28,7 +28,8 @@ type StickyConfig = {
 
 function stickyForPhase(
   phase: TechJobPhase,
-  liveStatus: LiveStatus
+  liveStatus: LiveStatus,
+  wrapStickyHint?: string
 ): StickyConfig {
   if (phase === 'arrive') {
     return {
@@ -53,9 +54,10 @@ function stickyForPhase(
   }
   return {
     hint:
-      liveStatus === 'Completed'
+      wrapStickyHint ||
+      (liveStatus === 'Completed'
         ? 'Sign, invoice, then you’re done'
-        : 'Clock out moves you here — then sign & pay',
+        : 'Clock out moves you here — then sign & pay'),
     primaryLabel: 'Back to My jobs',
     primaryHref: '/tech',
     secondaryLabel: 'Back to Work',
@@ -69,12 +71,14 @@ function TechJobTicketShellInner({
   arrive,
   work,
   wrap,
+  wrapStickyHint,
 }: {
   liveStatus: LiveStatus;
   header: ReactNode;
   arrive: ReactNode;
   work: ReactNode;
   wrap: ReactNode;
+  wrapStickyHint?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -101,7 +105,7 @@ function TechJobTicketShellInner({
     return arrive;
   }, [arrive, phase, work, wrap]);
 
-  const sticky = stickyForPhase(phase, liveStatus);
+  const sticky = stickyForPhase(phase, liveStatus, wrapStickyHint);
 
   return (
     <div className="space-y-5 pb-28">
@@ -191,6 +195,8 @@ export function TechJobTicketShell(props: {
   arrive: ReactNode;
   work: ReactNode;
   wrap: ReactNode;
+  /** Finish-this-stop hint for Wrap sticky footer */
+  wrapStickyHint?: string;
 }) {
   return (
     <Suspense

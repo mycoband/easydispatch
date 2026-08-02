@@ -16,6 +16,7 @@ import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
 import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { SafetyChecklist } from '@/components/tech/SafetyChecklist';
 import { SignaturePad } from '@/components/tech/SignaturePad';
+import { FinishThisStopStrip } from '@/components/tech/FinishThisStopStrip';
 import { OfflineSyncBanner } from '@/components/tech/OfflineSyncBanner';
 import { TechCollapsibleSection } from '@/components/tech/TechCollapsibleSection';
 import { TechJobNotes } from '@/components/tech/TechJobNotes';
@@ -26,6 +27,10 @@ import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
 import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
 import { roleHasPermission } from '@/lib/company/permissions';
+import {
+  closeoutStickyHint,
+  computeCloseoutGaps,
+} from '@/lib/jobs/closeout-gaps';
 import { deriveLiveStatus, formatTimestamp } from '@/lib/jobs/time-tracking';
 import {
   excludeWalkthroughAttachments,
@@ -294,15 +299,33 @@ export default async function TechJobDetailPage({
   const addressLine = formatAddress(addressParts) || 'No address';
   const showWalkthrough = Boolean(mods.ai_walkthrough);
   const showMedia = Boolean(mods.tech_media && allow('media'));
-  const stillOnSite = !job.check_out_at;
+  const requireSignature = allow('customer_signature');
+  const requireInvoice =
+    Boolean(mods.invoices) &&
+    (allow('send_invoice') || allow('record_payment'));
+  const closeoutGaps = computeCloseoutGaps({
+    checkOutAt: job.check_out_at,
+    signatureData: job.signature_data,
+    signedAt: job.signed_at,
+    total: Number(job.total) || 0,
+    invoiceStatus: job.invoice_status,
+    paymentStatus: job.payment_status,
+    hasPhone: Boolean(customer?.phone),
+    hasEmail: Boolean(customer?.email),
+    requireSignature,
+    requireInvoice,
+  });
+  const wrapStickyHint = closeoutStickyHint(closeoutGaps);
 
   const timePanel = allow('time_track') ? (
-    <TimeTrackingPanel
-      jobId={job.id}
-      job={job}
-      large
-      offlineQueue={Boolean(mods.tech_offline_queue)}
-    />
+    <div id="finish-clock-out" tabIndex={-1} className="scroll-mt-36 outline-none">
+      <TimeTrackingPanel
+        jobId={job.id}
+        job={job}
+        large
+        offlineQueue={Boolean(mods.tech_offline_queue)}
+      />
+    </div>
   ) : null;
 
   const equipmentBlock = (
@@ -529,7 +552,8 @@ export default async function TechJobDetailPage({
 
   const wrap = (
     <>
-      {stillOnSite && timePanel}
+      <FinishThisStopStrip gaps={closeoutGaps} />
+      {timePanel}
       {allow('edit_notes') && (
         <TechJobNotes
           jobId={job.id}
@@ -539,16 +563,18 @@ export default async function TechJobDetailPage({
           offlineQueue={Boolean(mods.tech_offline_queue)}
         />
       )}
-      {allow('customer_signature') && (
-        <SignaturePad
-          jobId={job.id}
-          existingName={job.signature_name}
-          existingData={job.signature_data}
-          signedAt={job.signed_at}
-        />
+      {requireSignature && (
+        <div id="finish-signature" tabIndex={-1} className="scroll-mt-36 outline-none">
+          <SignaturePad
+            jobId={job.id}
+            existingName={job.signature_name}
+            existingData={job.signature_data}
+            signedAt={job.signed_at}
+          />
+        </div>
       )}
-      {mods.invoices &&
-        (allow('send_invoice') || allow('record_payment')) && (
+      {requireInvoice && (
+        <div id="finish-invoice" tabIndex={-1} className="scroll-mt-36 outline-none">
           <JobInvoicePanel
             jobId={job.id}
             customerId={job.customer_id}
@@ -564,7 +590,8 @@ export default async function TechJobDetailPage({
             allowSend={allow('send_invoice')}
             allowPdf={Boolean(mods.print_pdfs)}
           />
-        )}
+        </div>
+      )}
       {mods.messaging && allow('messaging') && (
         <JobMessageLog messages={messages ?? []} />
       )}
@@ -577,6 +604,7 @@ export default async function TechJobDetailPage({
       header={header}
       arrive={arrive}
       work={work}
+      wrapStickyHint={wrapStickyHint}
       wrap={wrap}
     />
   );

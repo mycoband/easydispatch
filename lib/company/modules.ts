@@ -116,7 +116,7 @@ export const COMPANY_MODULES = [
     label: 'Invoices & payments',
     description:
       'Send invoices, Stripe links, cash/check; branded PDF when PDF documents is on',
-    help: 'Office → Invoices or job invoice panel. Unpaid sent invoices also surface on Dashboard → Needs you. Send email/SMS, mark cash/check, Stripe pay link. PDF button needs PDF documents on.',
+    help: 'Office → Invoices or job invoice panel. Unpaid sent invoices also surface on Dashboard → Needs you. Send email/SMS, mark cash/check, Stripe pay link. On tech Wrap, Finish this stop guides Clock out → Sign → Price → Send. Office Job assistant shows Missing to invoice with Fix jumps when AI tools is on. PDF button needs PDF documents on.',
     href: '/dashboard/invoices',
     defaultEnabled: true,
     group: 'Sales & money',
@@ -274,7 +274,7 @@ export const COMPANY_MODULES = [
     label: 'AI tools',
     description:
       'Ticket fill, job assistant, walkthrough Generate, margin coach, Ask Reports, Help bot, and more',
-    help: 'Needs XAI_API_KEY. On New job, AI ticket fill is the fastest path. On an office job page, Job assistant answers about that ticket (draft customer text, invoice gaps, owner summary). Pick tickets: Extract with AI reads counter slip photos into part orders (needs Special-order parts). Also: Walkthrough Generate, diagnostic / margin coach, Ask Reports, Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough for the walkthrough panel.',
+    help: 'Needs XAI_API_KEY. On New job, AI ticket fill is the fastest path. On an office job page, Job assistant shows a proactive Missing to invoice checklist (clock out, signature, pricing, send, paid) with Fix jumps, plus chat for draft customer text and owner summary. Pick tickets: Extract with AI reads counter slip photos into part orders (needs Special-order parts). Also: Walkthrough Generate, diagnostic / margin coach, Ask Reports, Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough for the walkthrough panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -284,7 +284,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'On-job video (camera+mic), voice, and photos → AI report; Apply & wrap up',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs. On tech Work phase, Record video walkthrough is the hero CTA. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then opens Wrap up (Clock out / Sign). Save only stays on Work. Generate needs XAI_API_KEY, OPENAI_API_KEY, AI tools. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. On tech Work phase, Record video walkthrough is the hero CTA. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then opens Wrap up — Finish this stop checklist (Clock out → Sign → invoice). Save only stays on Work. Generate needs XAI_API_KEY, OPENAI_API_KEY, AI tools. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

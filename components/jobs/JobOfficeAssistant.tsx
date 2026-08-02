@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import type { CloseoutGap } from '@/lib/jobs/closeout-gaps';
 import { cn } from '@/lib/utils';
 
 type ChatMessage = {
@@ -15,7 +16,22 @@ const SUGGESTIONS = [
   'What should the office do next?',
 ];
 
-export function JobOfficeAssistant({ jobId }: { jobId: string }) {
+function officeAnchor(gap: CloseoutGap): string {
+  if (gap.id === 'clock_out' || gap.id === 'signature') return 'job-time';
+  return 'job-invoice';
+}
+
+export function JobOfficeAssistant({
+  jobId,
+  gaps = [],
+  paymentStatus,
+}: {
+  jobId: string;
+  gaps?: CloseoutGap[];
+  paymentStatus?: string | null;
+}) {
+  const paid = paymentStatus === 'Paid';
+  const missing = gaps.filter((g) => !g.done);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
@@ -73,6 +89,11 @@ export function JobOfficeAssistant({ jobId }: { jobId: string }) {
     void send(input);
   }
 
+  function jump(anchor: string) {
+    const el = document.getElementById(anchor);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
     <section className="panel overflow-hidden">
       <button
@@ -98,6 +119,59 @@ export function JobOfficeAssistant({ jobId }: { jobId: string }) {
 
       {open && (
         <div className="space-y-3 border-t border-ink-100 px-5 pb-5 pt-3">
+          {paid ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                Ready to collect
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-emerald-950">
+                Paid — nothing missing
+              </p>
+            </div>
+          ) : missing.length > 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">
+                Missing to invoice
+              </p>
+              <ul className="mt-2 space-y-2">
+                {missing.map((g) => (
+                  <li
+                    key={g.id}
+                    className="flex flex-wrap items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink-900">
+                        {g.label}
+                        {g.blocked ? (
+                          <span className="ml-2 text-xs font-medium text-amber-800">
+                            Blocked
+                          </span>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-ink-600">{g.hint}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => jump(officeAnchor(g))}
+                      className="shrink-0 rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-100"
+                    >
+                      Fix
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : gaps.length > 0 ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">
+                Ready to collect
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-emerald-950">
+                Closeout checklist complete — collect payment if needed
+              </p>
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             {SUGGESTIONS.map((s) => (
               <button

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { computeCloseoutGaps } from '@/lib/jobs/closeout-gaps';
 
 /** Compact job packet for the office job AI assistant (server-built). */
 export async function loadJobAssistantContext(
@@ -13,8 +14,9 @@ export async function loadJobAssistantContext(
        assigned_to_name, diagnosis, notes, internal_notes, customer_summary,
        scheduled_start, drive_started_at, check_in_at, check_out_at, actual_hours,
        est_hours, subtotal, tax_amount, total, invoice_status, payment_status,
-       stripe_payment_link, customer_approved_at, confirmation_status,
-       is_callback, warranty_flag, walkthrough`
+       invoice_sent_at, signature_data, signed_at, stripe_payment_link,
+       customer_approved_at, confirmation_status, is_callback, warranty_flag,
+       walkthrough`
     )
     .eq('id', jobId);
 
@@ -86,6 +88,21 @@ export async function loadJobAssistantContext(
     caption: clip(a.caption || '', 80),
   }));
 
+  const hasPhone = Boolean(customer?.phone);
+  const hasEmail = Boolean(customer?.email);
+  const closeoutGaps = computeCloseoutGaps({
+    checkOutAt: job.check_out_at,
+    signatureData: job.signature_data,
+    signedAt: job.signed_at,
+    total: Number(job.total) || 0,
+    invoiceStatus: job.invoice_status,
+    paymentStatus: job.payment_status,
+    hasPhone,
+    hasEmail,
+    requireSignature: true,
+    requireInvoice: true,
+  });
+
   const packet = {
     job: {
       number: job.job_number,
@@ -109,6 +126,9 @@ export async function loadJobAssistantContext(
       total: job.total,
       invoice_status: job.invoice_status,
       payment_status: job.payment_status,
+      invoice_sent_at: job.invoice_sent_at,
+      signed_at: job.signed_at,
+      has_signature: Boolean(job.signature_data && job.signed_at),
       has_pay_link: Boolean(job.stripe_payment_link),
       customer_approved_at: job.customer_approved_at,
       confirmation_status: job.confirmation_status,
@@ -123,6 +143,13 @@ export async function loadJobAssistantContext(
           city: customer.city,
         }
       : null,
+    closeout_gaps: closeoutGaps.map((g) => ({
+      id: g.id,
+      label: g.label,
+      done: g.done,
+      hint: g.hint,
+      blocked: Boolean(g.blocked),
+    })),
     line_items: lineItems.map((li) => ({
       description: li.description,
       qty: li.qty,
