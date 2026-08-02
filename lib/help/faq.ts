@@ -189,7 +189,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do special-order parts work?',
     answer:
-      'Enable Special-order parts. Office → Parts, or the Parts panel on a job. Move items Needed → Ordered → Received → Installed.',
+      'Enable Special-order parts. Office → Parts board, or Parts / Pick tickets on a job (office or assigned tech). Track Needed → Ordered → Received → Installed. Pick ticket photos are always linked to that job # — Extract with AI (AI tools on) fills lines you can add as Received part orders. Run supabase/pick-tickets.sql once so extracts save on the photo.',
+  },
+  {
+    id: 'pick-tickets',
+    category: 'Jobs & calendar',
+    question: 'How do pick tickets work?',
+    answer:
+      'Needs Special-order parts. On a job, open Pick tickets → Upload pick ticket photo (office or tech). With AI tools on, tap Extract with AI — Grok reads vendor, SKUs, qty, and costs. Review the lines, then Add parts to this job (creates Received part orders on that job #). Parts board shows a “pick ticket” hint on jobs that have uploads. SQL once: supabase/pick-tickets.sql.',
   },
   {
     id: 'equipment-timeline',

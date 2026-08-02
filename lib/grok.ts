@@ -26,6 +26,24 @@ export const plateExtractionSchema = z.object({
 
 export type PlateExtraction = z.infer<typeof plateExtractionSchema>;
 
+export const pickTicketLineSchema = z.object({
+  description: z.string().trim().min(1).max(400),
+  sku: z.string().trim().max(120).nullable().optional(),
+  qty: z.coerce.number().min(0).max(9999).default(1),
+  unit_cost: z.coerce.number().min(0).max(999999).nullable().optional(),
+});
+
+export const pickTicketExtractionSchema = z.object({
+  vendor: z.string().trim().max(200).nullable().optional(),
+  ticket_number: z.string().trim().max(120).nullable().optional(),
+  date: z.string().trim().max(80).nullable().optional(),
+  lines: z.array(pickTicketLineSchema).max(80).default([]),
+  notes: z.string().trim().max(2000).nullable().optional(),
+});
+
+export type PickTicketExtraction = z.infer<typeof pickTicketExtractionSchema>;
+export type PickTicketLine = z.infer<typeof pickTicketLineSchema>;
+
 const filterLookupSchema = z.object({
   filter_size: z.string().nullable().optional(),
   filter_qty: z.union([z.number(), z.string()]).nullable().optional(),
@@ -270,6 +288,95 @@ Be precise. Do not invent values.`;
       filter_size: null,
       filter_qty: null,
       notes: typeof raw === 'string' ? raw.slice(0, 2000) : null,
+    };
+  }
+}
+
+/** Extract line items from a parts counter / pick ticket / packing slip photo. */
+export async function extractPickTicketFromImage(
+  imageBase64: string,
+  mimeType = 'image/jpeg'
+): Promise<PickTicketExtraction> {
+  const systemPrompt = `You are an expert at reading HVAC/R parts counter pick tickets, packing slips, and vendor receipts.
+
+Extract every line item from the image. Return ONLY valid JSON:
+
+{
+  "vendor": string | null,
+  "ticket_number": string | null,
+  "date": string | null,
+  "lines": [
+    {
+      "description": string,
+      "sku": string | null,
+      "qty": number,
+      "unit_cost": number | null
+    }
+  ],
+  "notes": string | null
+}
+
+Rules:
+- description is required for each line (part name / description as printed).
+- sku: part number / item code if visible, else null.
+- qty: number of units (default 1 if unclear).
+- unit_cost: unit price if clearly printed, else null. Prefer unit price over line total.
+- Do not invent parts that are not on the ticket.
+- Ignore tax/shipping totals as separate "parts" lines unless they are clearly a billable part.
+- If the image is unreadable, return empty lines and a short notes explanation.`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${mimeType};base64,${imageBase64}`,
+            detail: 'high',
+          },
+        },
+        {
+          type: 'text',
+          text: 'Extract all parts lines from this pick ticket / packing slip.',
+        },
+      ],
+    },
+  ];
+
+  const raw = await callGrok(messages, {
+    model: visionModel(),
+    temperature: 0,
+  });
+
+  try {
+    const parsed = pickTicketExtractionSchema.safeParse(parseJsonContent(raw));
+    if (!parsed.success) {
+      throw new Error(parsed.error.message);
+    }
+    return {
+      ...parsed.data,
+      lines: (parsed.data.lines || [])
+        .map((line) => ({
+          description: line.description.trim(),
+          sku: line.sku?.trim() || null,
+          qty: line.qty > 0 ? line.qty : 1,
+          unit_cost:
+            line.unit_cost === null || line.unit_cost === undefined
+              ? null
+              : Number(line.unit_cost),
+        }))
+        .filter((line) => line.description.length > 0),
+    };
+  } catch (err) {
+    console.error('Failed to parse pick ticket extract:', raw, err);
+    return {
+      vendor: null,
+      ticket_number: null,
+      date: null,
+      lines: [],
+      notes: 'Could not read pick ticket — try a clearer photo.',
     };
   }
 }
@@ -945,8 +1052,9 @@ Known product facts:
 - Shop presets on Feature modules: Simple (lean), Full field (Simple + field/ops extras), Full shop (everything on). Presets set toggles; Save modules still required to persist.
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
 - Job assistant (office): on /dashboard/jobs/[id] when AI tools is on — ask about that job only (draft customer text, what’s missing to invoice, owner summary). Separate from the floating Help bot (FAQ/product).
+- Pick tickets: on a job (office or assigned tech) with Special-order parts on — upload counter slip photo → Extract with AI → review lines → Add parts to that job # (Received). SQL: pick-tickets.sql for saved extracts.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
-- SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql.
+- SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, pick-tickets.sql.
 - Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help (includes Feature modules catalog).
 - Floating Help bot: Help button bottom-right; needs AI tools module; chat survives navigation in the browser session.
 

@@ -193,8 +193,9 @@ export const COMPANY_MODULES = [
   {
     id: 'part_orders',
     label: 'Special-order parts',
-    description: 'Needed → ordered → received → installed on jobs',
-    help: 'Office → Parts, or Parts panel on a job. Track special orders from needed through installed.',
+    description:
+      'Needed → ordered → received → installed on jobs; pick ticket photos + AI extract',
+    help: 'Office → Parts, or Parts / Pick tickets on a job (office + assigned tech). Upload a counter slip photo linked to that job # → Extract with AI (needs AI tools) → review lines → Add parts to job (status Received). Run supabase/pick-tickets.sql once for saved extracts. Manual part orders still work.',
     href: '/dashboard/parts',
     defaultEnabled: true,
     group: 'Operations',
@@ -273,7 +274,7 @@ export const COMPANY_MODULES = [
     label: 'AI tools',
     description:
       'Ticket fill, job assistant, walkthrough Generate, margin coach, Ask Reports, Help bot, and more',
-    help: 'Needs XAI_API_KEY. On New job, AI ticket fill is the fastest path. On an office job page, Job assistant answers about that ticket (draft customer text, invoice gaps, owner summary). Also: Walkthrough Generate, diagnostic / margin coach, Ask Reports, Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough for the walkthrough panel.',
+    help: 'Needs XAI_API_KEY. On New job, AI ticket fill is the fastest path. On an office job page, Job assistant answers about that ticket (draft customer text, invoice gaps, owner summary). Pick tickets: Extract with AI reads counter slip photos into part orders (needs Special-order parts). Also: Walkthrough Generate, diagnostic / margin coach, Ask Reports, Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough for the walkthrough panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

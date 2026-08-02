@@ -17,6 +17,7 @@ import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
 import { pmChecklistPhotosAsAttachments } from '@/lib/equipment/pm-job-photos';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
+import { JobPickTickets } from '@/components/jobs/JobPickTickets';
 import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
 import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { TechViewToggle } from '@/components/tech/TechViewToggle';
@@ -139,7 +140,7 @@ export default async function JobDetailPage({
       : Promise.resolve({ data: [] }),
     supabase
       .from('job_attachments')
-      .select('id, kind, tag, url, caption, created_at')
+      .select('id, kind, tag, url, caption, created_at, extract_json')
       .eq('job_id', id)
       .order('created_at', { ascending: false })
       .limit(40),
@@ -182,8 +183,40 @@ export default async function JobDetailPage({
     }));
   }
 
-  const rawAttachments = attachRes.error ? [] : attachRes.data ?? [];
+  let rawAttachments: {
+    id: string;
+    kind: string;
+    tag: string | null;
+    url: string | null;
+    caption: string | null;
+    created_at: string;
+    extract_json?: unknown;
+  }[] = attachRes.error ? [] : ((attachRes.data ?? []) as typeof rawAttachments);
+  if (attachRes.error && /extract_json/i.test(attachRes.error.message)) {
+    const retry = await supabase
+      .from('job_attachments')
+      .select('id, kind, tag, url, caption, created_at')
+      .eq('job_id', id)
+      .order('created_at', { ascending: false })
+      .limit(40);
+    rawAttachments = (retry.data ?? []) as typeof rawAttachments;
+  }
   const partOrders = partOrdersRes.error ? [] : partOrdersRes.data ?? [];
+  const pickTickets = rawAttachments
+    .filter((a) => a.tag === 'pick_ticket' && a.kind === 'photo')
+    .map((a) => ({
+      id: a.id,
+      url: a.url,
+      caption: a.caption,
+      created_at: a.created_at,
+      extract_json:
+        'extract_json' in a
+          ? ((a as { extract_json?: unknown }).extract_json as
+              | import('@/lib/grok').PickTicketExtraction
+              | null
+              | undefined) ?? null
+          : null,
+    }));
   const jobEstimates = estimatesRes.error ? [] : estimatesRes.data ?? [];
 
   const walkthroughMedia = filterWalkthroughAttachments(rawAttachments);
@@ -199,7 +232,7 @@ export default async function JobDetailPage({
       })),
       excludeWalkthroughAttachments(rawAttachments)
     )
-  );
+  ).filter((a) => a.tag !== 'pick_ticket');
 
   const updateAction = updateJob.bind(null, id);
   const hasPhone = Boolean(customer?.phone);
@@ -371,7 +404,15 @@ export default async function JobDetailPage({
       )}
 
       {mods.part_orders && (
-        <JobPartsOrders jobId={job.id} orders={partOrders} />
+        <>
+          <JobPickTickets
+            jobId={job.id}
+            jobNumber={job.job_number}
+            tickets={pickTickets}
+            enableAi={Boolean(mods.ai)}
+          />
+          <JobPartsOrders jobId={job.id} orders={partOrders} />
+        </>
       )}
 
       {costingSnapshot && (

@@ -36,6 +36,21 @@ export default async function PartsBoardPage({
     .order('name')
     .limit(300);
 
+  const jobIds = [
+    ...new Set((orders ?? []).map((o) => o.job_id).filter(Boolean)),
+  ];
+  const pickTicketJobIds = new Set<string>();
+  if (jobIds.length) {
+    const { data: pickRows } = await supabase
+      .from('job_attachments')
+      .select('job_id')
+      .eq('tag', 'pick_ticket')
+      .in('job_id', jobIds);
+    for (const row of pickRows ?? []) {
+      if (row.job_id) pickTicketJobIds.add(row.job_id);
+    }
+  }
+
   const filters = [
     { id: 'open', label: 'Open', href: '/dashboard/parts' },
     { id: 'needed', label: 'Needed', href: '/dashboard/parts?status=needed' },
@@ -58,7 +73,8 @@ export default async function PartsBoardPage({
             Parts board
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Special orders across jobs — order, receive, and stock in one place.
+            Special orders across jobs — upload pick tickets on a job, order,
+            receive, and stock in one place.
           </p>
         </div>
         <Link
@@ -120,6 +136,7 @@ export default async function PartsBoardPage({
               notes: o.notes,
               job_number: job?.job_number ?? null,
               customer_name: job?.customer_name ?? null,
+              hasPickTicket: pickTicketJobIds.has(o.job_id),
               costLabel: formatMoney(
                 (Number(o.qty) || 1) * (Number(o.unit_cost) || 0)
               ),

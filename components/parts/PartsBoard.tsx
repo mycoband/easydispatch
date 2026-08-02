@@ -22,6 +22,7 @@ type OrderRow = {
   notes: string | null;
   job_number: string | null;
   customer_name: string | null;
+  hasPickTicket?: boolean;
   costLabel: string;
 };
 
@@ -129,6 +130,7 @@ export function PartsBoard({
                     </Link>
                     <p className="text-xs text-ink-400">
                       {o.job_number ? `#${o.job_number}` : o.job_id.slice(0, 8)}
+                      {o.hasPickTicket ? ' · pick ticket' : ''}
                     </p>
                   </td>
                   <td className="px-4 py-3">
