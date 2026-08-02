@@ -59,14 +59,17 @@ function chatModel() {
   return process.env.XAI_CHAT_MODEL || process.env.XAI_VISION_MODEL || 'grok-4.5';
 }
 
-/** Model that accepts native video_url content (Grok 4.3+). */
-function videoModel() {
-  return (
-    process.env.XAI_VIDEO_MODEL ||
-    process.env.XAI_CHAT_MODEL ||
-    process.env.XAI_VISION_MODEL ||
-    'grok-4.3'
+/**
+ * Optional native video_url models. Off unless XAI_VIDEO_NATIVE=1 —
+ * official Grok chat models are image+text; we use frames + Whisper instead.
+ */
+function videoModelCandidates(): string[] {
+  if (process.env.XAI_VIDEO_NATIVE?.trim() !== '1') return [];
+  const preferred = process.env.XAI_VIDEO_MODEL?.trim();
+  const list = [preferred, 'grok-4.3', 'grok-4-3'].filter(
+    (m): m is string => Boolean(m)
   );
+  return [...new Set(list)];
 }
 
 export async function callGrok(
@@ -91,7 +94,7 @@ export async function callGrok(
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Grok API error: ${res.status} ${err}`);
+    throw new Error(`Grok API error (${model}): ${res.status} ${err}`);
   }
 
   const data = await res.json();
@@ -666,9 +669,12 @@ export const walkthroughReportSchema = z.object({
 export type WalkthroughReport = z.infer<typeof walkthroughReportSchema>;
 
 /**
- * Free-form field notes + voice/video (+ optional photos) →
+ * Free-form field notes + voice/video (+ photos / extracted frames) →
  * structured HVAC/R walkthrough report JSON.
- * Videos are sent as native video_url when the model supports it.
+ *
+ * Video walkthroughs: Grok receives (1) sampled frames to SEE the site and
+ * (2) Whisper audio transcripts to HEAR narration. Native video_url is
+ * optional via XAI_VIDEO_NATIVE=1.
  */
 export async function generateWalkthroughReport(input: {
   notes: string;
@@ -684,23 +690,36 @@ export async function generateWalkthroughReport(input: {
   const transcripts = (input.voiceTranscripts || [])
     .map((t) => t.trim())
     .filter(Boolean);
-  const photoUrls = (input.photoUrls || []).filter(Boolean).slice(0, 4);
+  const photoUrls = (input.photoUrls || []).filter(Boolean).slice(0, 12);
   const videoUrls = (input.videoUrls || []).filter(Boolean).slice(0, 2);
+  const hasVideo = videoUrls.length > 0;
 
   if (
     !notes &&
     transcripts.length === 0 &&
     photoUrls.length === 0 &&
-    videoUrls.length === 0
+    !hasVideo
   ) {
     throw new Error(
-      'Add field notes, a video, a voice note, or a photo before generating a report'
+      'Add a video walkthrough, field notes, a voice note, or a photo before generating a report'
+    );
+  }
+
+  if (hasVideo && photoUrls.length === 0 && videoModelCandidates().length === 0) {
+    throw new Error(
+      'Video frames missing — re-upload the walkthrough video so frames can be extracted for Grok to see'
+    );
+  }
+
+  if (hasVideo && transcripts.length === 0) {
+    throw new Error(
+      'Could not hear the video — set OPENAI_API_KEY for Whisper, then Generate again (speak clearly in the clip)'
     );
   }
 
   const transcriptBlock =
     transcripts.length > 0
-      ? transcripts.map((t, i) => `Voice/transcript ${i + 1}:\n${t}`).join('\n\n')
+      ? transcripts.map((t, i) => `Audio transcript ${i + 1}:\n${t}`).join('\n\n')
       : '(none)';
 
   const laborHint =
@@ -708,31 +727,68 @@ export async function generateWalkthroughReport(input: {
       ? `Default shop labor rate if not stated: $${input.defaultLaborRate}/hr.`
       : 'If labor rate is unknown, use a typical US HVAC service rate (~$125–175/hr) and note it is an estimate.';
 
-  const systemPrompt = `You are an experienced HVAC and commercial refrigeration service technician and technical writer.
-Turn messy field capture into a clean professional walkthrough report for EasyDispatch.
-Understand RTUs, package units, split systems, furnaces, heat pumps, walk-in coolers/freezers, reach-ins, ice machines, and related controls/refrigeration.
+  const systemPrompt = hasVideo
+    ? `You are an expert HVAC / commercial refrigeration field tech and technical writer for EasyDispatch.
+
+You receive a JOB SITE VIDEO WALKTHROUGH as:
+1. Still frames sampled across the video (what was SEEN — equipment, nameplates, damage, filters, gauges, wiring, leaks, ice, dirt, access).
+2. Full audio transcripts of what was SAID / heard in the video (Whisper).
+
+You MUST document EVERYTHING visible in the frames AND everything said in the transcripts. Be thorough, not sparse. Merge visual evidence with spoken narration into one coherent report.
 
 Return ONLY valid JSON:
 {
-  "findings": string (what was observed / diagnosed — tech-facing, clear),
-  "work_performed": string (what was done on site; if nothing done yet, say recommended next steps briefly),
+  "findings": string (detailed: what was SEEN in frames + what the tech SAID),
+  "work_performed": string (what was done or clearly described as done; if only inspection, say so),
   "parts_used": [{"name": string, "quantity": number, "estimated_cost": number}],
-  "recommendations": string (follow-ups, safety, maintenance),
-  "customer_summary": string (plain-language summary suitable for invoice / customer),
+  "recommendations": string (follow-ups, safety, maintenance from visual + audio evidence),
+  "customer_summary": string (plain-language summary for the customer),
   "labor_hours_estimated": number | null,
   "labor_rate": number | null
 }
 
 Rules:
-- Be concise but complete. Professional tone.
-- Never invent major work, parts, or equipment details that were not mentioned or visible.
-- parts_used only for parts clearly needed or used; estimated_cost in USD (rough OK).
-- Prefer empty string / empty array over inventing content.
-- ${laborHint}
-- If video is attached, use the spoken narration AND what you see (equipment, damage, nameplates, filters, gauges) as the primary source.
-- If photos are attached, use them as supporting context — do not invent unread serials.`;
+- Professional HVAC language in findings/work_performed; friendly plain language in customer_summary.
+- Do NOT invent model/serial numbers you cannot read or hear. Quote what is visible or said.
+- Do NOT leave findings empty if frames or transcripts contain anything useful.
+- Cover the full walkthrough timeline implied by the frames and narration.
+- parts_used only for parts mentioned or clearly needed; estimated_cost in USD (rough OK).
+- ${laborHint}`
+    : `You are an experienced HVAC and commercial refrigeration service technician and technical writer.
+Turn field capture into a clean professional walkthrough report for EasyDispatch.
 
-  const textBody = `Job type: ${input.jobType || 'Service'}
+Return ONLY valid JSON:
+{
+  "findings": string,
+  "work_performed": string,
+  "parts_used": [{"name": string, "quantity": number, "estimated_cost": number}],
+  "recommendations": string,
+  "customer_summary": string,
+  "labor_hours_estimated": number | null,
+  "labor_rate": number | null
+}
+
+Rules:
+- Be complete and professional. Never invent major work or unread serials.
+- parts_used only when clearly needed; estimated_cost in USD (rough OK).
+- ${laborHint}`;
+
+  const textBody = hasVideo
+    ? `Job type: ${input.jobType || 'Service'}
+Customer: ${input.customerName || 'unknown'}
+Equipment on file: ${input.equipmentSummary || 'unknown'}
+
+Optional typed notes:
+${notes || '(none)'}
+
+FULL audio transcripts from the walkthrough video (HEAR — document all of this):
+${transcriptBlock}
+
+Frames from the walkthrough video attached: ${photoUrls.length} (SEE — document all visible equipment/conditions)
+Source videos on file: ${videoUrls.length}
+
+TASK: Using the frames and the full transcripts, document everything seen and heard into the JSON report. Do not omit spoken details or obvious visual conditions.`
+    : `Job type: ${input.jobType || 'Service'}
 Customer: ${input.customerName || 'unknown'}
 Equipment: ${input.equipmentSummary || 'unknown'}
 
@@ -742,73 +798,79 @@ ${notes || '(none)'}
 Voice / audio transcripts:
 ${transcriptBlock}
 
-Videos attached: ${videoUrls.length}
 Photos attached: ${photoUrls.length}
 
-Watch any attached video walkthrough (picture + narration) and produce the structured report.`;
+Produce the structured walkthrough report.`;
 
   type ContentPart =
     | { type: 'text'; text: string }
     | { type: 'image_url'; image_url: { url: string; detail: string } }
     | { type: 'video_url'; video_url: { url: string } };
 
-  const buildContent = (includeVideo: boolean): string | ContentPart[] => {
-    const parts: ContentPart[] = [];
-    if (includeVideo) {
-      for (const url of videoUrls) {
-        parts.push({ type: 'video_url', video_url: { url } });
-      }
-    }
-    for (const url of photoUrls) {
-      parts.push({
-        type: 'image_url',
-        image_url: { url, detail: 'low' },
-      });
-    }
-    parts.push({ type: 'text', text: textBody });
-    if (parts.length === 1 && parts[0].type === 'text') {
-      return textBody;
-    }
-    return parts;
-  };
-
-  const modelFor = (includeVideo: boolean) => {
-    if (includeVideo && videoUrls.length > 0) return videoModel();
-    if (photoUrls.length > 0) return visionModel();
-    return chatModel();
-  };
-
-  async function run(includeVideo: boolean) {
+  async function runWithParts(model: string, parts: ContentPart[]) {
+    const userContent: string | ContentPart[] =
+      parts.length === 1 && parts[0].type === 'text' ? textBody : parts;
     const content = await callGrok(
       [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: buildContent(includeVideo) },
+        { role: 'user', content: userContent },
       ],
-      {
-        model: modelFor(includeVideo),
-        temperature: 0.2,
-      }
+      { model, temperature: 0.15 }
     );
     const parsed = walkthroughReportSchema.safeParse(parseJsonContent(content));
     if (!parsed.success) {
       throw new Error('Could not parse walkthrough report response');
     }
+    if (
+      hasVideo &&
+      !parsed.data.findings?.trim() &&
+      !parsed.data.work_performed?.trim() &&
+      !parsed.data.customer_summary?.trim()
+    ) {
+      throw new Error(
+        'Grok returned an empty report — walkthrough media may not have been analyzed'
+      );
+    }
     return parsed.data;
   }
 
-  try {
-    return await run(videoUrls.length > 0);
-  } catch (err) {
-    // Older models reject video_url — retry with photos + transcripts only
-    if (videoUrls.length > 0) {
-      console.warn(
-        'Walkthrough video generate failed; retrying without video_url:',
-        err
-      );
-      return await run(false);
+  // Optional native video_url path (off by default — most Grok chat models are image-only)
+  if (hasVideo) {
+    const nativeModels = videoModelCandidates();
+    for (const model of nativeModels) {
+      try {
+        const parts: ContentPart[] = [];
+        for (const url of videoUrls) {
+          parts.push({ type: 'video_url', video_url: { url } });
+        }
+        for (const url of photoUrls.slice(0, 4)) {
+          parts.push({
+            type: 'image_url',
+            image_url: { url, detail: 'low' },
+          });
+        }
+        parts.push({ type: 'text', text: textBody });
+        return await runWithParts(model, parts);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('Native video_url walkthrough failed', model, msg);
+      }
     }
-    throw err;
   }
+
+  // Primary path: vision on frames + text transcripts (see + hear)
+  const visionParts: ContentPart[] = [];
+  for (const url of photoUrls) {
+    visionParts.push({
+      type: 'image_url',
+      image_url: { url, detail: hasVideo ? 'high' : 'high' },
+    });
+  }
+  visionParts.push({ type: 'text', text: textBody });
+
+  const model =
+    photoUrls.length > 0 ? visionModel() : hasVideo ? visionModel() : chatModel();
+  return runWithParts(model, visionParts);
 }
 
 export type HelpChatMessage = {

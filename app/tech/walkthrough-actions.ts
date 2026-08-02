@@ -357,17 +357,39 @@ export async function generateWalkthroughReportAction(
       .eq('job_id', jobId)
       .eq('tag', WALKTHROUGH_MEDIA_TAG)
       .order('created_at', { ascending: true })
-      .limit(40);
+      .limit(60);
 
     const media = mediaRows ?? [];
     const photoUrls = media
       .filter((m) => m.kind === 'photo' && m.url)
       .map((m) => m.url as string);
-    const videoUrls = media
-      .filter((m) => m.kind === 'video' && m.url)
-      .map((m) => m.url as string);
+    const videoRows = media.filter((m) => m.kind === 'video' && m.url);
+    const videoUrls = videoRows.map((m) => m.url as string);
 
-    // Auto-transcribe walkthrough voice/video that lack a caption (Whisper).
+    // Prove Grok can fetch public video URLs (Supabase job-media must be public)
+    for (const url of videoUrls) {
+      try {
+        const head = await fetch(url, { method: 'HEAD' });
+        if (!head.ok) {
+          const get = await fetch(url, {
+            method: 'GET',
+            headers: { Range: 'bytes=0-1023' },
+          });
+          if (!get.ok) {
+            return {
+              error: `Walkthrough video is not publicly reachable (${get.status}). Check job-media bucket is public.`,
+            };
+          }
+        }
+      } catch {
+        return {
+          error:
+            'Could not reach walkthrough video URL. Check job-media storage is public.',
+        };
+      }
+    }
+
+    // Whisper audio from voice/video so Grok has spoken words + the video itself
     const voiceTranscripts: string[] = [];
     let autoTxCount = 0;
     for (const m of media.filter(
@@ -381,10 +403,10 @@ export async function generateWalkthroughReportAction(
             const buffer = Buffer.from(await audioRes.arrayBuffer());
             const contentType =
               audioRes.headers.get('content-type') ||
-              (m.kind === 'video' ? 'video/webm' : 'audio/webm');
+              (m.kind === 'video' ? 'video/mp4' : 'audio/webm');
             const filename =
               m.url.split('/').pop() ||
-              (m.kind === 'video' ? 'walkthrough.webm' : 'voice.webm');
+              (m.kind === 'video' ? 'walkthrough.mp4' : 'voice.webm');
             const { transcribeAudioBuffer } = await import(
               '@/lib/ai/transcribe'
             );
@@ -400,11 +422,31 @@ export async function generateWalkthroughReportAction(
               autoTxCount += 1;
             }
           }
-        } catch {
-          /* best-effort; Generate can still use notes/photos/video */
+        } catch (txErr) {
+          console.warn('Walkthrough Whisper failed', txErr);
         }
       }
       if (text) voiceTranscripts.push(text);
+    }
+
+    if (videoUrls.length > 0 && voiceTranscripts.length === 0) {
+      if (!process.env.OPENAI_API_KEY?.trim()) {
+        return {
+          error:
+            'OPENAI_API_KEY is required so Grok can hear the video (Whisper). Add it in Vercel env, redeploy, then Generate again.',
+        };
+      }
+      return {
+        error:
+          'Could not hear speech in the walkthrough video. Re-record with clear narration, then Generate again.',
+      };
+    }
+
+    if (videoUrls.length > 0 && photoUrls.length === 0) {
+      return {
+        error:
+          'No frames from the video yet. Re-upload or re-record the walkthrough video (frames are extracted automatically for Grok to see).',
+      };
     }
 
     // Fold new transcripts into field notes when notes were empty-ish
@@ -501,10 +543,24 @@ export async function generateWalkthroughReportAction(
     if (error) return { error: error.message };
 
     revalidateJob(jobId);
+    const bits: string[] = [];
+    if (videoUrls.length > 0) {
+      bits.push(`saw ${photoUrls.length} frame${photoUrls.length === 1 ? '' : 's'}`);
+      bits.push(
+        `heard ${voiceTranscripts.length} transcript${
+          voiceTranscripts.length === 1 ? '' : 's'
+        }`
+      );
+    }
+    if (autoTxCount > 0 && videoUrls.length === 0) {
+      bits.push(
+        `transcribed ${autoTxCount} clip${autoTxCount === 1 ? '' : 's'}`
+      );
+    }
     return {
       success:
-        autoTxCount > 0
-          ? `Transcribed ${autoTxCount} voice note${autoTxCount === 1 ? '' : 's'} · report generated — review below`
+        bits.length > 0
+          ? `Report generated (${bits.join(' · ')}) — review below`
           : 'Report generated — review below',
     };
   } catch (err) {

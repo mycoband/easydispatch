@@ -10,7 +10,6 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   deleteWalkthroughMedia,
-  generateWalkthroughReportAction,
   saveWalkthroughDraft,
   saveWalkthroughToJob,
   transcribeWalkthroughVoice,
@@ -24,6 +23,11 @@ import {
   type WalkthroughPart,
   type WalkthroughStatus,
 } from '@/lib/jobs/walkthrough';
+import {
+  extractVideoFrames,
+  frameCaption,
+  isWalkthroughFrameCaption,
+} from '@/lib/media/extract-video-frames';
 
 function statusBadgeClass(status: WalkthroughStatus): string {
   switch (status) {
@@ -172,7 +176,11 @@ export function JobWalkthroughPanel({
   );
 
   const voices = media.filter((m) => m.kind === 'voice');
-  const photos = media.filter((m) => m.kind === 'photo');
+  const allPhotos = media.filter((m) => m.kind === 'photo');
+  const framePhotos = allPhotos.filter((m) =>
+    isWalkthroughFrameCaption(m.caption)
+  );
+  const photos = allPhotos.filter((m) => !isWalkthroughFrameCaption(m.caption));
   const videos = media.filter((m) => m.kind === 'video');
   const status = walkthrough.status;
   const reportReady = hasReportContent(report);
@@ -256,33 +264,57 @@ export function JobWalkthroughPanel({
     setPending(null);
   }
 
-  async function uploadFile(file: File, kind: 'photo' | 'voice' | 'video') {
-    if (!canMedia) return;
-    setPending(kind);
-    setError(null);
-    setMessage(null);
+  async function uploadFile(
+    file: File,
+    kind: 'photo' | 'voice' | 'video',
+    caption?: string
+  ) {
+    if (!canMedia) return { error: 'Media not allowed' as string };
     const fd = new FormData();
     fd.set('file', file);
     fd.set('kind', kind);
     fd.set('tag', 'walkthrough');
+    if (caption) fd.set('caption', caption);
     try {
       const result = await uploadWalkthroughMedia(jobId, fd);
-      if (result.error) setError(result.error);
-      else {
-        setMessage(result.success || 'Saved');
-        router.refresh();
-      }
+      return result;
     } catch {
-      setError('Upload failed — try again');
+      return { error: 'Upload failed — try again' };
     }
-    setPending(null);
+  }
+
+  async function uploadVideoFramesFromSource(source: Blob | string) {
+    const frames = await extractVideoFrames(source, { count: 10 });
+    let uploaded = 0;
+    for (let i = 0; i < frames.length; i += 1) {
+      const result = await uploadFile(
+        frames[i],
+        'photo',
+        frameCaption(i + 1, frames.length)
+      );
+      if (result.error) {
+        if (uploaded === 0) throw new Error(result.error);
+        break;
+      }
+      uploaded += 1;
+    }
+    return uploaded;
   }
 
   async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    await uploadFile(file, 'photo');
+    setPending('photo');
+    setError(null);
+    setMessage(null);
+    const result = await uploadFile(file, 'photo');
+    if (result.error) setError(result.error);
+    else {
+      setMessage(result.success || 'Saved');
+      router.refresh();
+    }
+    setPending(null);
   }
 
   async function onPickVideo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -293,8 +325,32 @@ export function JobWalkthroughPanel({
       setError('Please choose a video file');
       return;
     }
+    setPending('video');
+    setError(null);
     setMessage('Uploading video…');
-    await uploadFile(file, 'video');
+    const result = await uploadFile(file, 'video');
+    if (result.error) {
+      setError(result.error);
+      setPending(null);
+      return;
+    }
+    try {
+      setMessage('Extracting frames for Grok to see…');
+      const n = await uploadVideoFramesFromSource(file);
+      setMessage(
+        n > 0
+          ? `Walkthrough video saved · ${n} frames ready for AI`
+          : 'Walkthrough video saved'
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `${err.message} (video saved — try Generate to extract frames)`
+          : 'Video saved but frame extract failed — try Generate'
+      );
+    }
+    router.refresh();
+    setPending(null);
   }
 
   async function toggleVoice() {
@@ -318,7 +374,16 @@ export function JobWalkthroughPanel({
         const file = new File([blob], `walkthrough-${Date.now()}.webm`, {
           type: 'audio/webm',
         });
-        await uploadFile(file, 'voice');
+        setPending('voice');
+        setError(null);
+        setMessage(null);
+        const result = await uploadFile(file, 'voice');
+        if (result.error) setError(result.error);
+        else {
+          setMessage(result.success || 'Saved');
+          router.refresh();
+        }
+        setPending(null);
       };
       mediaRecorder.current = rec;
       rec.start();
@@ -354,21 +419,55 @@ export function JobWalkthroughPanel({
     setPending(null);
   }
 
+  async function ensureVideoFramesForGenerate() {
+    if (videos.length === 0) return;
+    if (framePhotos.length >= 4) return;
+    const video = videos[0];
+    if (!video.url) {
+      throw new Error('Walkthrough video has no URL');
+    }
+    setMessage('Extracting frames so Grok can see the video…');
+    const res = await fetch(video.url);
+    if (!res.ok) {
+      throw new Error('Could not download video to extract frames');
+    }
+    const blob = await res.blob();
+    const n = await uploadVideoFramesFromSource(blob);
+    if (n < 1) {
+      throw new Error('Could not extract frames from the walkthrough video');
+    }
+  }
+
   async function generate() {
     if (!allowGenerate || !canEdit) return;
     setPending('generate');
     setError(null);
     setMessage(null);
     try {
-      const result = await generateWalkthroughReportAction(jobId, { notes });
-      if (result.error) setError(result.error);
-      else {
-        setMessage(result.success || 'Report generated');
+      if (videos.length > 0) {
+        await ensureVideoFramesForGenerate();
+      }
+      setMessage('Grok is watching frames and listening to audio…');
+      const res = await fetch('/api/ai/walkthrough', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, notes }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || data.error) {
+        setError(data.error || 'Generate failed — try again');
+      } else {
+        setMessage(data.message || 'Report generated');
         setEditingSaved(true);
         router.refresh();
       }
-    } catch {
-      setError('Generate failed — try again');
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Generate failed — try again'
+      );
     }
     setPending(null);
   }
@@ -495,7 +594,8 @@ export function JobWalkthroughPanel({
 
           <p className="text-xs text-ink-400">
             Record opens your phone camera — narrate while you film (keep clips
-            under ~90 seconds). Or pick an existing video from your library.
+            under ~90 seconds). We extract frames (so Grok can see) and
+            transcribe audio (so Grok can hear) when you Generate.
           </p>
 
           {videos.length > 0 && (
@@ -530,6 +630,11 @@ export function JobWalkthroughPanel({
                     {a.caption && (
                       <p className="mt-2 whitespace-pre-wrap text-xs text-ink-600">
                         {a.caption}
+                      </p>
+                    )}
+                    {framePhotos.length > 0 && idx === 0 && (
+                      <p className="mt-2 text-xs text-ink-500">
+                        {framePhotos.length} AI frames ready for Grok vision
                       </p>
                     )}
                     <div className="mt-2 flex flex-wrap gap-3">
@@ -817,7 +922,11 @@ export function JobWalkthroughPanel({
             {media.length > 0 && (
             <p className="text-xs text-ink-500">
               {videos.length} video · {voices.length} voice · {photos.length}{' '}
-              photo{photos.length !== 1 ? 's' : ''} on this walkthrough
+              photo{photos.length !== 1 ? 's' : ''}
+              {framePhotos.length > 0
+                ? ` · ${framePhotos.length} AI frames`
+                : ''}{' '}
+              on this walkthrough
             </p>
           )}
 

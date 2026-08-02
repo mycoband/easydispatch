@@ -70,7 +70,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Settings & modules',
     question: 'How do I turn AI Job Walkthrough on or off?',
     answer:
-      'Settings → Feature modules → Field / tech → AI Job Walkthrough. On (default): Job Walkthrough (AI) panel on tech and office jobs — record video (camera+mic), voice, or photos. Off: panel hidden. Generate Report also needs AI tools on + XAI_API_KEY (optional XAI_VIDEO_MODEL=grok-4.3 for video). Auto-transcribe needs OPENAI_API_KEY. Download PDF needs PDF documents. Run supabase/ai-walkthrough.sql once; if video upload fails on kind, run ai-walkthrough-video.sql.',
+      'Settings → Feature modules → Field / tech → AI Job Walkthrough. On (default): Job Walkthrough (AI) panel on tech and office jobs — record video (camera+mic), voice, or photos. Off: panel hidden. Generate needs AI tools + XAI_API_KEY; video also needs OPENAI_API_KEY (Whisper hear) and auto-extracted frames (Grok see). Download PDF needs PDF documents. Run supabase/ai-walkthrough.sql once; if video upload fails on kind, run ai-walkthrough-video.sql.',
   },
   {
     id: 'live-dispatch',
@@ -175,7 +175,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Settings → Feature modules → AI Job Walkthrough (shows the panel) and AI tools (needed for Generate). On a job → Job Walkthrough (AI): Record video walkthrough (camera + mic, ~90s) so Grok sees the site and hears you — or use voice/photos. Generate → edit findings/work/parts/labor/customer summary → Save to Job (copies diagnosis & customer summary; syncs parts/labor to line items if allowed). Download PDF with PDF documents on. Keys: XAI_API_KEY, optional XAI_VIDEO_MODEL=grok-4.3, OPENAI_API_KEY for Whisper. SQL: ai-walkthrough.sql; video kind: ai-walkthrough-video.sql if needed. Toggle off AI Job Walkthrough to hide the panel.',
+      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). Record video on a job → Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). Edit → Save to Job. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
   },
   {
     id: 'ai-walkthrough-video',

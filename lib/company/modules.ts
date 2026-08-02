@@ -273,7 +273,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'On-job video (camera+mic), voice, and photos → AI report you edit and save',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video walkthrough (best), voice, or photos → Generate (needs AI tools + XAI_API_KEY; optional XAI_VIDEO_MODEL=grok-4.3) → edit → Save to Job. Auto-transcribe needs OPENAI_API_KEY. PDF needs PDF documents. Off hides the whole panel. SQL: supabase/ai-walkthrough.sql; for video kind: ai-walkthrough-video.sql if uploads fail.',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video → Generate: frames extracted so Grok can see + Whisper so Grok can hear (needs XAI_API_KEY, OPENAI_API_KEY, AI tools). Save copies diagnosis/summary + line items. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if video kind fails.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
