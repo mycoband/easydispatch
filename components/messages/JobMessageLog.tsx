@@ -13,6 +13,7 @@ export type MessageRow = {
 function kindLabel(status: string | null) {
   if (!status) return 'SMS';
   if (status.startsWith('omw:')) return 'On My Way';
+  if (status.startsWith('done:')) return 'Done';
   if (status.startsWith('reminder:')) return 'Reminder';
   if (status.startsWith('invoice:')) return 'Invoice';
   if (status.startsWith('text:')) return 'Text';

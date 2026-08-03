@@ -233,8 +233,8 @@ export const COMPANY_MODULES = [
   {
     id: 'messaging',
     label: 'Customer messaging',
-    description: 'OMW, reminders, confirm links, SMS log',
-    help: 'On Dispatch cards and job message actions. Needs Twilio env vars for real SMS; otherwise messages may simulate/log.',
+    description: 'OMW, Done drafts, reminders, confirm links, SMS log',
+    help: 'On Dispatch cards and job message actions. Tech: Drive Start opens an On My Way draft (ETA + Send/Skip); Clock Out opens a Done draft — never silent send. Needs Twilio env vars for real SMS; otherwise messages may simulate/log.',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',

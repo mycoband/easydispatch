@@ -23,12 +23,18 @@ export function TimeTrackingPanel({
   job,
   large = false,
   offlineQueue = false,
+  onAfterDrive,
+  onAfterClockOut,
 }: {
   jobId: string;
   job: JobTimeFields;
   large?: boolean;
   /** Queue Drive/Arrive/Clock Out when offline */
   offlineQueue?: boolean;
+  /** Pass F: open OMW draft sheet (tech) */
+  onAfterDrive?: () => void;
+  /** Pass F: open Done draft sheet (tech) */
+  onAfterClockOut?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -105,6 +111,9 @@ export function TimeTrackingPanel({
         setTechJobPhase(pathname, router, 'work');
       } else if (act === 'clock_out') {
         setTechJobPhase(pathname, router, 'wrap');
+        onAfterClockOut?.();
+      } else if (act === 'drive') {
+        onAfterDrive?.();
       }
       router.refresh();
     }

@@ -40,6 +40,29 @@ export function confirmAppointmentBody(opts: {
   return `Hi ${name}, ${company} has you scheduled for ${type} at ${opts.whenLabel}. Please confirm or request a reschedule: ${opts.confirmUrl}`;
 }
 
+/** After Clock Out — visit complete (confirm-to-send draft). */
+export function doneBody(opts: {
+  techName: string | null | undefined;
+  customerName: string | null | undefined;
+  jobType: string | null | undefined;
+  companyName?: string | null;
+  /** Optional short clip from job customer_summary */
+  customerSummary?: string | null;
+}) {
+  const tech = opts.techName?.trim() || 'your technician';
+  const customer = opts.customerName?.trim() || 'there';
+  const type = opts.jobType?.trim() || 'service';
+  const company = opts.companyName?.trim() || 'EasyDispatch';
+  let text = `Hi ${customer}, this is ${tech} with ${company}. We're all wrapped up on today's ${type}. Thanks for choosing us!`;
+  const summary = opts.customerSummary?.trim().replace(/\s+/g, ' ');
+  if (summary) {
+    const clip =
+      summary.length > 160 ? `${summary.slice(0, 157).trim()}…` : summary;
+    text += ` ${clip}`;
+  }
+  return text;
+}
+
 export function invoiceSmsBody(opts: {
   customerName: string | null | undefined;
   amountLabel: string;

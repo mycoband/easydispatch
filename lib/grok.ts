@@ -1048,6 +1048,7 @@ Known product facts:
 - Walkthrough capture: when AI Job Walkthrough is on (tech Work + office job), Record video walkthrough is the hero CTA; video uploads browser→Supabase. Generate Report extracts frames + Whisper on the server (iOS-safe; can take 1–2 min). Transcribe audio uses /api/ai/walkthrough-transcribe. Needs XAI_API_KEY + OPENAI_API_KEY. If video kind/size fails, run supabase/ai-walkthrough-video.sql.
 - Apply & wrap up: after Generate, primary button saves walkthrough to job (diagnosis/summary/line items) and opens Wrap up (?phase=wrap). Save only stays on Work. Does not auto Clock out — Clock out / Sign are on Wrap.
 - Finish this stop (tech Wrap): checklist Clock out → signature → pricing → send invoice → paid; tap a step to jump; sticky footer shows next incomplete step. Does not auto-send.
+- OMW / Done drafts (tech): with Customer messaging on, Drive Start opens On My Way draft (ETA + Send/Skip); Clock Out opens Done draft (Send/Skip). Never silent Twilio send.
 - Dispatch Assign for me: with Assign-tech AI on, unassigned cards show Assign for me (top ranked tech + reason) → Confirm to assign; manual pick still available.
 - Technician view (office): Feature module “Technician view (office)” + Tech view checkbox in office header (or Open technician view on a job) opens the same /tech UI for owners/dispatchers/office (assignee names on My jobs cards); Exit to office on the blue banner.
 - Feature modules: Settings → Feature modules lists EVERY optional feature; toggle + Save. Off hides related UI. Core customers + jobs always on.

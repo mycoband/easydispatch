@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
-import { TimeTrackingPanel } from '@/components/jobs/TimeTrackingPanel';
 import { JobInvoicePanel } from '@/components/invoices/JobInvoicePanel';
 import { JobMessageActions } from '@/components/messages/JobMessageActions';
 import { JobMessageLog } from '@/components/messages/JobMessageLog';
+import { TechCustomerDraftHost } from '@/components/tech/TechCustomerDraftHost';
 import { EquipmentSection } from '@/components/equipment/EquipmentSection';
 import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
@@ -317,11 +317,25 @@ export default async function TechJobDetailPage({
   });
   const wrapStickyHint = closeoutStickyHint(closeoutGaps);
 
+  const enableMessageDrafts = Boolean(
+    mods.messaging && allow('messaging')
+  );
+  const draftContext = {
+    techName: job.assigned_to_name || profile.full_name || null,
+    customerName: job.customer_name || null,
+    jobType: job.job_type || null,
+    companyName: company.sms_signature || company.name || null,
+    customerSummary: job.customer_summary || null,
+  };
+
   const timePanel = allow('time_track') ? (
     <div id="finish-clock-out" tabIndex={-1} className="scroll-mt-36 outline-none">
-      <TimeTrackingPanel
+      <TechCustomerDraftHost
         jobId={job.id}
         job={job}
+        hasPhone={Boolean(customer?.phone)}
+        draftContext={draftContext}
+        enableDrafts={enableMessageDrafts}
         large
         offlineQueue={Boolean(mods.tech_offline_queue)}
       />

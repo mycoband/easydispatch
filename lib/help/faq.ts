@@ -168,7 +168,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do OMW / reminder texts work?',
     answer:
-      'Enable Customer messaging. On Dispatch or the job, use message buttons (OMW, reminder, confirm). Needs Twilio env vars for real SMS; otherwise sends may simulate and still log. SMS signature is under Company settings.',
+      'Enable Customer messaging. On Dispatch or the job, use message buttons (OMW, reminder, confirm). On the tech ticket, Drive Start opens an On My Way draft (pick ETA, edit, Send or Skip); Clock Out opens a Done draft the same way — nothing sends until you tap Send. Needs Twilio env vars for real SMS; otherwise sends may simulate and still log. SMS signature is under Company settings.',
+  },
+  {
+    id: 'omw-done-drafts',
+    category: 'Tech app',
+    question: 'What are the On My Way and Done text drafts after Drive / Clock Out?',
+    answer:
+      'With Customer messaging on: after Drive Start, a sheet offers a prefilled On My Way SMS (ETA chips, editable). After Clock Out (Wrap), a Done SMS draft thanks the customer (uses customer summary when present). Tap Send or Skip — EasyDispatch never auto-sends. Existing message buttons on Arrive still work. Message history labels them On My Way / Done.',
   },
   {
     id: 'pm-automation',

@@ -5,6 +5,7 @@ import { requireProfile, isOfficeRole } from '@/lib/auth';
 import { sendAndLogOutboundSms } from '@/lib/messages/send';
 import {
   confirmAppointmentBody,
+  doneBody,
   formatScheduleLabel,
   omwBody,
   reminderBody,
@@ -34,7 +35,7 @@ async function loadJobForMessage(jobId: string) {
   const { data: job, error } = await supabase
     .from('jobs')
     .select(
-      'id, customer_id, customer_name, job_type, status, assigned_to, assigned_to_name, scheduled_start, drive_started_at, check_in_at, check_out_at, confirmation_token, confirmation_status'
+      'id, customer_id, customer_name, job_type, status, assigned_to, assigned_to_name, scheduled_start, drive_started_at, check_in_at, check_out_at, confirmation_token, confirmation_status, customer_summary'
     )
     .eq('id', jobId)
     .maybeSingle();
@@ -64,7 +65,8 @@ async function loadJobForMessage(jobId: string) {
 
 export async function sendOmwSms(
   jobId: string,
-  etaMinutes?: number | null
+  etaMinutes?: number | null,
+  bodyOverride?: string | null
 ): Promise<MessageActionState> {
   try {
     const perm = await assertTechCapability('messaging');
@@ -76,13 +78,16 @@ export async function sendOmwSms(
       job.assigned_to_name || profile.full_name || 'your technician';
     const company = await loadCompanySettings();
 
-    const body = omwBody({
-      techName,
-      customerName: job.customer_name,
-      jobType: job.job_type,
-      etaMinutes: etaMinutes ?? null,
-      companyName: company.sms_signature || company.name,
-    });
+    const body =
+      bodyOverride?.trim() ||
+      omwBody({
+        techName,
+        customerName: job.customer_name,
+        jobType: job.job_type,
+        etaMinutes: etaMinutes ?? null,
+        companyName: company.sms_signature || company.name,
+      });
+    if (!body.trim()) return { error: 'Message body required' };
 
     const result = await sendAndLogOutboundSms(supabase, {
       jobId: job.id,
@@ -105,6 +110,57 @@ export async function sendOmwSms(
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : 'OMW failed',
+    };
+  }
+}
+
+/** After Clock Out — confirm-to-send “visit done” SMS. */
+export async function sendDoneSms(
+  jobId: string,
+  bodyOverride?: string | null
+): Promise<MessageActionState> {
+  try {
+    const perm = await assertTechCapability('messaging');
+    if (!perm.ok) return { error: perm.error };
+    const { supabase, job, phone, profile } = await loadJobForMessage(jobId);
+    if (!phone) return { error: 'Customer has no phone number' };
+
+    const techName =
+      job.assigned_to_name || profile.full_name || 'your technician';
+    const company = await loadCompanySettings();
+
+    const body =
+      bodyOverride?.trim() ||
+      doneBody({
+        techName,
+        customerName: job.customer_name,
+        jobType: job.job_type,
+        companyName: company.sms_signature || company.name,
+        customerSummary: job.customer_summary,
+      });
+    if (!body.trim()) return { error: 'Message body required' };
+
+    const result = await sendAndLogOutboundSms(supabase, {
+      jobId: job.id,
+      customerId: job.customer_id,
+      to: phone,
+      body,
+      kind: 'done',
+    });
+
+    if (!result.ok) return { error: result.error || 'Failed to send Done SMS' };
+
+    revalidateJobMessages(jobId);
+    return {
+      success: result.simulated
+        ? `Done SMS logged (Twilio not configured) → ${result.to}`
+        : `Done text sent to ${result.to}`,
+      simulated: result.simulated,
+      sent: 1,
+    };
+  } catch (err) {
+    return {
+      error: err instanceof Error ? err.message : 'Done SMS failed',
     };
   }
 }
