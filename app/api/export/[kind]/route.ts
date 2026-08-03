@@ -3,6 +3,13 @@ import { ensureProfile, isOfficeRole } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { csvResponse, qbDate, toCsv } from '@/lib/export/csv';
 import { EXPORT_KINDS, type ExportKind } from '@/lib/export/kinds';
+import {
+  buildTimesheetRows,
+  TIMESHEET_CSV_HEADERS,
+  timesheetRowsToCsvValues,
+  weekStartIsoForDate,
+  type TimesheetJobRow,
+} from '@/lib/export/timesheets';
 
 function monthStartDateStr() {
   const d = new Date();
@@ -275,6 +282,58 @@ export async function GET(
       );
 
       return csvResponse(`tech-pnl-${from}-to-${to}.csv`, csv);
+    }
+
+    if (kind === 'timesheets') {
+      // Pull from start of the workweek containing `from` so weekly OT is correct
+      const weekFromIso = weekStartIsoForDate(from);
+      const { data, error } = await supabase
+        .from('jobs')
+        .select(
+          'assigned_to, assigned_to_name, job_number, customer_name, job_type, status, check_in_at, check_out_at, actual_hours, drive_started_at'
+        )
+        .not('check_out_at', 'is', null)
+        .gte('check_out_at', weekFromIso)
+        .lte('check_out_at', toIso)
+        .neq('status', 'Cancelled')
+        .order('check_out_at', { ascending: true });
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const jobs = (data ?? []) as TimesheetJobRow[];
+      const techIds = [
+        ...new Set(
+          jobs.map((j) => j.assigned_to).filter((id): id is string => Boolean(id))
+        ),
+      ];
+
+      const ratesByTechId = new Map<string, number>();
+      if (techIds.length) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, hourly_cost')
+          .in('id', techIds);
+        for (const p of profiles ?? []) {
+          const rate = Number(p.hourly_cost) || 0;
+          if (rate > 0) ratesByTechId.set(p.id, rate);
+        }
+      }
+
+      const fromMs = new Date(fromIso).getTime();
+      const toMs = new Date(toIso).getTime();
+      const rows = buildTimesheetRows(jobs, ratesByTechId, (checkOut) => {
+        const t = new Date(checkOut).getTime();
+        return t >= fromMs && t <= toMs;
+      });
+
+      const csv = toCsv(
+        [...TIMESHEET_CSV_HEADERS],
+        timesheetRowsToCsvValues(rows)
+      );
+
+      return csvResponse(`timesheets-${from}-to-${to}.csv`, csv);
     }
 
     // customers

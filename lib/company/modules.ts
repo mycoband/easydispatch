@@ -125,8 +125,8 @@ export const COMPANY_MODULES = [
     id: 'export',
     label: 'Accounting export',
     description:
-      'QuickBooks-friendly CSV — paid/unpaid, customers, job costing & tech P&L',
-    help: 'Office → Export. Pick date range and export type (invoices, customers, job costing, tech P&L).',
+      'QuickBooks-friendly CSV — paid/unpaid, customers, job costing, tech P&L, payroll timesheets',
+    help: 'Office → Export. Pick date range and export type (invoices, customers, job costing, tech P&L, payroll timesheets). Timesheets = clocked hours with weekly-40 OT split for Gusto/ADP/QB Payroll — not full payroll or tax filing.',
     href: '/dashboard/export',
     defaultEnabled: true,
     group: 'Sales & money',

@@ -364,7 +364,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Job costing & reports',
     question: 'How do I export job costing CSV or get a weekly profit email?',
     answer:
-      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit (needs Resend on the server).',
+      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit (needs Resend on the server). For payroll hours, see Payroll timesheets export.',
+  },
+  {
+    id: 'payroll-timesheets',
+    category: 'Job costing & reports',
+    question: 'Can EasyDispatch do payroll like Housecall Pro?',
+    answer:
+      'Not full-service payroll (no direct deposit, tax filing, or W-2s). With Accounting export on: Office → Export → Payroll timesheets. Pick a pay-period date range; CSV lists each clocked-out job with employee, start/end (UTC), regular vs overtime hours (weekly 40, Mon–Sun), job #, and optional Hourly Cost Rate from Job costing wages. Import into Gusto, ADP, or QuickBooks Payroll. Hours come from Arrive→Clock out on the job (drive time not included). Full payroll / partner sync may come later.',
   },
   {
     id: 'margin-coach',

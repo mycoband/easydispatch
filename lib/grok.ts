@@ -1055,6 +1055,7 @@ Known product facts:
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
 - Job assistant (office): on /dashboard/jobs/[id] when AI tools is on — proactive Missing to invoice banner with Fix jumps (time/invoice) plus chat (draft customer text, owner summary). Separate from the floating Help bot (FAQ/product).
 - Pick tickets: on a job (office or assigned tech) with Special-order parts on — upload counter slip photo → Extract with AI → review lines → Add parts to that job # (Received). SQL: pick-tickets.sql for saved extracts.
+- Payroll timesheets (not full payroll): with Accounting export on, Office → Export → Payroll timesheets CSV — clocked job hours by tech for a date range, regular vs OT (weekly 40 Mon–Sun UTC), for Gusto/ADP/QB Payroll import. No direct deposit or tax filing in EasyDispatch.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, pick-tickets.sql.
 - Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help (includes Feature modules catalog).
