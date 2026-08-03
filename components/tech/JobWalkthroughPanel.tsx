@@ -14,7 +14,6 @@ import {
   deleteWalkthroughMedia,
   saveWalkthroughDraft,
   saveWalkthroughToJob,
-  transcribeWalkthroughVoice,
   uploadWalkthroughMedia,
 } from '@/app/tech/walkthrough-actions';
 import { setTechJobPhase } from '@/lib/tech/advance-phase';
@@ -199,8 +198,10 @@ export function JobWalkthroughPanel({
     reportReady && (status === 'generated' || editingSaved || status === 'saved');
   const busy = Boolean(pending);
   const hasCapture = notes.trim().length > 0 || media.length > 0;
+  // Allow tap even without capture so we can show an error (disabled buttons
+  // feel like “nothing happens” on iPhone).
   const canRunGenerate =
-    allowGenerate && canEdit && hasCapture && !recordingVoice && !busy;
+    allowGenerate && canEdit && !recordingVoice && !busy;
   const canDownloadPdf = allowPdf && reportReady;
 
   function updatePart(
@@ -413,19 +414,35 @@ export function JobWalkthroughPanel({
       setPending(null);
       return;
     }
-    try {
-      setMessage('Extracting frames for Grok to see…');
-      const n = await uploadVideoFramesFromSource(file);
+    // Best-effort client frames (often hangs on iOS — Generate extracts on server)
+    const isIOS =
+      typeof navigator !== 'undefined' &&
+      /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (!isIOS) {
+      try {
+        setMessage('Extracting frames for Grok to see…');
+        const n = await Promise.race([
+          uploadVideoFramesFromSource(file),
+          new Promise<number>((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Frame extract timed out')),
+              20000
+            )
+          ),
+        ]);
+        setMessage(
+          n > 0
+            ? `Walkthrough video saved · ${n} frames ready for AI`
+            : 'Walkthrough video saved — tap Generate Report'
+        );
+      } catch {
+        setMessage(
+          'Walkthrough video saved — tap Generate Report (frames extract on the server)'
+        );
+      }
+    } else {
       setMessage(
-        n > 0
-          ? `Walkthrough video saved · ${n} frames ready for AI`
-          : 'Walkthrough video saved'
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? `${err.message} (video saved — try Generate to extract frames)`
-          : 'Video saved but frame extract failed — try Generate'
+        'Walkthrough video saved — tap Generate Report to transcribe and write the report'
       );
     }
     router.refresh();
@@ -488,45 +505,56 @@ export function JobWalkthroughPanel({
   async function transcribe(attachmentId: string) {
     setPending(`tx-${attachmentId}`);
     setError(null);
-    setMessage(null);
-    const result = await transcribeWalkthroughVoice(jobId, attachmentId);
-    if (result.error) setError(result.error);
-    else {
-      setMessage(result.success || 'Transcribed');
-      router.refresh();
+    setMessage('Transcribing audio with Whisper… this can take a minute');
+    try {
+      const res = await fetch('/api/ai/walkthrough-transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, attachmentId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || data.error) {
+        setError(data.error || 'Transcription failed — try again');
+        setMessage(null);
+      } else {
+        setMessage(data.message || 'Transcribed into walkthrough notes');
+        router.refresh();
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Transcription failed — try again'
+      );
+      setMessage(null);
     }
     setPending(null);
   }
 
-  async function ensureVideoFramesForGenerate() {
-    if (videos.length === 0) return;
-    if (framePhotos.length >= 4) return;
-    const video = videos[0];
-    if (!video.url) {
-      throw new Error('Walkthrough video has no URL');
-    }
-    setMessage('Extracting frames so Grok can see the video…');
-    const res = await fetch(video.url);
-    if (!res.ok) {
-      throw new Error('Could not download video to extract frames');
-    }
-    const blob = await res.blob();
-    const n = await uploadVideoFramesFromSource(blob);
-    if (n < 1) {
-      throw new Error('Could not extract frames from the walkthrough video');
-    }
-  }
-
   async function generate() {
-    if (!allowGenerate || !canEdit) return;
+    if (!allowGenerate || !canEdit) {
+      setError(
+        !allowGenerate
+          ? 'Turn on AI tools + AI Job Walkthrough in Settings'
+          : 'Your role cannot edit notes on this job'
+      );
+      return;
+    }
+    if (!hasCapture) {
+      setError('Add a walkthrough video, notes, voice, or photo first');
+      return;
+    }
     setPending('generate');
     setError(null);
-    setMessage(null);
+    setMessage(
+      videos.length > 0
+        ? 'Working… extracting frames, transcribing audio, then Grok writes the report (can take 1–2 min)'
+        : 'Grok is writing the report…'
+    );
     try {
-      if (videos.length > 0) {
-        await ensureVideoFramesForGenerate();
-      }
-      setMessage('Grok is watching frames and listening to audio…');
+      // Frames + Whisper run on the server now — iOS Safari hangs on
+      // in-browser video seek/canvas extract.
       const res = await fetch('/api/ai/walkthrough', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -538,6 +566,7 @@ export function JobWalkthroughPanel({
       };
       if (!res.ok || data.error) {
         setError(data.error || 'Generate failed — try again');
+        setMessage(null);
       } else {
         setMessage(data.message || 'Report generated');
         setEditingSaved(true);
@@ -547,6 +576,7 @@ export function JobWalkthroughPanel({
       setError(
         err instanceof Error ? err.message : 'Generate failed — try again'
       );
+      setMessage(null);
     }
     setPending(null);
   }
@@ -572,6 +602,34 @@ export function JobWalkthroughPanel({
           {WALKTHROUGH_STATUS_LABELS[status]}
         </span>
       </div>
+
+      {/* Sticky status so iPhone users see progress above the fold */}
+      {(busy || message || error) && (
+        <div className="sticky top-16 z-20 space-y-2">
+          {busy && (
+            <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">
+              {message ||
+                (pending === 'generate'
+                  ? 'Generating report…'
+                  : pending?.startsWith('tx-')
+                    ? 'Transcribing…'
+                    : pending === 'video'
+                      ? 'Uploading video…'
+                      : 'Working…')}
+            </p>
+          )}
+          {!busy && message && (
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+              {message}
+            </p>
+          )}
+          {error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
 
       {readOnlyHint && !canEdit && !canMedia && (
         <p className="rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm text-ink-600">
@@ -982,9 +1040,7 @@ export function JobWalkthroughPanel({
               title={
                 !allowGenerate
                   ? 'Turn on AI tools + AI Job Walkthrough'
-                  : !hasCapture
-                    ? 'Add notes, voice, or a photo first'
-                    : 'Generate report with Grok'
+                  : 'Generate report with Grok (frames + transcript on server)'
               }
               onClick={() => void generate()}
               className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white disabled:border disabled:border-violet-200 disabled:bg-violet-50 disabled:text-violet-400"

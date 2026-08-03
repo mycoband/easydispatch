@@ -284,7 +284,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'On-job video (camera+mic), voice, and photos → AI report; Apply & wrap up',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video walkthrough is the hero CTA (phone and desktop); clips upload browser→Supabase (bypasses Vercel size limits). More capture options (voice/photo/library) stays collapsed until expanded. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then opens Wrap up — Finish this stop checklist (Clock out → Sign → invoice). Save only stays on Work. Generate needs XAI_API_KEY, OPENAI_API_KEY, AI tools. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql (video kind + 80MB job-media).',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video walkthrough is the hero CTA; clips upload browser→Supabase. Generate Report extracts frames + Whisper on the server (works on iPhone; 1–2 min). More capture options stays collapsed until expanded. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then Wrap up. Needs XAI_API_KEY, OPENAI_API_KEY, AI tools. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql (video kind + 80MB job-media).',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

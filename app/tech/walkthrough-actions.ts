@@ -17,6 +17,11 @@ import {
   type JobWalkthrough,
   type WalkthroughReportInput,
 } from '@/lib/jobs/walkthrough';
+import {
+  frameCaption,
+  isWalkthroughFrameCaption,
+} from '@/lib/media/extract-video-frames';
+import { createServiceClient } from '@/lib/supabase/admin';
 
 export type WalkthroughActionState = { error?: string; success?: string };
 
@@ -345,6 +350,97 @@ function transcriptFromCaption(caption: string | null | undefined): string {
   return stripped || t;
 }
 
+/** Download walkthrough video → ffmpeg JPEGs → job-media + job_attachments. */
+async function extractAndStoreWalkthroughFrames(input: {
+  jobId: string;
+  videoUrl: string;
+  userId: string;
+}): Promise<{ error?: string; urls?: string[] }> {
+  try {
+    const videoRes = await fetch(input.videoUrl);
+    if (!videoRes.ok) {
+      return {
+        error: `Could not download walkthrough video to extract frames (${videoRes.status}).`,
+      };
+    }
+    const buffer = Buffer.from(await videoRes.arrayBuffer());
+    if (buffer.length > 80 * 1024 * 1024) {
+      return {
+        error:
+          'Video too large to process on the server (max 80MB). Record a shorter clip.',
+      };
+    }
+
+    const { extractJpegFramesFromVideo } = await import(
+      '@/lib/ai/ffmpeg-frames'
+    );
+    const frames = await extractJpegFramesFromVideo(buffer, { count: 8 });
+    const admin = createServiceClient();
+
+    const { data: jobRow } = await admin
+      .from('jobs')
+      .select('company_id')
+      .eq('id', input.jobId)
+      .maybeSingle();
+    let companyId = (jobRow?.company_id as string | null) || null;
+    if (!companyId) {
+      const { data: prof } = await admin
+        .from('profiles')
+        .select('company_id')
+        .eq('id', input.userId)
+        .maybeSingle();
+      companyId = prof?.company_id ?? null;
+    }
+
+    const urls: string[] = [];
+    for (let i = 0; i < frames.length; i += 1) {
+      const path = `${input.jobId}/${Date.now()}-frame-${i + 1}.jpg`;
+      const { error: upErr } = await admin.storage
+        .from('job-media')
+        .upload(path, frames[i], {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+      if (upErr) {
+        if (urls.length === 0) {
+          return {
+            error: `Frame upload failed: ${upErr.message}. Confirm job-media bucket exists.`,
+          };
+        }
+        break;
+      }
+      const { data: urlData } = admin.storage.from('job-media').getPublicUrl(path);
+      const publicUrl = urlData.publicUrl;
+      const { error: insErr } = await admin.from('job_attachments').insert({
+        job_id: input.jobId,
+        kind: 'photo',
+        tag: WALKTHROUGH_MEDIA_TAG,
+        url: publicUrl,
+        caption: frameCaption(i + 1, frames.length),
+        created_by: input.userId,
+        ...(companyId ? { company_id: companyId } : {}),
+      });
+      if (insErr) {
+        if (urls.length === 0) return { error: insErr.message };
+        break;
+      }
+      urls.push(publicUrl);
+    }
+
+    if (urls.length === 0) {
+      return { error: 'Could not store frames from the walkthrough video.' };
+    }
+    return { urls };
+  } catch (err) {
+    return {
+      error:
+        err instanceof Error
+          ? err.message
+          : 'Could not extract frames from the walkthrough video',
+    };
+  }
+}
+
 /**
  * Phase 3: Grok → fill walkthrough report fields; status generated.
  * Persists latest notes first when provided.
@@ -366,7 +462,7 @@ export async function generateWalkthroughReportAction(
       return { error: 'AI Job Walkthrough module is off' };
     }
 
-    const { supabase, job, columnMissing } = await loadAssignedJob(jobId);
+    const { supabase, user, job, columnMissing } = await loadAssignedJob(jobId);
     if (columnMissing) {
       return {
         error:
@@ -409,12 +505,16 @@ export async function generateWalkthroughReportAction(
       .order('created_at', { ascending: true })
       .limit(60);
 
-    const media = mediaRows ?? [];
-    const photoUrls = media
+    let media = mediaRows ?? [];
+    let photoUrls = media
       .filter((m) => m.kind === 'photo' && m.url)
       .map((m) => m.url as string);
     const videoRows = media.filter((m) => m.kind === 'video' && m.url);
     const videoUrls = videoRows.map((m) => m.url as string);
+    const frameCount = media.filter(
+      (m) =>
+        m.kind === 'photo' && isWalkthroughFrameCaption(m.caption)
+    ).length;
 
     // Prove Grok can fetch public video URLs (Supabase job-media must be public)
     for (const url of videoUrls) {
@@ -437,6 +537,32 @@ export async function generateWalkthroughReportAction(
             'Could not reach walkthrough video URL. Check job-media storage is public.',
         };
       }
+    }
+
+    // Server-side frames (iOS Safari often hangs on in-browser extract)
+    if (videoUrls.length > 0 && frameCount < 4) {
+      const frameResult = await extractAndStoreWalkthroughFrames({
+        jobId,
+        videoUrl: videoUrls[0],
+        userId: user.id,
+      });
+      if (frameResult.error) {
+        return { error: frameResult.error };
+      }
+      if (frameResult.urls?.length) {
+        photoUrls = [...photoUrls, ...frameResult.urls];
+      }
+      const { data: refreshed } = await supabase
+        .from('job_attachments')
+        .select('id, kind, tag, url, caption')
+        .eq('job_id', jobId)
+        .eq('tag', WALKTHROUGH_MEDIA_TAG)
+        .order('created_at', { ascending: true })
+        .limit(60);
+      media = refreshed ?? media;
+      photoUrls = media
+        .filter((m) => m.kind === 'photo' && m.url)
+        .map((m) => m.url as string);
     }
 
     // Whisper audio from voice/video so Grok has spoken words + the video itself
@@ -500,7 +626,7 @@ export async function generateWalkthroughReportAction(
     if (videoUrls.length > 0 && photoUrls.length === 0) {
       return {
         error:
-          'No frames from the video yet. Re-upload or re-record the walkthrough video (frames are extracted automatically for Grok to see).',
+          'Could not extract frames from the walkthrough video for Grok to see. Re-record a short clip (~90s) and try Generate again.',
       };
     }
 
