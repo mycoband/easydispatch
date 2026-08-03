@@ -516,6 +516,19 @@ export function JobWalkthroughPanel({
       {/* ——— Capture (always available; compact when viewing saved) ——— */}
       {!showSavedView && (
         <div className="space-y-3">
+          {canMedia && (
+            <input
+              id={videoCaptureId}
+              ref={videoCaptureRef}
+              type="file"
+              accept="video/*"
+              capture="environment"
+              className="sr-only"
+              disabled={busy || recordingVoice}
+              onChange={onPickVideo}
+            />
+          )}
+
           {heroCapture && canMedia ? (
             <div className="rounded-2xl border border-violet-200 bg-violet-50/80 p-4">
               <p className="text-sm font-semibold text-violet-950">
@@ -540,108 +553,161 @@ export function JobWalkthroughPanel({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-sm font-medium text-ink-700">
-              {heroCapture ? 'More capture options' : 'Walkthrough media'}
-            </p>
-            <p className="text-xs text-ink-400">
-              Stored on this job · tag walkthrough
-            </p>
-          </div>
+          {/*
+            Native camera via <label htmlFor> — more reliable on iOS/Android
+            than getUserMedia + MediaRecorder.
+            With heroCapture: secondary options stay collapsed so mobile
+            matches the consolidated desktop layout.
+          */}
+          {canMedia && heroCapture ? (
+            <details className="rounded-xl border border-ink-100 bg-ink-50/40 open:bg-white">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium text-ink-700 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center justify-between gap-2">
+                  <span>More capture options</span>
+                  <span className="text-xs font-normal text-ink-400">
+                    Voice · photo · library
+                  </span>
+                </span>
+              </summary>
+              <div className="space-y-2 border-t border-ink-100 px-3 pb-3 pt-2">
+                <p className="text-xs text-ink-400">
+                  Stored on this job · tag walkthrough
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleVoice()}
+                    className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
+                      recordingVoice ? 'bg-red-600' : 'bg-ink-800'
+                    }`}
+                  >
+                    {recordingVoice
+                      ? 'Stop recording'
+                      : pending === 'voice'
+                        ? 'Saving…'
+                        : 'Record voice'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || recordingVoice}
+                    onClick={() => fileRef.current?.click()}
+                    className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {pending === 'photo' ? 'Uploading…' : 'Add photo'}
+                  </button>
+                  <label
+                    htmlFor={videoLibraryId}
+                    className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
+                      busy || recordingVoice
+                        ? 'pointer-events-none opacity-50'
+                        : 'cursor-pointer'
+                    }`}
+                  >
+                    Choose video from library
+                  </label>
+                  <input
+                    id={videoLibraryId}
+                    ref={videoLibraryRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,video/*"
+                    className="sr-only"
+                    disabled={busy || recordingVoice}
+                    onChange={onPickVideo}
+                  />
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={onPickPhoto}
+                  />
+                </div>
+              </div>
+            </details>
+          ) : null}
 
-          {canMedia && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {/*
-                Native camera via <label htmlFor> — more reliable on iOS/Android
-                than getUserMedia + MediaRecorder (often grants mic/cam but never
-                opens the Camera app).
-              */}
-              {!heroCapture && (
-              <label
-                htmlFor={videoCaptureId}
-                className={`rounded-xl px-4 py-3 text-center text-sm font-semibold text-white sm:col-span-2 ${
-                  busy || recordingVoice
-                    ? 'pointer-events-none bg-violet-700/50'
-                    : 'cursor-pointer bg-violet-700'
-                }`}
-              >
-                {pending === 'video'
-                  ? 'Saving video…'
-                  : 'Record video walkthrough'}
-              </label>
-              )}
-              <input
-                id={videoCaptureId}
-                ref={videoCaptureRef}
-                type="file"
-                accept="video/*"
-                capture="environment"
-                className="sr-only"
-                disabled={busy || recordingVoice}
-                onChange={onPickVideo}
-              />
-
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void toggleVoice()}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
-                  recordingVoice ? 'bg-red-600' : 'bg-ink-800'
-                }`}
-              >
-                {recordingVoice
-                  ? 'Stop recording'
-                  : pending === 'voice'
-                    ? 'Saving…'
-                    : 'Record voice'}
-              </button>
-              <button
-                type="button"
-                disabled={busy || recordingVoice}
-                onClick={() => fileRef.current?.click()}
-                className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {pending === 'photo' ? 'Uploading…' : 'Add photo'}
-              </button>
-
-              <label
-                htmlFor={videoLibraryId}
-                className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
-                  busy || recordingVoice
-                    ? 'pointer-events-none opacity-50'
-                    : 'cursor-pointer'
-                }`}
-              >
-                Choose video from library
-              </label>
-              <input
-                id={videoLibraryId}
-                ref={videoLibraryRef}
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,video/*"
-                className="sr-only"
-                disabled={busy || recordingVoice}
-                onChange={onPickVideo}
-              />
-
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={onPickPhoto}
-              />
-            </div>
-          )}
-
-          {!heroCapture && (
-            <p className="text-xs text-ink-400">
-              Record opens your phone camera — narrate while you film (keep
-              clips under ~90 seconds). We extract frames (so Grok can see) and
-              transcribe audio (so Grok can hear) when you Generate.
-            </p>
-          )}
+          {canMedia && !heroCapture ? (
+            <>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-sm font-medium text-ink-700">
+                  Walkthrough media
+                </p>
+                <p className="text-xs text-ink-400">
+                  Stored on this job · tag walkthrough
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label
+                  htmlFor={videoCaptureId}
+                  className={`rounded-xl px-4 py-3 text-center text-sm font-semibold text-white sm:col-span-2 ${
+                    busy || recordingVoice
+                      ? 'pointer-events-none bg-violet-700/50'
+                      : 'cursor-pointer bg-violet-700'
+                  }`}
+                >
+                  {pending === 'video'
+                    ? 'Saving video…'
+                    : 'Record video walkthrough'}
+                </label>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void toggleVoice()}
+                  className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
+                    recordingVoice ? 'bg-red-600' : 'bg-ink-800'
+                  }`}
+                >
+                  {recordingVoice
+                    ? 'Stop recording'
+                    : pending === 'voice'
+                      ? 'Saving…'
+                      : 'Record voice'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || recordingVoice}
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {pending === 'photo' ? 'Uploading…' : 'Add photo'}
+                </button>
+                <label
+                  htmlFor={videoLibraryId}
+                  className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
+                    busy || recordingVoice
+                      ? 'pointer-events-none opacity-50'
+                      : 'cursor-pointer'
+                  }`}
+                >
+                  Choose video from library
+                </label>
+                <input
+                  id={videoLibraryId}
+                  ref={videoLibraryRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/*"
+                  className="sr-only"
+                  disabled={busy || recordingVoice}
+                  onChange={onPickVideo}
+                />
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={onPickPhoto}
+                />
+              </div>
+              <p className="text-xs text-ink-400">
+                Record opens your phone camera — narrate while you film (keep
+                clips under ~90 seconds). We extract frames (so Grok can see) and
+                transcribe audio (so Grok can hear) when you Generate.
+              </p>
+            </>
+          ) : null}
 
           {videos.length > 0 && (
             <div className="space-y-2">

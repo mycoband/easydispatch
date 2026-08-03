@@ -231,7 +231,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On the tech Work phase, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); Extra photos stays collapsed below. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Then Apply & wrap up (or Save only). Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
+      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On tech Work and office jobs, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); More capture options (voice / photo / library) stays collapsed until you expand it — same on phone and desktop. Extra photos stays collapsed below on tech. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Then Apply & wrap up (or Save only). Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
   },
   {
     id: 'apply-wrap-up',
@@ -245,7 +245,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job → Work phase → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or use More capture options (voice / library). Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY), then Apply & wrap up. If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job (tech Work or office job) → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Tap More capture options for voice, photo, or library (collapsed by default on mobile and desktop). Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY), then Apply & wrap up. If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
   },
   {
     id: 'ai-walkthrough-pdf',
