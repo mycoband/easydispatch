@@ -342,6 +342,7 @@ export default async function JobDetailPage({
           allowTranscribe={Boolean(mods.ai && mods.ai_walkthrough)}
           allowGenerate={Boolean(mods.ai && mods.ai_walkthrough)}
           allowPdf={Boolean(mods.ai_walkthrough && mods.print_pdfs)}
+          heroCapture
         />
       )}
 

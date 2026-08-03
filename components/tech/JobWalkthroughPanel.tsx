@@ -9,13 +9,16 @@ import {
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  beginWalkthroughMediaUpload,
+  completeWalkthroughMediaUpload,
   deleteWalkthroughMedia,
   saveWalkthroughDraft,
   saveWalkthroughToJob,
-  transcribeWalkthroughVoice,
   uploadWalkthroughMedia,
 } from '@/app/tech/walkthrough-actions';
 import { setTechJobPhase } from '@/lib/tech/advance-phase';
+import { DIRECT_UPLOAD_THRESHOLD_BYTES } from '@/lib/media/upload-limits';
+import { createClient } from '@/lib/supabase/client';
 import {
   computeWalkthroughTotals,
   WALKTHROUGH_STATUS_LABELS,
@@ -195,8 +198,10 @@ export function JobWalkthroughPanel({
     reportReady && (status === 'generated' || editingSaved || status === 'saved');
   const busy = Boolean(pending);
   const hasCapture = notes.trim().length > 0 || media.length > 0;
+  // Allow tap even without capture so we can show an error (disabled buttons
+  // feel like “nothing happens” on iPhone).
   const canRunGenerate =
-    allowGenerate && canEdit && hasCapture && !recordingVoice && !busy;
+    allowGenerate && canEdit && !recordingVoice && !busy;
   const canDownloadPdf = allowPdf && reportReady;
 
   function updatePart(
@@ -283,15 +288,63 @@ export function JobWalkthroughPanel({
     caption?: string
   ) {
     if (!canMedia) return { error: 'Media not allowed' as string };
-    const fd = new FormData();
-    fd.set('file', file);
-    fd.set('kind', kind);
-    fd.set('tag', 'walkthrough');
-    if (caption) fd.set('caption', caption);
+
+    // Videos (and large files) upload straight to Supabase — Vercel server
+    // actions reject bodies over ~4.5MB, which breaks phone camera clips.
+    const useDirect =
+      kind === 'video' || file.size > DIRECT_UPLOAD_THRESHOLD_BYTES;
+
     try {
-      const result = await uploadWalkthroughMedia(jobId, fd);
-      return result;
-    } catch {
+      if (useDirect) {
+        const begin = await beginWalkthroughMediaUpload({
+          jobId,
+          kind,
+          fileSize: file.size,
+          mimeType: file.type,
+          fileName: file.name,
+        });
+        if ('error' in begin && begin.error) {
+          return { error: begin.error };
+        }
+        if (!('storagePath' in begin)) {
+          return { error: 'Upload failed — try again' };
+        }
+
+        const supabase = createClient();
+        const { error: upErr } = await supabase.storage
+          .from(begin.bucket)
+          .upload(begin.storagePath, file, {
+            contentType: begin.contentType,
+            upsert: false,
+          });
+        if (upErr) {
+          return {
+            error: `Upload failed: ${upErr.message}. Confirm job-media bucket exists and you are signed in.`,
+          };
+        }
+
+        return completeWalkthroughMediaUpload({
+          jobId,
+          kind,
+          caption,
+          storagePath: begin.storagePath,
+        });
+      }
+
+      const fd = new FormData();
+      fd.set('file', file);
+      fd.set('kind', kind);
+      fd.set('tag', 'walkthrough');
+      if (caption) fd.set('caption', caption);
+      return await uploadWalkthroughMedia(jobId, fd);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (/body|payload|413|too large/i.test(msg)) {
+        return {
+          error:
+            'Video too large for this connection — keep clips under ~90 seconds and try again.',
+        };
+      }
       return { error: 'Upload failed — try again' };
     }
   }
@@ -334,32 +387,62 @@ export function JobWalkthroughPanel({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('video/') && !/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
+    // iOS often returns empty MIME type from the Camera app — accept by
+    // extension, or any non-empty file from this video picker.
+    const looksLikeVideo =
+      !file.type ||
+      file.type.startsWith('video/') ||
+      /\.(mp4|mov|webm|m4v|qt)$/i.test(file.name);
+    if (!looksLikeVideo) {
       setError('Please choose a video file');
+      return;
+    }
+    if (file.size > 80 * 1024 * 1024) {
+      setError('Video too large (max 80MB — keep clips under ~90 seconds)');
       return;
     }
     setPending('video');
     setError(null);
-    setMessage('Uploading video…');
+    setMessage(
+      file.size > 5 * 1024 * 1024
+        ? 'Uploading video to storage… this can take a minute on cellular'
+        : 'Uploading video…'
+    );
     const result = await uploadFile(file, 'video');
     if (result.error) {
       setError(result.error);
       setPending(null);
       return;
     }
-    try {
-      setMessage('Extracting frames for Grok to see…');
-      const n = await uploadVideoFramesFromSource(file);
+    // Best-effort client frames (often hangs on iOS — Generate extracts on server)
+    const isIOS =
+      typeof navigator !== 'undefined' &&
+      /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (!isIOS) {
+      try {
+        setMessage('Extracting frames for Grok to see…');
+        const n = await Promise.race([
+          uploadVideoFramesFromSource(file),
+          new Promise<number>((_, reject) =>
+            setTimeout(
+              () => reject(new Error('Frame extract timed out')),
+              20000
+            )
+          ),
+        ]);
+        setMessage(
+          n > 0
+            ? `Walkthrough video saved · ${n} frames ready for AI`
+            : 'Walkthrough video saved — tap Generate Report'
+        );
+      } catch {
+        setMessage(
+          'Walkthrough video saved — tap Generate Report (frames extract on the server)'
+        );
+      }
+    } else {
       setMessage(
-        n > 0
-          ? `Walkthrough video saved · ${n} frames ready for AI`
-          : 'Walkthrough video saved'
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? `${err.message} (video saved — try Generate to extract frames)`
-          : 'Video saved but frame extract failed — try Generate'
+        'Walkthrough video saved — tap Generate Report to transcribe and write the report'
       );
     }
     router.refresh();
@@ -422,45 +505,56 @@ export function JobWalkthroughPanel({
   async function transcribe(attachmentId: string) {
     setPending(`tx-${attachmentId}`);
     setError(null);
-    setMessage(null);
-    const result = await transcribeWalkthroughVoice(jobId, attachmentId);
-    if (result.error) setError(result.error);
-    else {
-      setMessage(result.success || 'Transcribed');
-      router.refresh();
+    setMessage('Transcribing audio with Whisper… this can take a minute');
+    try {
+      const res = await fetch('/api/ai/walkthrough-transcribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, attachmentId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || data.error) {
+        setError(data.error || 'Transcription failed — try again');
+        setMessage(null);
+      } else {
+        setMessage(data.message || 'Transcribed into walkthrough notes');
+        router.refresh();
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Transcription failed — try again'
+      );
+      setMessage(null);
     }
     setPending(null);
   }
 
-  async function ensureVideoFramesForGenerate() {
-    if (videos.length === 0) return;
-    if (framePhotos.length >= 4) return;
-    const video = videos[0];
-    if (!video.url) {
-      throw new Error('Walkthrough video has no URL');
-    }
-    setMessage('Extracting frames so Grok can see the video…');
-    const res = await fetch(video.url);
-    if (!res.ok) {
-      throw new Error('Could not download video to extract frames');
-    }
-    const blob = await res.blob();
-    const n = await uploadVideoFramesFromSource(blob);
-    if (n < 1) {
-      throw new Error('Could not extract frames from the walkthrough video');
-    }
-  }
-
   async function generate() {
-    if (!allowGenerate || !canEdit) return;
+    if (!allowGenerate || !canEdit) {
+      setError(
+        !allowGenerate
+          ? 'Turn on AI tools + AI Job Walkthrough in Settings'
+          : 'Your role cannot edit notes on this job'
+      );
+      return;
+    }
+    if (!hasCapture) {
+      setError('Add a walkthrough video, notes, voice, or photo first');
+      return;
+    }
     setPending('generate');
     setError(null);
-    setMessage(null);
+    setMessage(
+      videos.length > 0
+        ? 'Working… extracting frames, transcribing audio, then Grok writes the report (can take 1–2 min)'
+        : 'Grok is writing the report…'
+    );
     try {
-      if (videos.length > 0) {
-        await ensureVideoFramesForGenerate();
-      }
-      setMessage('Grok is watching frames and listening to audio…');
+      // Frames + Whisper run on the server now — iOS Safari hangs on
+      // in-browser video seek/canvas extract.
       const res = await fetch('/api/ai/walkthrough', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -472,6 +566,7 @@ export function JobWalkthroughPanel({
       };
       if (!res.ok || data.error) {
         setError(data.error || 'Generate failed — try again');
+        setMessage(null);
       } else {
         setMessage(data.message || 'Report generated');
         setEditingSaved(true);
@@ -481,6 +576,7 @@ export function JobWalkthroughPanel({
       setError(
         err instanceof Error ? err.message : 'Generate failed — try again'
       );
+      setMessage(null);
     }
     setPending(null);
   }
@@ -507,6 +603,34 @@ export function JobWalkthroughPanel({
         </span>
       </div>
 
+      {/* Sticky status so iPhone users see progress above the fold */}
+      {(busy || message || error) && (
+        <div className="sticky top-16 z-20 space-y-2">
+          {busy && (
+            <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">
+              {message ||
+                (pending === 'generate'
+                  ? 'Generating report…'
+                  : pending?.startsWith('tx-')
+                    ? 'Transcribing…'
+                    : pending === 'video'
+                      ? 'Uploading video…'
+                      : 'Working…')}
+            </p>
+          )}
+          {!busy && message && (
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+              {message}
+            </p>
+          )}
+          {error && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+
       {readOnlyHint && !canEdit && !canMedia && (
         <p className="rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm text-ink-600">
           {readOnlyHint}
@@ -516,6 +640,19 @@ export function JobWalkthroughPanel({
       {/* ——— Capture (always available; compact when viewing saved) ——— */}
       {!showSavedView && (
         <div className="space-y-3">
+          {canMedia && (
+            <input
+              id={videoCaptureId}
+              ref={videoCaptureRef}
+              type="file"
+              accept="video/*"
+              capture="environment"
+              className="sr-only"
+              disabled={busy || recordingVoice}
+              onChange={onPickVideo}
+            />
+          )}
+
           {heroCapture && canMedia ? (
             <div className="rounded-2xl border border-violet-200 bg-violet-50/80 p-4">
               <p className="text-sm font-semibold text-violet-950">
@@ -540,108 +677,161 @@ export function JobWalkthroughPanel({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-sm font-medium text-ink-700">
-              {heroCapture ? 'More capture options' : 'Walkthrough media'}
-            </p>
-            <p className="text-xs text-ink-400">
-              Stored on this job · tag walkthrough
-            </p>
-          </div>
+          {/*
+            Native camera via <label htmlFor> — more reliable on iOS/Android
+            than getUserMedia + MediaRecorder.
+            With heroCapture: secondary options stay collapsed so mobile
+            matches the consolidated desktop layout.
+          */}
+          {canMedia && heroCapture ? (
+            <details className="rounded-xl border border-ink-100 bg-ink-50/40 open:bg-white">
+              <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium text-ink-700 marker:content-none [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center justify-between gap-2">
+                  <span>More capture options</span>
+                  <span className="text-xs font-normal text-ink-400">
+                    Voice · photo · library
+                  </span>
+                </span>
+              </summary>
+              <div className="space-y-2 border-t border-ink-100 px-3 pb-3 pt-2">
+                <p className="text-xs text-ink-400">
+                  Stored on this job · tag walkthrough
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void toggleVoice()}
+                    className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
+                      recordingVoice ? 'bg-red-600' : 'bg-ink-800'
+                    }`}
+                  >
+                    {recordingVoice
+                      ? 'Stop recording'
+                      : pending === 'voice'
+                        ? 'Saving…'
+                        : 'Record voice'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy || recordingVoice}
+                    onClick={() => fileRef.current?.click()}
+                    className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {pending === 'photo' ? 'Uploading…' : 'Add photo'}
+                  </button>
+                  <label
+                    htmlFor={videoLibraryId}
+                    className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
+                      busy || recordingVoice
+                        ? 'pointer-events-none opacity-50'
+                        : 'cursor-pointer'
+                    }`}
+                  >
+                    Choose video from library
+                  </label>
+                  <input
+                    id={videoLibraryId}
+                    ref={videoLibraryRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm,video/*"
+                    className="sr-only"
+                    disabled={busy || recordingVoice}
+                    onChange={onPickVideo}
+                  />
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={onPickPhoto}
+                  />
+                </div>
+              </div>
+            </details>
+          ) : null}
 
-          {canMedia && (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {/*
-                Native camera via <label htmlFor> — more reliable on iOS/Android
-                than getUserMedia + MediaRecorder (often grants mic/cam but never
-                opens the Camera app).
-              */}
-              {!heroCapture && (
-              <label
-                htmlFor={videoCaptureId}
-                className={`rounded-xl px-4 py-3 text-center text-sm font-semibold text-white sm:col-span-2 ${
-                  busy || recordingVoice
-                    ? 'pointer-events-none bg-violet-700/50'
-                    : 'cursor-pointer bg-violet-700'
-                }`}
-              >
-                {pending === 'video'
-                  ? 'Saving video…'
-                  : 'Record video walkthrough'}
-              </label>
-              )}
-              <input
-                id={videoCaptureId}
-                ref={videoCaptureRef}
-                type="file"
-                accept="video/*"
-                capture="environment"
-                className="sr-only"
-                disabled={busy || recordingVoice}
-                onChange={onPickVideo}
-              />
-
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void toggleVoice()}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
-                  recordingVoice ? 'bg-red-600' : 'bg-ink-800'
-                }`}
-              >
-                {recordingVoice
-                  ? 'Stop recording'
-                  : pending === 'voice'
-                    ? 'Saving…'
-                    : 'Record voice'}
-              </button>
-              <button
-                type="button"
-                disabled={busy || recordingVoice}
-                onClick={() => fileRef.current?.click()}
-                className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {pending === 'photo' ? 'Uploading…' : 'Add photo'}
-              </button>
-
-              <label
-                htmlFor={videoLibraryId}
-                className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
-                  busy || recordingVoice
-                    ? 'pointer-events-none opacity-50'
-                    : 'cursor-pointer'
-                }`}
-              >
-                Choose video from library
-              </label>
-              <input
-                id={videoLibraryId}
-                ref={videoLibraryRef}
-                type="file"
-                accept="video/mp4,video/quicktime,video/webm,video/*"
-                className="sr-only"
-                disabled={busy || recordingVoice}
-                onChange={onPickVideo}
-              />
-
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={onPickPhoto}
-              />
-            </div>
-          )}
-
-          {!heroCapture && (
-            <p className="text-xs text-ink-400">
-              Record opens your phone camera — narrate while you film (keep
-              clips under ~90 seconds). We extract frames (so Grok can see) and
-              transcribe audio (so Grok can hear) when you Generate.
-            </p>
-          )}
+          {canMedia && !heroCapture ? (
+            <>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-sm font-medium text-ink-700">
+                  Walkthrough media
+                </p>
+                <p className="text-xs text-ink-400">
+                  Stored on this job · tag walkthrough
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label
+                  htmlFor={videoCaptureId}
+                  className={`rounded-xl px-4 py-3 text-center text-sm font-semibold text-white sm:col-span-2 ${
+                    busy || recordingVoice
+                      ? 'pointer-events-none bg-violet-700/50'
+                      : 'cursor-pointer bg-violet-700'
+                  }`}
+                >
+                  {pending === 'video'
+                    ? 'Saving video…'
+                    : 'Record video walkthrough'}
+                </label>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void toggleVoice()}
+                  className={`rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50 ${
+                    recordingVoice ? 'bg-red-600' : 'bg-ink-800'
+                  }`}
+                >
+                  {recordingVoice
+                    ? 'Stop recording'
+                    : pending === 'voice'
+                      ? 'Saving…'
+                      : 'Record voice'}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || recordingVoice}
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {pending === 'photo' ? 'Uploading…' : 'Add photo'}
+                </button>
+                <label
+                  htmlFor={videoLibraryId}
+                  className={`rounded-xl border border-ink-200 bg-white px-4 py-3 text-center text-sm font-semibold text-ink-800 sm:col-span-2 ${
+                    busy || recordingVoice
+                      ? 'pointer-events-none opacity-50'
+                      : 'cursor-pointer'
+                  }`}
+                >
+                  Choose video from library
+                </label>
+                <input
+                  id={videoLibraryId}
+                  ref={videoLibraryRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm,video/*"
+                  className="sr-only"
+                  disabled={busy || recordingVoice}
+                  onChange={onPickVideo}
+                />
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={onPickPhoto}
+                />
+              </div>
+              <p className="text-xs text-ink-400">
+                Record opens your phone camera — narrate while you film (keep
+                clips under ~90 seconds). We extract frames (so Grok can see) and
+                transcribe audio (so Grok can hear) when you Generate.
+              </p>
+            </>
+          ) : null}
 
           {videos.length > 0 && (
             <div className="space-y-2">
@@ -850,9 +1040,7 @@ export function JobWalkthroughPanel({
               title={
                 !allowGenerate
                   ? 'Turn on AI tools + AI Job Walkthrough'
-                  : !hasCapture
-                    ? 'Add notes, voice, or a photo first'
-                    : 'Generate report with Grok'
+                  : 'Generate report with Grok (frames + transcript on server)'
               }
               onClick={() => void generate()}
               className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white disabled:border disabled:border-violet-200 disabled:bg-violet-50 disabled:text-violet-400"

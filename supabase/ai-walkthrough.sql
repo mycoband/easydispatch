@@ -15,3 +15,8 @@ alter table public.job_attachments
 alter table public.job_attachments
   add constraint job_attachments_kind_check
   check (kind in ('photo', 'voice', 'note', 'video'));
+
+-- Phone clips often exceed the default 50MB storage limit (app allows 80MB).
+update storage.buckets
+set file_size_limit = 83886080
+where id = 'job-media';

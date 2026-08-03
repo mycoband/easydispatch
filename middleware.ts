@@ -45,6 +45,11 @@ export async function middleware(request: NextRequest) {
     return redirectWithSession(url, supabaseResponse);
   }
 
+  // Avoid stale HTML on iOS Safari (was showing old walkthrough UI after deploys)
+  supabaseResponse.headers.set(
+    'Cache-Control',
+    'private, no-cache, no-store, must-revalidate'
+  );
   return supabaseResponse;
 }
 

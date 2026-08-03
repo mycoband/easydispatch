@@ -231,7 +231,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On the tech Work phase, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); Extra photos stays collapsed below. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Then Apply & wrap up (or Save only). Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
+      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On tech Work and office jobs, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); More capture options (voice / photo / library) stays collapsed until you expand it — same on phone and desktop. Extra photos stays collapsed below on tech. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Then Apply & wrap up (or Save only). Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
   },
   {
     id: 'apply-wrap-up',
@@ -245,7 +245,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job → Work phase → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save video; it uploads to the job. Or use More capture options (voice / library). Keep clips under ~90s / ~80MB. Then Generate Report (AI tools + XAI_API_KEY), then Apply & wrap up. If upload errors mention kind/check, run supabase/ai-walkthrough-video.sql.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job (tech Work or office job) → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save; the clip uploads directly to Supabase storage. Tap Generate Report — the server extracts frames (Grok see) and Whisper-transcribes audio (Grok hear); on iPhone this can take 1–2 minutes and shows a purple status at the top. Transcribe audio uses the same Whisper path. Keep clips under ~90s / ~80MB. Needs XAI_API_KEY + OPENAI_API_KEY. If upload errors mention kind/check or size, run supabase/ai-walkthrough-video.sql. Hard-refresh if your phone still shows an old layout.',
   },
   {
     id: 'ai-walkthrough-pdf',
@@ -364,7 +364,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Job costing & reports',
     question: 'How do I export job costing CSV or get a weekly profit email?',
     answer:
-      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit (needs Resend on the server).',
+      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit (needs Resend on the server). For payroll hours, see Payroll timesheets export.',
+  },
+  {
+    id: 'payroll-timesheets',
+    category: 'Job costing & reports',
+    question: 'Can EasyDispatch do payroll like Housecall Pro?',
+    answer:
+      'Not full-service payroll (no direct deposit, tax filing, or W-2s). With Accounting export on: Office → Export → Payroll timesheets. Pick a pay-period date range; CSV lists each clocked-out job with employee, start/end (UTC), regular vs overtime hours (weekly 40, Mon–Sun), job #, and optional Hourly Cost Rate from Job costing wages. Import into Gusto, ADP, or QuickBooks Payroll. Hours come from Arrive→Clock out on the job (drive time not included). Full payroll / partner sync may come later.',
   },
   {
     id: 'margin-coach',

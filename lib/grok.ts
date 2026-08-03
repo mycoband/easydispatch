@@ -1045,7 +1045,7 @@ Known product facts:
 - Office app: /dashboard leads with Needs you (unassigned open jobs, unpaid sent invoices, today’s callbacks) then secondary today’s board/stats; also customers, jobs, calendar, dispatch, estimates, invoices, reports, pricebook, settings.
 - Tech app: /tech My jobs shows a Next up hero card (first actionable job + stops left today) with quieter Today/Later/Done below; job tickets use Arrive → Work → Wrap up; today’s run sheet PDF when PDF module on.
 - Tech ticket auto-advance: successful Arrive opens Work (?phase=work); successful Clock out opens Wrap up (?phase=wrap). Manual phase tabs still work.
-- Work phase capture: when AI Job Walkthrough is on, Record video walkthrough is the hero CTA (“Film + narrate — AI writes the report”); Extra photos stays secondary/collapsed.
+- Walkthrough capture: when AI Job Walkthrough is on (tech Work + office job), Record video walkthrough is the hero CTA; video uploads browser→Supabase. Generate Report extracts frames + Whisper on the server (iOS-safe; can take 1–2 min). Transcribe audio uses /api/ai/walkthrough-transcribe. Needs XAI_API_KEY + OPENAI_API_KEY. If video kind/size fails, run supabase/ai-walkthrough-video.sql.
 - Apply & wrap up: after Generate, primary button saves walkthrough to job (diagnosis/summary/line items) and opens Wrap up (?phase=wrap). Save only stays on Work. Does not auto Clock out — Clock out / Sign are on Wrap.
 - Finish this stop (tech Wrap): checklist Clock out → signature → pricing → send invoice → paid; tap a step to jump; sticky footer shows next incomplete step. Does not auto-send.
 - Dispatch Assign for me: with Assign-tech AI on, unassigned cards show Assign for me (top ranked tech + reason) → Confirm to assign; manual pick still available.
@@ -1055,6 +1055,7 @@ Known product facts:
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
 - Job assistant (office): on /dashboard/jobs/[id] when AI tools is on — proactive Missing to invoice banner with Fix jumps (time/invoice) plus chat (draft customer text, owner summary). Separate from the floating Help bot (FAQ/product).
 - Pick tickets: on a job (office or assigned tech) with Special-order parts on — upload counter slip photo → Extract with AI → review lines → Add parts to that job # (Received). SQL: pick-tickets.sql for saved extracts.
+- Payroll timesheets (not full payroll): with Accounting export on, Office → Export → Payroll timesheets CSV — clocked job hours by tech for a date range, regular vs OT (weekly 40 Mon–Sun UTC), for Gusto/ADP/QB Payroll import. No direct deposit or tax filing in EasyDispatch.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.
 - SQL helpers (run once in Supabase as needed): workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, pick-tickets.sql.
 - Public FAQ: /faq · In-app Help/FAQ: /dashboard/help or /tech/help (includes Feature modules catalog).

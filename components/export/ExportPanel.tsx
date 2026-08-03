@@ -53,6 +53,13 @@ const EXPORTS: {
       'Profit rollup by technician: jobs, hours, sold, cost, margin, and paid revenue.',
     usesDateRange: true,
   },
+  {
+    kind: 'timesheets',
+    label: 'Payroll timesheets',
+    description:
+      'Clocked job hours by tech for your pay period — regular vs overtime (weekly 40), job #, start/end. Import into Gusto, ADP, or QuickBooks Payroll. Not full payroll (no direct deposit or tax filing).',
+    usesDateRange: true,
+  },
 ];
 
 export function ExportPanel({
@@ -130,7 +137,8 @@ export function ExportPanel({
           />
         </label>
         <p className="text-xs text-ink-400">
-          Applies to date-ranged exports (invoices, AR, job costing, tech P&amp;L).
+          Applies to date-ranged exports (invoices, AR, job costing, tech
+          P&amp;L, timesheets). Timesheets use clock-out date.
         </p>
       </section>
 
