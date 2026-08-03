@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  beginWalkthroughMediaUpload,
+  completeWalkthroughMediaUpload,
   deleteWalkthroughMedia,
   saveWalkthroughDraft,
   saveWalkthroughToJob,
@@ -16,6 +18,8 @@ import {
   uploadWalkthroughMedia,
 } from '@/app/tech/walkthrough-actions';
 import { setTechJobPhase } from '@/lib/tech/advance-phase';
+import { DIRECT_UPLOAD_THRESHOLD_BYTES } from '@/lib/media/upload-limits';
+import { createClient } from '@/lib/supabase/client';
 import {
   computeWalkthroughTotals,
   WALKTHROUGH_STATUS_LABELS,
@@ -283,15 +287,63 @@ export function JobWalkthroughPanel({
     caption?: string
   ) {
     if (!canMedia) return { error: 'Media not allowed' as string };
-    const fd = new FormData();
-    fd.set('file', file);
-    fd.set('kind', kind);
-    fd.set('tag', 'walkthrough');
-    if (caption) fd.set('caption', caption);
+
+    // Videos (and large files) upload straight to Supabase — Vercel server
+    // actions reject bodies over ~4.5MB, which breaks phone camera clips.
+    const useDirect =
+      kind === 'video' || file.size > DIRECT_UPLOAD_THRESHOLD_BYTES;
+
     try {
-      const result = await uploadWalkthroughMedia(jobId, fd);
-      return result;
-    } catch {
+      if (useDirect) {
+        const begin = await beginWalkthroughMediaUpload({
+          jobId,
+          kind,
+          fileSize: file.size,
+          mimeType: file.type,
+          fileName: file.name,
+        });
+        if ('error' in begin && begin.error) {
+          return { error: begin.error };
+        }
+        if (!('storagePath' in begin)) {
+          return { error: 'Upload failed — try again' };
+        }
+
+        const supabase = createClient();
+        const { error: upErr } = await supabase.storage
+          .from(begin.bucket)
+          .upload(begin.storagePath, file, {
+            contentType: begin.contentType,
+            upsert: false,
+          });
+        if (upErr) {
+          return {
+            error: `Upload failed: ${upErr.message}. Confirm job-media bucket exists and you are signed in.`,
+          };
+        }
+
+        return completeWalkthroughMediaUpload({
+          jobId,
+          kind,
+          caption,
+          storagePath: begin.storagePath,
+        });
+      }
+
+      const fd = new FormData();
+      fd.set('file', file);
+      fd.set('kind', kind);
+      fd.set('tag', 'walkthrough');
+      if (caption) fd.set('caption', caption);
+      return await uploadWalkthroughMedia(jobId, fd);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (/body|payload|413|too large/i.test(msg)) {
+        return {
+          error:
+            'Video too large for this connection — keep clips under ~90 seconds and try again.',
+        };
+      }
       return { error: 'Upload failed — try again' };
     }
   }
@@ -334,13 +386,27 @@ export function JobWalkthroughPanel({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('video/') && !/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
+    // iOS often returns empty MIME type from the Camera app — accept by
+    // extension, or any non-empty file from this video picker.
+    const looksLikeVideo =
+      !file.type ||
+      file.type.startsWith('video/') ||
+      /\.(mp4|mov|webm|m4v|qt)$/i.test(file.name);
+    if (!looksLikeVideo) {
       setError('Please choose a video file');
+      return;
+    }
+    if (file.size > 80 * 1024 * 1024) {
+      setError('Video too large (max 80MB — keep clips under ~90 seconds)');
       return;
     }
     setPending('video');
     setError(null);
-    setMessage('Uploading video…');
+    setMessage(
+      file.size > 5 * 1024 * 1024
+        ? 'Uploading video to storage… this can take a minute on cellular'
+        : 'Uploading video…'
+    );
     const result = await uploadFile(file, 'video');
     if (result.error) {
       setError(result.error);

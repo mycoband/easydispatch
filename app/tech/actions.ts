@@ -3,6 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { requireProfile, isOfficeRole } from '@/lib/auth';
 import { assertTechCapability } from '@/lib/company/require-permission';
+import {
+  DIRECT_UPLOAD_THRESHOLD_BYTES,
+  OTHER_MEDIA_MAX_BYTES,
+  VIDEO_MAX_BYTES,
+} from '@/lib/media/upload-limits';
 import { createServiceClient } from '@/lib/supabase/admin';
 import {
   SAFETY_CHECKLIST_ITEMS,
@@ -162,6 +167,179 @@ export async function saveSafetyChecklist(
   }
 }
 
+const OTHER_MAX_BYTES = OTHER_MEDIA_MAX_BYTES;
+
+function mediaExtAndType(
+  kind: string,
+  mimeType: string | undefined,
+  fileName?: string
+): { ext: string; contentType: string } {
+  const mime = (mimeType || '').toLowerCase();
+  const name = (fileName || '').toLowerCase();
+  if (kind === 'voice') {
+    const isMp4 = mime.includes('mp4') || name.endsWith('.mp4') || name.endsWith('.m4a');
+    return {
+      ext: isMp4 ? 'mp4' : 'webm',
+      contentType: isMp4 ? 'audio/mp4' : mime || 'audio/webm',
+    };
+  }
+  if (kind === 'video') {
+    const isWebm = mime.includes('webm') || name.endsWith('.webm');
+    return {
+      ext: isWebm ? 'webm' : 'mp4',
+      contentType: isWebm ? 'video/webm' : 'video/mp4',
+    };
+  }
+  if (mime === 'image/png' || name.endsWith('.png')) {
+    return { ext: 'png', contentType: 'image/png' };
+  }
+  if (mime === 'image/webp' || name.endsWith('.webp')) {
+    return { ext: 'webp', contentType: 'image/webp' };
+  }
+  return { ext: 'jpg', contentType: mime || 'image/jpeg' };
+}
+
+async function insertJobAttachmentRow(input: {
+  jobId: string;
+  userId: string;
+  kind: string;
+  tag: string;
+  caption: string | null;
+  storagePath: string;
+}): Promise<TechActionState> {
+  const admin = createServiceClient();
+  const { data: urlData } = admin.storage
+    .from('job-media')
+    .getPublicUrl(input.storagePath);
+
+  const { data: jobRow } = await admin
+    .from('jobs')
+    .select('company_id')
+    .eq('id', input.jobId)
+    .maybeSingle();
+  let companyId = (jobRow?.company_id as string | null) || null;
+  if (!companyId) {
+    const { data: prof } = await admin
+      .from('profiles')
+      .select('company_id')
+      .eq('id', input.userId)
+      .maybeSingle();
+    companyId = prof?.company_id ?? null;
+  }
+
+  const { error } = await admin.from('job_attachments').insert({
+    job_id: input.jobId,
+    kind: input.kind,
+    tag: input.tag,
+    url: urlData.publicUrl,
+    caption: input.caption,
+    created_by: input.userId,
+    ...(companyId ? { company_id: companyId } : {}),
+  });
+
+  if (error) {
+    if (/kind|check|video/i.test(error.message)) {
+      return {
+        error:
+          'Video not enabled in database. Run supabase/ai-walkthrough-video.sql (or updated ai-walkthrough.sql) in Supabase.',
+      };
+    }
+    return { error: error.message };
+  }
+  revalidateTechJob(input.jobId);
+  return {
+    success:
+      input.kind === 'voice'
+        ? 'Voice note saved'
+        : input.kind === 'video'
+          ? 'Video walkthrough saved'
+          : 'Photo saved',
+  };
+}
+
+/**
+ * Start a browser→Supabase direct upload (required for walkthrough video on Vercel).
+ * Returns a storage path; client uploads with the logged-in anon client, then calls complete.
+ */
+export async function beginJobMediaUpload(input: {
+  jobId: string;
+  kind: 'photo' | 'voice' | 'video' | 'note';
+  tag?: string;
+  fileSize: number;
+  mimeType?: string;
+  fileName?: string;
+}): Promise<
+  | { error: string }
+  | { storagePath: string; contentType: string; bucket: 'job-media' }
+> {
+  try {
+    const perm = await assertTechCapability('media');
+    if (!perm.ok) return { error: perm.error };
+    await loadAssignedJob(input.jobId);
+
+    if (!['photo', 'voice', 'note', 'video'].includes(input.kind)) {
+      return { error: 'Invalid kind' };
+    }
+    if (!input.fileSize || input.fileSize <= 0) {
+      return { error: 'File required' };
+    }
+    const maxBytes =
+      input.kind === 'video' ? VIDEO_MAX_BYTES : OTHER_MAX_BYTES;
+    if (input.fileSize > maxBytes) {
+      return {
+        error:
+          input.kind === 'video'
+            ? 'Video too large (max 80MB — keep clips under ~90 seconds)'
+            : 'File too large (max 20MB)',
+      };
+    }
+
+    const { ext, contentType } = mediaExtAndType(
+      input.kind,
+      input.mimeType,
+      input.fileName
+    );
+    const storagePath = `${input.jobId}/${Date.now()}.${ext}`;
+    return { storagePath, contentType, bucket: 'job-media' };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Upload failed' };
+  }
+}
+
+/** After client uploads to job-media, insert the attachment row. */
+export async function completeJobMediaUpload(input: {
+  jobId: string;
+  kind: 'photo' | 'voice' | 'video' | 'note';
+  tag?: string;
+  caption?: string;
+  storagePath: string;
+}): Promise<TechActionState> {
+  try {
+    const perm = await assertTechCapability('media');
+    if (!perm.ok) return { error: perm.error };
+    const { user } = await loadAssignedJob(input.jobId);
+
+    if (!['photo', 'voice', 'note', 'video'].includes(input.kind)) {
+      return { error: 'Invalid kind' };
+    }
+    const path = input.storagePath.trim();
+    if (!path.startsWith(`${input.jobId}/`) || path.includes('..')) {
+      return { error: 'Invalid upload path' };
+    }
+
+    return insertJobAttachmentRow({
+      jobId: input.jobId,
+      userId: user.id,
+      kind: input.kind,
+      tag: input.tag || 'other',
+      caption: input.caption?.trim() || null,
+      storagePath: path,
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Upload failed' };
+  }
+}
+
 export async function uploadJobAttachment(
   jobId: string,
   formData: FormData
@@ -182,7 +360,7 @@ export async function uploadJobAttachment(
       return { error: 'Invalid kind' };
     }
     const maxBytes =
-      kind === 'video' ? 80 * 1024 * 1024 : 20 * 1024 * 1024;
+      kind === 'video' ? VIDEO_MAX_BYTES : OTHER_MAX_BYTES;
     if (file.size > maxBytes) {
       return {
         error:
@@ -192,32 +370,19 @@ export async function uploadJobAttachment(
       };
     }
 
+    // Videos (and large files) must not go through the server action body —
+    // Vercel rejects payloads over ~4.5MB. Client should use begin/complete.
+    if (kind === 'video' || file.size > DIRECT_UPLOAD_THRESHOLD_BYTES) {
+      return {
+        error:
+          'This file is too large for server upload. Refresh the page and try again (direct upload).',
+      };
+    }
+
     const admin = createServiceClient();
-    const ext =
-      kind === 'voice'
-        ? file.type.includes('mp4')
-          ? 'mp4'
-          : 'webm'
-        : kind === 'video'
-          ? // Prefer mp4 for Whisper (rejects .mov); iPhone often sends quicktime
-            file.type.includes('webm')
-              ? 'webm'
-              : 'mp4'
-          : file.type === 'image/png'
-            ? 'png'
-            : file.type === 'image/webp'
-              ? 'webp'
-              : 'jpg';
+    const { ext, contentType } = mediaExtAndType(kind, file.type, file.name);
     const fileName = `${jobId}/${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    const contentType =
-      kind === 'video'
-        ? file.type.includes('webm')
-          ? 'video/webm'
-          : 'video/mp4'
-        : file.type ||
-          (kind === 'voice' ? 'audio/webm' : 'image/jpeg');
 
     const { error: uploadError } = await admin.storage
       .from('job-media')
@@ -232,55 +397,14 @@ export async function uploadJobAttachment(
       };
     }
 
-    const { data: urlData } = admin.storage
-      .from('job-media')
-      .getPublicUrl(fileName);
-
-    // Service-role inserts skip auth.uid() company trigger — set company_id
-    // so Job photos RLS can select the row.
-    const { data: jobRow } = await admin
-      .from('jobs')
-      .select('company_id')
-      .eq('id', jobId)
-      .maybeSingle();
-    let companyId = (jobRow?.company_id as string | null) || null;
-    if (!companyId) {
-      const { data: prof } = await admin
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user.id)
-        .maybeSingle();
-      companyId = prof?.company_id ?? null;
-    }
-
-    const { error } = await admin.from('job_attachments').insert({
-      job_id: jobId,
+    return insertJobAttachmentRow({
+      jobId,
+      userId: user.id,
       kind,
       tag,
-      url: urlData.publicUrl,
       caption: caption || null,
-      created_by: user.id,
-      ...(companyId ? { company_id: companyId } : {}),
+      storagePath: fileName,
     });
-
-    if (error) {
-      if (/kind|check|video/i.test(error.message)) {
-        return {
-          error:
-            'Video not enabled in database. Run supabase/ai-walkthrough-video.sql (or updated ai-walkthrough.sql) in Supabase.',
-        };
-      }
-      return { error: error.message };
-    }
-    revalidateTechJob(jobId);
-    return {
-      success:
-        kind === 'voice'
-          ? 'Voice note saved'
-          : kind === 'video'
-            ? 'Video walkthrough saved'
-            : 'Photo saved',
-    };
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Upload failed' };
   }

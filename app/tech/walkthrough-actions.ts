@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import {
+  beginJobMediaUpload,
+  completeJobMediaUpload,
   deleteJobAttachment,
   uploadJobAttachment,
 } from '@/app/tech/actions';
@@ -162,6 +164,53 @@ export async function uploadWalkthroughMedia(
       kind === 'voice'
         ? 'Walkthrough voice saved'
         : kind === 'video'
+          ? 'Walkthrough video saved'
+          : 'Walkthrough photo saved',
+  };
+}
+
+/** Auth + path for browser→Supabase video upload (bypasses Vercel 4.5MB body limit). */
+export async function beginWalkthroughMediaUpload(input: {
+  jobId: string;
+  kind: 'photo' | 'voice' | 'video';
+  fileSize: number;
+  mimeType?: string;
+  fileName?: string;
+}): Promise<
+  | { error: string }
+  | { storagePath: string; contentType: string; bucket: 'job-media' }
+> {
+  return beginJobMediaUpload({
+    jobId: input.jobId,
+    kind: input.kind,
+    tag: WALKTHROUGH_MEDIA_TAG,
+    fileSize: input.fileSize,
+    mimeType: input.mimeType,
+    fileName: input.fileName,
+  });
+}
+
+export async function completeWalkthroughMediaUpload(input: {
+  jobId: string;
+  kind: 'photo' | 'voice' | 'video';
+  caption?: string;
+  storagePath: string;
+}): Promise<WalkthroughActionState> {
+  const result = await completeJobMediaUpload({
+    jobId: input.jobId,
+    kind: input.kind,
+    tag: WALKTHROUGH_MEDIA_TAG,
+    caption: input.caption,
+    storagePath: input.storagePath,
+  });
+  if (result.error) return result;
+  await bumpWalkthroughInProgress(input.jobId);
+  revalidateJob(input.jobId);
+  return {
+    success:
+      input.kind === 'voice'
+        ? 'Walkthrough voice saved'
+        : input.kind === 'video'
           ? 'Walkthrough video saved'
           : 'Walkthrough photo saved',
   };
