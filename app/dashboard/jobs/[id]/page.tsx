@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 import { updateJob } from '@/app/dashboard/jobs/actions';
 import { ConfirmationStatusBadge } from '@/components/jobs/ConfirmationStatusBadge';
@@ -12,14 +13,11 @@ import { TimeTrackingPanel } from '@/components/jobs/TimeTrackingPanel';
 import { JobInvoicePanel } from '@/components/invoices/JobInvoicePanel';
 import { JobMessageActions } from '@/components/messages/JobMessageActions';
 import { JobMessageLog } from '@/components/messages/JobMessageLog';
-import { EquipmentSection } from '@/components/equipment/EquipmentSection';
 import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
 import { pmChecklistPhotosAsAttachments } from '@/lib/equipment/pm-job-photos';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { JobPickTickets } from '@/components/jobs/JobPickTickets';
-import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
-import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { TechViewToggle } from '@/components/tech/TechViewToggle';
 import { requireOffice } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
@@ -35,8 +33,44 @@ import {
 } from '@/lib/jobs/walkthrough';
 import { formatMoney } from '@/lib/jobs/totals';
 import { loadPricebookPresets } from '@/lib/pricebook/load';
+import {
+  JOB_DETAIL_COLUMNS,
+  JOB_DETAIL_COLUMNS_NO_WALKTHROUGH,
+} from '@/lib/jobs/select';
 import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
-import { JobOfficeAssistant } from '@/components/jobs/JobOfficeAssistant';
+
+const PanelPlaceholder = ({ label }: { label: string }) => (
+  <div className="panel p-5 text-sm text-ink-500">{label}</div>
+);
+
+const JobWalkthroughPanel = dynamic(
+  () =>
+    import('@/components/tech/JobWalkthroughPanel').then((m) => ({
+      default: m.JobWalkthroughPanel,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading walkthrough…" /> }
+);
+const JobMediaPanel = dynamic(
+  () =>
+    import('@/components/tech/JobMediaPanel').then((m) => ({
+      default: m.JobMediaPanel,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading media…" /> }
+);
+const EquipmentSection = dynamic(
+  () =>
+    import('@/components/equipment/EquipmentSection').then((m) => ({
+      default: m.EquipmentSection,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading equipment…" /> }
+);
+const JobOfficeAssistant = dynamic(
+  () =>
+    import('@/components/jobs/JobOfficeAssistant').then((m) => ({
+      default: m.JobOfficeAssistant,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading assistant…" /> }
+);
 
 export default async function JobDetailPage({
   params,
@@ -56,11 +90,19 @@ export default async function JobDetailPage({
     canViewCosts &&
     roleHasPermission(profile.role, 'edit_job_costs', company.role_permissions);
 
-  let { data: job, error: jobError } = await supabase
-    .from('jobs')
-    .select('*, walkthrough')
-    .eq('id', id)
-    .maybeSingle();
+  // Dynamic column list loses supabase-js inference — cast after fetch.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let job: any = null;
+  let jobError: { message: string } | null = null;
+  {
+    const res = await supabase
+      .from('jobs')
+      .select(JOB_DETAIL_COLUMNS)
+      .eq('id', id)
+      .maybeSingle();
+    job = res.data;
+    jobError = res.error;
+  }
 
   if (
     jobError &&
@@ -68,7 +110,7 @@ export default async function JobDetailPage({
   ) {
     const retry = await supabase
       .from('jobs')
-      .select('*')
+      .select(JOB_DETAIL_COLUMNS_NO_WALKTHROUGH)
       .eq('id', id)
       .maybeSingle();
     job = retry.data;
@@ -77,9 +119,7 @@ export default async function JobDetailPage({
 
   if (jobError || !job) notFound();
 
-  const walkthrough = normalizeWalkthrough(
-    (job as { walkthrough?: unknown }).walkthrough
-  );
+  const walkthrough = normalizeWalkthrough(job.walkthrough);
 
   const [
     lineItemsRes,
@@ -240,7 +280,7 @@ export default async function JobDetailPage({
   const hasEmail = Boolean(customer?.email);
   const closeoutGaps = computeCloseoutGaps({
     checkOutAt: job.check_out_at,
-    signatureData: job.signature_data,
+    signatureData: null,
     signedAt: job.signed_at,
     total: Number(job.total) || 0,
     invoiceStatus: job.invoice_status,

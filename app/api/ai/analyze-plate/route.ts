@@ -4,6 +4,7 @@ import {
   analyzeDataPlate,
   buildElectricalSummary,
 } from '@/lib/grok';
+import { assertAiRateLimit } from '@/lib/ai/rate-limit';
 import { createClient } from '@/lib/supabase/server';
 
 export const maxDuration = 60;
@@ -27,6 +28,17 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const limited = await assertAiRateLimit(user.id, 'analyze-plate');
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: limited.error },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(limited.retryAfterSec) },
+        }
+      );
     }
 
     const contentType = req.headers.get('content-type') || '';

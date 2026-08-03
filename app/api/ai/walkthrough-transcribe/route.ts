@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { transcribeWalkthroughVoice } from '@/app/tech/walkthrough-actions';
+import { assertAiRateLimit } from '@/lib/ai/rate-limit';
 import { createClient } from '@/lib/supabase/server';
 
 /** Whisper on walkthrough voice/video can take a while on phone clips. */
@@ -21,6 +22,17 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const limited = await assertAiRateLimit(user.id, 'walkthrough-transcribe');
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: limited.error },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(limited.retryAfterSec) },
+        }
+      );
     }
 
     const json = await req.json();

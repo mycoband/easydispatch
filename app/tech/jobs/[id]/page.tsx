@@ -1,19 +1,16 @@
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { notFound } from 'next/navigation';
 import { LiveStatusBadge } from '@/components/jobs/LiveStatusBadge';
 import { JobInvoicePanel } from '@/components/invoices/JobInvoicePanel';
 import { JobMessageActions } from '@/components/messages/JobMessageActions';
 import { JobMessageLog } from '@/components/messages/JobMessageLog';
 import { TechCustomerDraftHost } from '@/components/tech/TechCustomerDraftHost';
-import { EquipmentSection } from '@/components/equipment/EquipmentSection';
 import { JobPmChecklist } from '@/components/equipment/JobPmChecklist';
 import { WarrantyBadge } from '@/components/equipment/WarrantyBadge';
 import { pmChecklistPhotosAsAttachments } from '@/lib/equipment/pm-job-photos';
 import { JobPartsOrders } from '@/components/jobs/JobPartsOrders';
 import { JobPickTickets } from '@/components/jobs/JobPickTickets';
-import { DiagnosticAssist } from '@/components/tech/DiagnosticAssist';
-import { JobMediaPanel } from '@/components/tech/JobMediaPanel';
-import { JobWalkthroughPanel } from '@/components/tech/JobWalkthroughPanel';
 import { SafetyChecklist } from '@/components/tech/SafetyChecklist';
 import { SignaturePad } from '@/components/tech/SignaturePad';
 import { FinishThisStopStrip } from '@/components/tech/FinishThisStopStrip';
@@ -37,9 +34,48 @@ import {
   filterWalkthroughAttachments,
   normalizeWalkthrough,
 } from '@/lib/jobs/walkthrough';
+import {
+  JOB_DETAIL_COLUMNS,
+  JOB_DETAIL_COLUMNS_NO_WALKTHROUGH,
+} from '@/lib/jobs/select';
 import { mapsDirectionsUrl } from '@/lib/tech/maps';
 import type { SafetyChecklistState } from '@/lib/tech/safety';
 import { formatAddress } from '@/lib/utils';
+
+const PanelPlaceholder = ({ label }: { label: string }) => (
+  <div className="rounded-xl border border-ink-100 bg-white p-4 text-sm text-ink-500">
+    {label}
+  </div>
+);
+
+const JobWalkthroughPanel = dynamic(
+  () =>
+    import('@/components/tech/JobWalkthroughPanel').then((m) => ({
+      default: m.JobWalkthroughPanel,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading walkthrough…" /> }
+);
+const JobMediaPanel = dynamic(
+  () =>
+    import('@/components/tech/JobMediaPanel').then((m) => ({
+      default: m.JobMediaPanel,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading media…" /> }
+);
+const DiagnosticAssist = dynamic(
+  () =>
+    import('@/components/tech/DiagnosticAssist').then((m) => ({
+      default: m.DiagnosticAssist,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading diagnostic…" /> }
+);
+const EquipmentSection = dynamic(
+  () =>
+    import('@/components/equipment/EquipmentSection').then((m) => ({
+      default: m.EquipmentSection,
+    })),
+  { loading: () => <PanelPlaceholder label="Loading equipment…" /> }
+);
 
 export default async function TechJobDetailPage({
   params,
@@ -54,11 +90,19 @@ export default async function TechJobDetailPage({
   const allow = (key: Parameters<typeof roleHasPermission>[1]) =>
     roleHasPermission(profile.role, key, rp);
 
-  let { data: job, error: jobError } = await supabase
-    .from('jobs')
-    .select('*, walkthrough')
-    .eq('id', id)
-    .maybeSingle();
+  // Dynamic column list loses supabase-js inference — cast after fetch.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let job: any = null;
+  let jobError: { message: string } | null = null;
+  {
+    const res = await supabase
+      .from('jobs')
+      .select(JOB_DETAIL_COLUMNS)
+      .eq('id', id)
+      .maybeSingle();
+    job = res.data;
+    jobError = res.error;
+  }
 
   if (
     jobError &&
@@ -66,7 +110,7 @@ export default async function TechJobDetailPage({
   ) {
     const retry = await supabase
       .from('jobs')
-      .select('*')
+      .select(JOB_DETAIL_COLUMNS_NO_WALKTHROUGH)
       .eq('id', id)
       .maybeSingle();
     job = retry.data;
@@ -88,9 +132,7 @@ export default async function TechJobDetailPage({
     notFound();
   }
 
-  const walkthrough = normalizeWalkthrough(
-    (job as { walkthrough?: unknown }).walkthrough
-  );
+  const walkthrough = normalizeWalkthrough(job.walkthrough);
 
   const [
     { data: customer },
@@ -101,6 +143,7 @@ export default async function TechJobDetailPage({
     { data: inventory },
     partOrdersRes,
     estimatesRes,
+    { data: signatureRow },
   ] = await Promise.all([
     job.customer_id
       ? supabase
@@ -179,6 +222,12 @@ export default async function TechJobDetailPage({
           .eq('job_id', id)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [], error: null }),
+    // Signature PNG is large — load only for SignaturePad, not on the main job row.
+    supabase
+      .from('jobs')
+      .select('signature_data')
+      .eq('id', id)
+      .maybeSingle(),
   ]);
 
   let rawAttachments: {
@@ -303,9 +352,11 @@ export default async function TechJobDetailPage({
   const requireInvoice =
     Boolean(mods.invoices) &&
     (allow('send_invoice') || allow('record_payment'));
+  const signatureData =
+    (signatureRow?.signature_data as string | null | undefined) ?? null;
   const closeoutGaps = computeCloseoutGaps({
     checkOutAt: job.check_out_at,
-    signatureData: job.signature_data,
+    signatureData,
     signedAt: job.signed_at,
     total: Number(job.total) || 0,
     invoiceStatus: job.invoice_status,
@@ -582,7 +633,7 @@ export default async function TechJobDetailPage({
           <SignaturePad
             jobId={job.id}
             existingName={job.signature_name}
-            existingData={job.signature_data}
+            existingData={signatureData}
             signedAt={job.signed_at}
           />
         </div>

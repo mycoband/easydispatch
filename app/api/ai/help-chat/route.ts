@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { assertAiRateLimit } from '@/lib/ai/rate-limit';
+import { loadCompanySettings } from '@/lib/company';
 import { createClient } from '@/lib/supabase/server';
 import { helpChat } from '@/lib/grok';
 import { faqPromptBlock } from '@/lib/help/faq';
@@ -27,6 +29,22 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const company = await loadCompanySettings();
+    if (!company.modules.ai) {
+      return NextResponse.json({ error: 'AI tools are off' }, { status: 403 });
+    }
+
+    const limited = await assertAiRateLimit(user.id, 'help-chat');
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: limited.error },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(limited.retryAfterSec) },
+        }
+      );
     }
 
     const json = await request.json();

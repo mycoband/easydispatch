@@ -11,14 +11,15 @@ const nextConfig: NextConfig = {
     ],
   },
   serverExternalPackages: ['ffmpeg-static'],
-  // Include ffmpeg binary in serverless traces (Whisper needs MP3 extract from phone video)
+  // Only AI walkthrough routes need the ffmpeg binary in the serverless trace
   outputFileTracingIncludes: {
-    '/*': ['./node_modules/ffmpeg-static/**/*'],
+    '/api/ai/walkthrough': ['./node_modules/ffmpeg-static/**/*'],
+    '/api/ai/walkthrough-transcribe': ['./node_modules/ffmpeg-static/**/*'],
   },
   experimental: {
     serverActions: {
-      // Walkthrough video uploads can be large (phone camera clips)
-      bodySizeLimit: '100mb',
+      // Media uploads go browser→Supabase direct; keep actions small
+      bodySizeLimit: '8mb',
     },
   },
 };

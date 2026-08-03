@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/admin';
 import { redirect } from 'next/navigation';
@@ -41,13 +42,14 @@ function normalizeRole(value: unknown): AppRole {
   return 'dispatcher';
 }
 
-export async function getSessionUser() {
+/** Deduped per RSC request (layout + page share one session lookup). */
+export const getSessionUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   return { supabase, user };
-}
+});
 
 export async function requireUser() {
   const { supabase, user } = await getSessionUser();
@@ -164,7 +166,7 @@ async function loadProfileRow(userId: string): Promise<Profile | null> {
   return null;
 }
 
-export async function ensureProfile(user: User): Promise<Profile> {
+export const ensureProfile = cache(async (user: User): Promise<Profile> => {
   const admin = createServiceClient();
   const existing = await loadProfileRow(user.id);
   if (existing) return attachCompanyIfNeeded(user, existing);
@@ -190,7 +192,7 @@ export async function ensureProfile(user: User): Promise<Profile> {
   const created = await loadProfileRow(user.id);
   if (!created) throw new Error('Could not create profile');
   return attachCompanyIfNeeded(user, created);
-}
+});
 
 export async function getProfile(): Promise<Profile | null> {
   const { user } = await getSessionUser();

@@ -350,20 +350,29 @@ function transcriptFromCaption(caption: string | null | undefined): string {
   return stripped || t;
 }
 
-/** Download walkthrough video → ffmpeg JPEGs → job-media + job_attachments. */
+/** Walkthrough video → ffmpeg JPEGs → job-media + job_attachments.
+ * Pass `videoBuffer` when the caller already downloaded the clip (avoids a second fetch for Whisper).
+ */
 async function extractAndStoreWalkthroughFrames(input: {
   jobId: string;
-  videoUrl: string;
   userId: string;
-}): Promise<{ error?: string; urls?: string[] }> {
+  videoUrl?: string;
+  videoBuffer?: Buffer;
+}): Promise<{ error?: string; urls?: string[]; videoBuffer?: Buffer }> {
   try {
-    const videoRes = await fetch(input.videoUrl);
-    if (!videoRes.ok) {
-      return {
-        error: `Could not download walkthrough video to extract frames (${videoRes.status}).`,
-      };
+    let buffer = input.videoBuffer;
+    if (!buffer) {
+      if (!input.videoUrl) {
+        return { error: 'No walkthrough video to extract frames from.' };
+      }
+      const videoRes = await fetch(input.videoUrl);
+      if (!videoRes.ok) {
+        return {
+          error: `Could not download walkthrough video to extract frames (${videoRes.status}).`,
+        };
+      }
+      buffer = Buffer.from(await videoRes.arrayBuffer());
     }
-    const buffer = Buffer.from(await videoRes.arrayBuffer());
     if (buffer.length > 80 * 1024 * 1024) {
       return {
         error:
@@ -430,7 +439,7 @@ async function extractAndStoreWalkthroughFrames(input: {
     if (urls.length === 0) {
       return { error: 'Could not store frames from the walkthrough video.' };
     }
-    return { urls };
+    return { urls, videoBuffer: buffer };
   } catch (err) {
     return {
       error:
@@ -539,15 +548,22 @@ export async function generateWalkthroughReportAction(
       }
     }
 
+    // Download primary video once → frames + Whisper (avoids 2× 80MB serverless pulls)
+    const primaryVideoUrl = videoUrls[0] || null;
+    let primaryVideoBuffer: Buffer | null = null;
+
     // Server-side frames (iOS Safari often hangs on in-browser extract)
-    if (videoUrls.length > 0 && frameCount < 4) {
+    if (primaryVideoUrl && frameCount < 4) {
       const frameResult = await extractAndStoreWalkthroughFrames({
         jobId,
-        videoUrl: videoUrls[0],
+        videoUrl: primaryVideoUrl,
         userId: user.id,
       });
       if (frameResult.error) {
         return { error: frameResult.error };
+      }
+      if (frameResult.videoBuffer) {
+        primaryVideoBuffer = frameResult.videoBuffer;
       }
       if (frameResult.urls?.length) {
         photoUrls = [...photoUrls, ...frameResult.urls];
@@ -574,12 +590,32 @@ export async function generateWalkthroughReportAction(
       let text = transcriptFromCaption(m.caption);
       if (!text && m.url && process.env.OPENAI_API_KEY?.trim()) {
         try {
-          const audioRes = await fetch(m.url);
-          if (audioRes.ok) {
-            const buffer = Buffer.from(await audioRes.arrayBuffer());
-            const contentType =
-              audioRes.headers.get('content-type') ||
-              (m.kind === 'video' ? 'video/mp4' : 'audio/webm');
+          let buffer: Buffer | null = null;
+          let contentType =
+            m.kind === 'video' ? 'video/mp4' : 'audio/webm';
+          if (
+            m.kind === 'video' &&
+            primaryVideoUrl &&
+            m.url === primaryVideoUrl &&
+            primaryVideoBuffer
+          ) {
+            buffer = primaryVideoBuffer;
+          } else {
+            const audioRes = await fetch(m.url);
+            if (audioRes.ok) {
+              buffer = Buffer.from(await audioRes.arrayBuffer());
+              contentType =
+                audioRes.headers.get('content-type') || contentType;
+              if (
+                m.kind === 'video' &&
+                primaryVideoUrl &&
+                m.url === primaryVideoUrl
+              ) {
+                primaryVideoBuffer = buffer;
+              }
+            }
+          }
+          if (buffer) {
             const filename =
               m.url.split('?')[0].split('/').pop() ||
               (m.kind === 'video' ? 'walkthrough.mp4' : 'voice.webm');

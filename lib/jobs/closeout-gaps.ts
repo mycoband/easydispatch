@@ -40,7 +40,8 @@ export function computeCloseoutGaps(input: CloseoutGapsInput): CloseoutGap[] {
   const sent = input.invoiceStatus === 'Sent' || paid;
   const priced = Number(input.total) > 0;
   const canContact = input.hasPhone || input.hasEmail;
-  const signed = Boolean(input.signatureData && input.signedAt);
+  // Prefer signed_at so detail pages can omit bulky signature_data PNG.
+  const signed = Boolean(input.signedAt || input.signatureData);
   const clockedOut = Boolean(input.checkOutAt);
 
   const gaps: CloseoutGap[] = [

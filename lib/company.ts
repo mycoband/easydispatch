@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/admin';
 import {
@@ -172,42 +173,45 @@ export async function ensureCompanySettingsForCompany(
   }
 }
 
-export async function loadCompanySettings(): Promise<CompanySettings> {
-  try {
-    const supabase = await createClient();
-    const companyId = await resolveCompanyId();
+/** Deduped per RSC request (layout + page share one settings load). */
+export const loadCompanySettings = cache(
+  async (): Promise<CompanySettings> => {
+    try {
+      const supabase = await createClient();
+      const companyId = await resolveCompanyId();
 
-    if (companyId) {
-      const { data, error } = await supabase
-        .from('company_settings')
-        .select('*')
-        .eq('company_id', companyId)
-        .maybeSingle();
-      if (!error && data) return hydrate(data as Record<string, unknown>);
+      if (companyId) {
+        const { data, error } = await supabase
+          .from('company_settings')
+          .select('*')
+          .eq('company_id', companyId)
+          .maybeSingle();
+        if (!error && data) return hydrate(data as Record<string, unknown>);
 
-      // Never fall back to another tenant's branding (e.g. id=1 demo shop)
-      const ensured = await ensureCompanySettingsForCompany(companyId);
-      if (ensured) return ensured;
+        // Never fall back to another tenant's branding (e.g. id=1 demo shop)
+        const ensured = await ensureCompanySettingsForCompany(companyId);
+        if (ensured) return ensured;
 
-      const { data: company } = await supabase
-        .from('companies')
-        .select('name')
-        .eq('id', companyId)
-        .maybeSingle();
-      return {
-        ...COMPANY_FALLBACK,
-        company_id: companyId,
-        name: company?.name?.trim() || 'My Company',
-        sms_signature: company?.name?.trim() || 'My Company',
-      };
+        const { data: company } = await supabase
+          .from('companies')
+          .select('name')
+          .eq('id', companyId)
+          .maybeSingle();
+        return {
+          ...COMPANY_FALLBACK,
+          company_id: companyId,
+          name: company?.name?.trim() || 'My Company',
+          sms_signature: company?.name?.trim() || 'My Company',
+        };
+      }
+
+      // No company on profile yet — generic fallback (not another shop's name)
+      return COMPANY_FALLBACK;
+    } catch {
+      return COMPANY_FALLBACK;
     }
-
-    // No company on profile yet — generic fallback (not another shop's name)
-    return COMPANY_FALLBACK;
-  } catch {
-    return COMPANY_FALLBACK;
   }
-}
+);
 
 /** Portal / public pages via service role. */
 export async function loadCompanySettingsAdmin(

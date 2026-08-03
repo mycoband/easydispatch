@@ -1,5 +1,17 @@
+import { randomBytes } from 'crypto';
 import { createServiceClient } from '@/lib/supabase/admin';
 import { subscriptionAllowsAccess } from '@/lib/billing/plans';
+
+/** Cryptographically strong invite / slug suffix (no ambiguous chars). */
+function secureToken(length: number): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = randomBytes(length);
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += alphabet[bytes[i]! % alphabet.length];
+  }
+  return out;
+}
 
 export type CompanyRecord = {
   id: string;
@@ -44,10 +56,10 @@ export async function provisionCompanyForUser(opts: {
       .eq('slug', slug)
       .maybeSingle();
     if (!clash) break;
-    slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+    slug = `${baseSlug}-${secureToken(4).toLowerCase()}`;
   }
 
-  const invite = Math.random().toString(36).slice(2, 10).toUpperCase();
+  const invite = secureToken(12);
 
   const { data: company, error } = await admin
     .from('companies')

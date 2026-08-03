@@ -17,48 +17,63 @@ export default async function DispatchPage() {
   const liveRealtime = Boolean(company.modules.dispatch_realtime);
   const capacityWarnings = Boolean(company.modules.capacity_warnings);
 
-  const [{ data: jobs }, techsRes, { data: customers }, siteCoordsRes] =
-    await Promise.all([
-      supabase
-        .from('jobs')
-        .select(
-          'id, job_number, customer_id, customer_name, job_type, status, priority, assigned_to, assigned_to_name, scheduled_start, scheduled_end, est_hours, internal_notes, drive_started_at, check_in_at, check_out_at, invoice_status, payment_status'
-        )
-        .neq('status', 'Cancelled')
-        .order('scheduled_start', { ascending: true, nullsFirst: false })
-        .limit(200),
-      supabase
-        .from('profiles')
-        .select('id, full_name, role, skills, last_lat, last_lng')
-        .eq('role', 'technician')
-        .order('full_name', { ascending: true })
-        .then(async (res) => {
-          if (
-            res.error &&
-            /last_lat|last_lng|column|schema cache/i.test(res.error.message)
-          ) {
-            return supabase
-              .from('profiles')
-              .select('id, full_name, role, skills')
-              .eq('role', 'technician')
-              .order('full_name', { ascending: true });
-          }
-          return res;
-        }),
-      supabase
-        .from('customers')
-        .select('id, phone, address, city, state, zip'),
-      // Latest check-in per customer for proximity ranking
-      supabase
-        .from('jobs')
-        .select('customer_id, check_in_lat, check_in_lng, check_in_at')
-        .not('check_in_lat', 'is', null)
-        .not('check_in_lng', 'is', null)
-        .order('check_in_at', { ascending: false })
-        .limit(400),
-    ]);
+  const [{ data: jobs }, techsRes] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select(
+        'id, job_number, customer_id, customer_name, job_type, status, priority, assigned_to, assigned_to_name, scheduled_start, scheduled_end, est_hours, internal_notes, drive_started_at, check_in_at, check_out_at, invoice_status, payment_status'
+      )
+      .neq('status', 'Cancelled')
+      .order('scheduled_start', { ascending: true, nullsFirst: false })
+      .limit(200),
+    supabase
+      .from('profiles')
+      .select('id, full_name, role, skills, last_lat, last_lng')
+      .eq('role', 'technician')
+      .order('full_name', { ascending: true })
+      .then(async (res) => {
+        if (
+          res.error &&
+          /last_lat|last_lng|column|schema cache/i.test(res.error.message)
+        ) {
+          return supabase
+            .from('profiles')
+            .select('id, full_name, role, skills')
+            .eq('role', 'technician')
+            .order('full_name', { ascending: true });
+        }
+        return res;
+      }),
+  ]);
 
   const techs = techsRes.data;
+  const customerIds = [
+    ...new Set(
+      (jobs ?? [])
+        .map((j) => j.customer_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+
+  const [{ data: customers }, siteCoordsRes] = await Promise.all([
+    customerIds.length
+      ? supabase
+          .from('customers')
+          .select('id, phone, address, city, state, zip')
+          .in('id', customerIds)
+      : Promise.resolve({ data: [] as { id: string; phone: string | null; address: string | null; city: string | null; state: string | null; zip: string | null }[] }),
+    // Latest check-ins for board customers only (proximity ranking)
+    customerIds.length
+      ? supabase
+          .from('jobs')
+          .select('customer_id, check_in_lat, check_in_lng, check_in_at')
+          .in('customer_id', customerIds)
+          .not('check_in_lat', 'is', null)
+          .not('check_in_lng', 'is', null)
+          .order('check_in_at', { ascending: false })
+          .limit(200)
+      : Promise.resolve({ data: [] as { customer_id: string | null; check_in_lat: number | null; check_in_lng: number | null; check_in_at: string | null }[] }),
+  ]);
 
   const customerById = new Map(
     (customers ?? []).map((c) => [

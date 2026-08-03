@@ -521,6 +521,26 @@ export async function uploadPmChecklistPhoto(
     const item = doc.items.find((i) => i.id === itemId);
     if (!item) return { error: 'Checklist item not found — save items first' };
 
+    // Validate job belongs to this company + customer before any service-role write.
+    let jobCompanyId: string | null = null;
+    if (jobId) {
+      if (!profile.company_id) {
+        return { error: 'No company on profile' };
+      }
+      const { data: jobRow, error: jobErr } = await supabase
+        .from('jobs')
+        .select('id, company_id, customer_id')
+        .eq('id', jobId)
+        .eq('company_id', profile.company_id)
+        .eq('customer_id', customerId)
+        .maybeSingle();
+      if (jobErr || !jobRow) {
+        return { error: 'Job not found for this customer' };
+      }
+      jobCompanyId =
+        (jobRow.company_id as string | null) || profile.company_id;
+    }
+
     const admin = createServiceClient();
     const ext =
       file.type === 'image/png'
@@ -553,17 +573,7 @@ export async function uploadPmChecklistPhoto(
     if (jobId) {
       const unitLabel =
         equip.name || equip.equipment_type || 'Unit';
-      // Service-role inserts skip auth.uid() trigger — set company_id explicitly
-      // so RLS company_select can see the row in Job photos.
-      const { data: jobRow } = await admin
-        .from('jobs')
-        .select('company_id')
-        .eq('id', jobId)
-        .maybeSingle();
-      const companyId =
-        (jobRow?.company_id as string | null) ||
-        profile.company_id ||
-        null;
+      const companyId = jobCompanyId || profile.company_id || null;
 
       const { data: att, error: attErr } = await admin
         .from('job_attachments')

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { generateWalkthroughReportAction } from '@/app/tech/walkthrough-actions';
+import { assertAiRateLimit } from '@/lib/ai/rate-limit';
 import { createClient } from '@/lib/supabase/server';
 
 export const maxDuration = 300;
@@ -20,6 +21,17 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const limited = await assertAiRateLimit(user.id, 'walkthrough');
+    if (!limited.ok) {
+      return NextResponse.json(
+        { error: limited.error },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(limited.retryAfterSec) },
+        }
+      );
     }
 
     const json = await req.json();

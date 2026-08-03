@@ -7,12 +7,15 @@ import {
 const PUBLIC_PATHS = [
   '/login',
   '/join',
+  '/faq',
   '/auth',
   '/pay',
   '/portal',
   '/confirm',
   '/billing-locked',
   '/api/stripe/webhook',
+  // Vercel Cron has no session — routes enforce CRON_SECRET (fail-closed).
+  '/api/cron',
 ];
 
 export async function middleware(request: NextRequest) {
