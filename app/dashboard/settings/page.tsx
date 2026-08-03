@@ -111,9 +111,9 @@ export default async function SettingsPage() {
 
       {!profile.company_id && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          No company linked to your user yet. Sign out and sign back in after
-          running <code className="font-mono">multi-tenant-saas.sql</code>, or
-          create a new account with <strong>Start a company</strong>.
+          No company linked to your user yet. Sign out and sign back in, or
+          create a new account with <strong>Start a company</strong>. If this
+          keeps happening, contact support.
         </div>
       )}
 

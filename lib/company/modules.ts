@@ -47,8 +47,8 @@ export const COMPANY_MODULES = [
     id: 'dispatch_realtime',
     label: 'Live dispatch board',
     description:
-      'Realtime En Route / On Site updates without refreshing (needs jobs in Supabase Realtime)',
-    help: 'Keep Dispatch open — Drive/Arrive from the tech app updates badges live. Run supabase/ops-polish.sql once. Status shows “● Live” when connected.',
+      'Realtime En Route / On Site updates without refreshing',
+    help: 'Keep Dispatch open — Drive/Arrive from the tech app updates badges live. Status line shows “● Live” when connected.',
     href: null,
     defaultEnabled: true,
     group: 'Scheduling',
@@ -58,7 +58,7 @@ export const COMPANY_MODULES = [
     label: 'Assign-tech AI',
     description:
       'Assign for me on Dispatch — ranks techs by skills + load + location, then Confirm',
-    help: 'Settings → Tech roster skills. On Dispatch, unassigned jobs show Assign for me (top pick + reason) → Confirm to assign. Or pick manually. Run supabase/differentiation.sql for GPS columns. Techs update location on Drive/Arrive.',
+    help: 'Settings → Tech roster skills. On Dispatch, unassigned jobs show Assign for me (top pick + reason) → Confirm to assign. Or pick manually. Techs update location when they tap Drive or Arrive.',
     href: null,
     defaultEnabled: true,
     group: 'Scheduling',
@@ -136,7 +136,7 @@ export const COMPANY_MODULES = [
     label: 'Job costing & profit',
     description:
       'Job & estimate P&L, wages, margins, profit reports, weekly digest, costing CSV',
-    help: 'Settings → Job costing (wages, margin, digest). Sold/Cost/Profit on each job; profit KPIs on Reports; Export costing CSV. Needs job-costing.sql once.',
+    help: 'Settings → Job costing (wages, margin, digest). Sold/Cost/Profit on each job; profit KPIs on Reports; Export costing CSV. If numbers look empty, set tech wages and pricebook costs, then save job lines.',
     href: null,
     defaultEnabled: true,
     group: 'Sales & money',
@@ -185,7 +185,7 @@ export const COMPANY_MODULES = [
     label: 'Reorder / PO list',
     description:
       'Low-stock reorder list, vendor, suggested qty, export PO CSV',
-    help: 'On Inventory when Truck inventory is on. Set min qty, vendor, reorder qty. Copy PO list / Export CSV / Mark ordered. Needs workflow-depth.sql for vendor fields.',
+    help: 'On Inventory when Truck inventory is on. Set min qty, vendor, reorder qty. Copy PO list / Export CSV / Mark ordered.',
     href: null,
     defaultEnabled: true,
     group: 'Operations',
@@ -195,7 +195,7 @@ export const COMPANY_MODULES = [
     label: 'Special-order parts',
     description:
       'Needed → ordered → received → installed on jobs; pick ticket photos + AI extract',
-    help: 'Office → Parts, or Parts / Pick tickets on a job (office + assigned tech). Upload a counter slip photo linked to that job # → Extract with AI (needs AI tools) → review lines → Add parts to job (status Received). Run supabase/pick-tickets.sql once for saved extracts. Manual part orders still work.',
+    help: 'Office → Parts, or Parts / Pick tickets on a job (office + assigned tech). Upload a counter slip photo linked to that job # → Extract with AI (needs AI tools) → review lines → Add parts to job (status Received). Manual part orders still work.',
     href: '/dashboard/parts',
     defaultEnabled: true,
     group: 'Operations',
@@ -205,7 +205,7 @@ export const COMPANY_MODULES = [
     label: 'Equipment timeline',
     description:
       'Per-unit history, editable PM checklist, and per-item photos (also → Job photos on a visit)',
-    help: 'Customer → Equipment timeline, or job → PM checklist after linking a unit. Edit items to add/remove checks. Add photo on each item — on a job those photos also appear under Job photos (tag PM). Needs workflow-depth.sql for pm_checklist.',
+    help: 'Customer → Equipment timeline, or job → PM checklist after linking a unit. Edit items to add/remove checks. Add photo on each item — on a job those photos also appear under Job photos (tag PM).',
     href: null,
     defaultEnabled: true,
     group: 'Operations',
@@ -234,7 +234,7 @@ export const COMPANY_MODULES = [
     id: 'messaging',
     label: 'Customer messaging',
     description: 'OMW, Done drafts, reminders, confirm links, SMS log',
-    help: 'On Dispatch cards and job message actions. Tech: Drive Start opens an On My Way draft (ETA + Send/Skip); Clock Out opens a Done draft — never silent send. Needs Twilio env vars for real SMS; otherwise messages may simulate/log.',
+    help: 'On Dispatch cards and job message actions. Tech: Drive Start opens an On My Way draft (ETA + Send/Skip); Clock Out opens a Done draft — nothing sends until you tap Send. SMS signature is under Company settings. If texts are not delivering, contact support to connect SMS for your shop.',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',
@@ -243,8 +243,8 @@ export const COMPANY_MODULES = [
     id: 'review_ask',
     label: 'Review ask',
     description:
-      'Email a Google/review link after a job is paid and completed (Resend — no SMS)',
-    help: 'Settings → Company profile → Google / review URL. Sends once when Paid + Completed. Needs differentiation.sql + Resend.',
+      'Email a Google/review link after a job is paid and completed',
+    help: 'Settings → Company profile → Google / review URL. Sends once by email when Paid + Completed (not SMS).',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',
@@ -254,7 +254,7 @@ export const COMPANY_MODULES = [
     label: 'Customer portal',
     description:
       'Customer account link: job status, history, approve estimates, pay invoices; plus estimate/invoice tokens',
-    help: 'Customer profile → Customer portal link. Needs workflow-depth.sql for purpose “customer”. Estimate/invoice token links still work separately.',
+    help: 'Customer profile → Customer portal link. Estimate/invoice token links still work separately for single documents.',
     href: null,
     defaultEnabled: true,
     group: 'Customer experience',
@@ -274,7 +274,7 @@ export const COMPANY_MODULES = [
     label: 'AI tools',
     description:
       'Ticket fill, job assistant, walkthrough Generate, margin coach, Ask Reports, Help bot, and more',
-    help: 'Needs XAI_API_KEY. On New job, AI ticket fill is the fastest path. On an office job page, Job assistant shows a proactive Missing to invoice checklist (clock out, signature, pricing, send, paid) with Fix jumps, plus chat for draft customer text and owner summary. Pick tickets: Extract with AI reads counter slip photos into part orders (needs Special-order parts). Also: Walkthrough Generate, diagnostic / margin coach, Ask Reports, Help bot. Whisper Transcribe needs OPENAI_API_KEY. Pair with AI Job Walkthrough for the walkthrough panel.',
+    help: 'On New job, AI ticket fill is the fastest path. On an office job, Job assistant shows Missing to invoice with Fix jumps, plus chat for draft customer text and owner summary. Also powers walkthrough Generate, voice Transcribe, pick-ticket Extract, diagnostic / margin coach, Ask Reports, and the Help bot. Pair with AI Job Walkthrough for the walkthrough panel.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -284,7 +284,7 @@ export const COMPANY_MODULES = [
     label: 'AI Job Walkthrough',
     description:
       'On-job video (camera+mic), voice, and photos → AI report; Apply & wrap up',
-    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video walkthrough is the hero CTA; clips upload browser→Supabase. Generate Report extracts frames + Whisper on the server (works on iPhone; 1–2 min). More capture options stays collapsed until expanded. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then Wrap up. Needs XAI_API_KEY, OPENAI_API_KEY, AI tools. PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql (video kind + 80MB job-media).',
+    help: 'Shows Job Walkthrough (AI) on tech and office jobs. Record video walkthrough is the hero CTA. Generate Report builds the write-up from the clip (works on iPhone; often 1–2 min). More capture options stays collapsed until expanded. After Generate, Apply & wrap up saves findings → diagnosis, customer summary, and line items, then Wrap up. Needs AI tools on. PDF needs PDF documents. Keep clips under ~90 seconds.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',
@@ -294,7 +294,7 @@ export const COMPANY_MODULES = [
     label: 'Job photos & voice',
     description:
       'Before/after photos and voice notes on the job (separate from Walkthrough video)',
-    help: 'On the tech job Work phase → Extra photos (collapsed when Walkthrough is on) or Job photos if Walkthrough is off. Prefer Record walkthrough first when AI Job Walkthrough is enabled. Record voice → Transcribe → notes (AI tools + OPENAI_API_KEY).',
+    help: 'On the tech job Work phase → Extra photos (collapsed when Walkthrough is on) or Job photos if Walkthrough is off. Prefer Record walkthrough first when AI Job Walkthrough is enabled. Record voice → Transcribe → notes (needs AI tools on).',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

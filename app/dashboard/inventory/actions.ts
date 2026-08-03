@@ -44,7 +44,7 @@ export async function upsertInventoryItem(
   if (error) {
     return {
       error: /vendor|reorder_qty|column|schema cache/i.test(error.message)
-        ? 'Run supabase/workflow-depth.sql in Supabase for vendor / reorder fields.'
+        ? 'Vendor and reorder fields are unavailable. Refresh, check Settings, or contact support.'
         : error.message,
     };
   }
@@ -64,7 +64,7 @@ export async function markInventoryOrdered(id: string): Promise<ActionState> {
   if (error) {
     return {
       error: /reorder_ordered_at|column|schema cache/i.test(error.message)
-        ? 'Run supabase/workflow-depth.sql in Supabase first.'
+        ? 'Could not mark ordered. Refresh and try again, or contact support.'
         : error.message,
     };
   }

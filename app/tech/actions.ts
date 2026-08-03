@@ -241,7 +241,7 @@ async function insertJobAttachmentRow(input: {
     if (/kind|check|video/i.test(error.message)) {
       return {
         error:
-          'Video not enabled in database. Run supabase/ai-walkthrough-video.sql (or updated ai-walkthrough.sql) in Supabase.',
+          'Video upload is unavailable right now. Try again, or contact support.',
       };
     }
     return { error: error.message };
@@ -393,7 +393,8 @@ export async function uploadJobAttachment(
 
     if (uploadError) {
       return {
-        error: `Upload failed: ${uploadError.message}. Run tech-features.sql and confirm job-media bucket exists.`,
+        error:
+          'Upload failed. Refresh and try again, or contact support.',
       };
     }
 

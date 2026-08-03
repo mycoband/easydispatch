@@ -694,7 +694,7 @@ export function DispatchBoard({
               {liveState === 'live'
                 ? '● Live — En Route / On Site update automatically'
                 : liveState === 'error'
-                  ? 'Realtime reconnecting… (run supabase/ops-polish.sql if this persists)'
+                  ? 'Realtime reconnecting… Refresh if this persists, or contact support.'
                   : 'Connecting live updates…'}
             </p>
           )}

@@ -98,21 +98,21 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     question: 'What does each feature module control?',
     answer: `Full catalog (same list as Settings → Feature modules):\n${COMPANY_MODULES.map(
       (m) => `• ${m.label}: ${m.description}`
-    ).join('\n')}\nSQL once as needed: supabase/workflow-depth.sql, differentiation.sql, ops-polish.sql, job-costing.sql, ai-walkthrough.sql + ai-walkthrough-video.sql (AI Job Walkthrough video).`,
+    ).join('\n')}`,
   },
   {
     id: 'ai-walkthrough-settings',
     category: 'Settings & modules',
     question: 'How do I turn AI Job Walkthrough on or off?',
     answer:
-      'Settings → Feature modules → Field / tech → AI Job Walkthrough. On (default): Job Walkthrough (AI) panel on tech and office jobs — record video (camera+mic), voice, or photos. Off: panel hidden. Generate needs AI tools + XAI_API_KEY; video also needs OPENAI_API_KEY (Whisper hear) and auto-extracted frames (Grok see). Download PDF needs PDF documents. Run supabase/ai-walkthrough.sql once; if video upload fails on kind, run ai-walkthrough-video.sql.',
+      'Settings → Feature modules → Field / tech → AI Job Walkthrough. On (default): Job Walkthrough (AI) panel on tech and office jobs — record video, voice, or photos. Off: panel hidden. Generate needs AI tools on. Download PDF needs PDF documents on.',
   },
   {
     id: 'live-dispatch',
     category: 'Jobs & calendar',
     question: 'Why doesn’t En Route / On Site update until I refresh?',
     answer:
-      'Turn on Feature modules → Live dispatch board. Run supabase/ops-polish.sql once (adds jobs to Supabase Realtime). Keep the Dispatch page open — Drive/Arrive from the tech app updates the board live. Status line shows “● Live” when connected.',
+      'Turn on Feature modules → Live dispatch board. Keep the Dispatch page open — Drive/Arrive from the tech app updates the board live. Status line shows “● Live” when connected. If it never goes live, hard-refresh or contact support.',
   },
   {
     id: 'capacity-warnings',
@@ -133,7 +133,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How does Assign-tech AI work?',
     answer:
-      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive (run supabase/differentiation.sql once). Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign for me (top tech + reason from skills + load + proximity) → Confirm to assign. Or pick manually below. Drag onto a tech column still works.',
+      'Turn on Feature modules → Assign-tech AI. Set tech skills in Settings → Tech roster skills. Techs update last location when they tap Drive or Arrive. Job site uses the customer’s last check-in GPS when available. On Dispatch, unassigned jobs show Assign for me (top tech + reason from skills + load + proximity) → Confirm to assign. Or pick manually below. Drag onto a tech column still works.',
   },
   {
     id: 'assign-for-me',
@@ -154,21 +154,21 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How do I turn voice into job notes?',
     answer:
-      'Enable AI tools + Job photos & voice. On the job, Record voice note, then Transcribe → notes. Needs OPENAI_API_KEY (Whisper) and XAI_API_KEY (Grok cleanup). Fills diagnosis and customer summary; transcript is saved on the attachment caption.',
+      'Enable AI tools + Job photos & voice. On the job, Record voice note, then Transcribe → notes. Fills diagnosis and customer summary; the transcript is saved on the attachment caption.',
   },
   {
     id: 'review-ask',
     category: 'Invoices & PDFs',
     question: 'When does the review ask email go out?',
     answer:
-      'Enable Review ask. Set Google / review URL in Company settings. When a job is both Paid and Completed, the customer gets one email with the link (Resend — no Twilio). Triggers on Stripe pay, cash/check paid, clock-out, or signature if the other condition is already met. Needs supabase/differentiation.sql for the review URL column.',
+      'Enable Review ask. Set Google / review URL in Company settings. When a job is both Paid and Completed, the customer gets one email with the link (email only — not SMS). Triggers on Stripe pay, cash/check paid, clock-out, or signature if the other condition is already met.',
   },
   {
     id: 'messaging-sms',
     category: 'Jobs & calendar',
     question: 'How do OMW / reminder texts work?',
     answer:
-      'Enable Customer messaging. On Dispatch or the job, use message buttons (OMW, reminder, confirm). On the tech ticket, Drive Start opens an On My Way draft (pick ETA, edit, Send or Skip); Clock Out opens a Done draft the same way — nothing sends until you tap Send. Needs Twilio env vars for real SMS; otherwise sends may simulate and still log. SMS signature is under Company settings.',
+      'Enable Customer messaging. On Dispatch or the job, use message buttons (OMW, reminder, confirm). On the tech ticket, Drive Start opens an On My Way draft (pick ETA, edit, Send or Skip); Clock Out opens a Done draft the same way — nothing sends until you tap Send. SMS signature is under Company settings. If texts are not delivering, contact support to connect SMS for your shop.',
   },
   {
     id: 'omw-done-drafts',
@@ -196,28 +196,28 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do I make a reorder / PO list from low stock?',
     answer:
-      'Enable Truck inventory + Reorder / PO list. Set min qty, vendor, and optional reorder qty on items. Inventory shows a reorder panel: Copy PO list or Export PO CSV, Mark ordered. Run supabase/workflow-depth.sql if vendor fields are missing.',
+      'Enable Truck inventory + Reorder / PO list. Set min qty, vendor, and optional reorder qty on items. Inventory shows a reorder panel: Copy PO list or Export PO CSV, Mark ordered.',
   },
   {
     id: 'part-orders',
     category: 'Jobs & calendar',
     question: 'How do special-order parts work?',
     answer:
-      'Enable Special-order parts. Office → Parts board, or Parts / Pick tickets on a job (office or assigned tech). Track Needed → Ordered → Received → Installed. Pick ticket photos are always linked to that job # — Extract with AI (AI tools on) fills lines you can add as Received part orders. Run supabase/pick-tickets.sql once so extracts save on the photo.',
+      'Enable Special-order parts. Office → Parts board, or Parts / Pick tickets on a job (office or assigned tech). Track Needed → Ordered → Received → Installed. Pick ticket photos are always linked to that job # — Extract with AI (AI tools on) fills lines you can add as Received part orders.',
   },
   {
     id: 'pick-tickets',
     category: 'Jobs & calendar',
     question: 'How do pick tickets work?',
     answer:
-      'Needs Special-order parts. On a job, open Pick tickets → Upload pick ticket photo (office or tech). With AI tools on, tap Extract with AI — Grok reads vendor, SKUs, qty, and costs. Review the lines, then Add parts to this job (creates Received part orders on that job #). Parts board shows a “pick ticket” hint on jobs that have uploads. SQL once: supabase/pick-tickets.sql.',
+      'Needs Special-order parts. On a job, open Pick tickets → Upload pick ticket photo (office or tech). With AI tools on, tap Extract with AI — the AI reads vendor, SKUs, qty, and costs. Review the lines, then Add parts to this job (creates Received part orders on that job #). Parts board shows a “pick ticket” hint on jobs that have uploads.',
   },
   {
     id: 'equipment-timeline',
     category: 'Customers',
     question: 'Where is the equipment timeline and PM checklist?',
     answer:
-      'Enable Feature modules → Equipment timeline. On a job (office or tech): PM checklist after Equipment → Use on job. Same checklist on customer → Equipment timeline. Edit items to add/remove custom checks. Add photo per item — on a job those photos also go to Job photos (tag PM). Saved on the unit. Needs supabase/workflow-depth.sql for pm_checklist.',
+      'Enable Feature modules → Equipment timeline. On a job (office or tech): PM checklist after Equipment → Use on job. Same checklist on customer → Equipment timeline. Edit items to add/remove custom checks. Add photo per item — on a job those photos also go to Job photos (tag PM). Saved on the unit.',
   },
   {
     id: 'pm-checklist-photos',
@@ -238,7 +238,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'What is AI Job Walkthrough?',
     answer:
-      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On tech Work and office jobs, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); More capture options (voice / photo / library) stays collapsed until you expand it — same on phone and desktop. Extra photos stays collapsed below on tech. Generate: app extracts frames (Grok sees) and Whisper-transcribes audio (Grok hears), then fills findings/work/parts/recommendations/customer summary. Then Apply & wrap up (or Save only). Vercel env: XAI_API_KEY + OPENAI_API_KEY (required for video hear). PDF needs PDF documents. SQL: ai-walkthrough.sql + ai-walkthrough-video.sql if needed.',
+      'Settings → Feature modules → AI Job Walkthrough (panel) + AI tools (Generate). On tech Work and office jobs, Record video walkthrough is the main CTA (“Film + narrate — AI writes the report”); More capture options (voice / photo / library) stays collapsed until you expand it — same on phone and desktop. Extra photos stays collapsed below on tech. Generate fills findings, work performed, parts, recommendations, and customer summary (often 1–2 minutes on iPhone). Then Apply & wrap up (or Save only). PDF needs PDF documents on.',
   },
   {
     id: 'apply-wrap-up',
@@ -252,7 +252,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Tech app',
     question: 'How do I record a video job walkthrough?',
     answer:
-      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job (tech Work or office job) → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save; the clip uploads directly to Supabase storage. Tap Generate Report — the server extracts frames (Grok see) and Whisper-transcribes audio (Grok hear); on iPhone this can take 1–2 minutes and shows a purple status at the top. Transcribe audio uses the same Whisper path. Keep clips under ~90s / ~80MB. Needs XAI_API_KEY + OPENAI_API_KEY. If upload errors mention kind/check or size, run supabase/ai-walkthrough-video.sql. Hard-refresh if your phone still shows an old layout.',
+      'Needs AI Job Walkthrough on (Settings → Feature modules). Open the job (tech Work or office job) → Record video walkthrough (hero button) — this opens your phone’s Camera app (not an in-browser recorder). Film and narrate, then Use/Save; the clip uploads. Tap Generate Report — on iPhone this can take 1–2 minutes and shows a purple status at the top. Keep clips under ~90 seconds. Hard-refresh if your phone still shows an old layout. If upload or Generate fails repeatedly, contact support.',
   },
   {
     id: 'ai-walkthrough-pdf',
@@ -266,7 +266,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Invoices & PDFs',
     question: 'What can customers see in the portal?',
     answer:
-      'Customer portal module on: from the customer profile, Customer portal link opens their account — open job status, pending estimates (Approve), unpaid invoices (Pay online if Stripe link exists), and recent completed jobs. Separate estimate/invoice token links still work for single documents. Run workflow-depth.sql so purpose “customer” is allowed.',
+      'Customer portal module on: from the customer profile, Customer portal link opens their account — open job status, pending estimates (Approve), unpaid invoices (Pay online if a Stripe link exists), and recent completed jobs. Separate estimate/invoice token links still work for single documents.',
   },
   {
     id: 'import-customers',
@@ -278,9 +278,9 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
   {
     id: 'wipe-import',
     category: 'Customers',
-    question: 'Wipe list failed with an equipment / jobs foreign key error.',
+    question: 'Wipe list failed because customers are linked to equipment or jobs.',
     answer:
-      'That was fixed: wipe clears job→equipment links before deleting customers. Refresh the app and try Wipe list again. Customers that already have jobs are kept so those jobs stay linked.',
+      'Refresh the app and try Wipe list again. Customers that already have jobs are kept so those jobs stay linked. If wipe still fails, contact support.',
   },
   {
     id: 'search-customers',
@@ -343,7 +343,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'What is the Job assistant on an office job?',
     answer:
-      'Needs AI tools on (Settings → Feature modules). Open any office job (/dashboard/jobs/…). Job assistant sits near the top and shows a proactive Missing to invoice banner (clock out, signature, pricing, send, paid) with Fix buttons that jump to time or invoice on the page — or Paid — nothing missing when collected. You can still ask chat: draft customer SMS/email, summarize for the owner, or next office steps. Answers use job notes, line items, invoice/payment status, closeout gaps, messages, and walkthrough data. Separate from the floating Help bot (product FAQ). Needs XAI_API_KEY.',
+      'Needs AI tools on (Settings → Feature modules). Open any office job. Job assistant sits near the top and shows a proactive Missing to invoice banner (clock out, signature, pricing, send, paid) with Fix buttons that jump to time or invoice on the page — or Paid — nothing missing when collected. You can still ask chat: draft customer SMS/email, summarize for the owner, or next office steps. Separate from the floating Help bot (product how-to).',
   },
   {
     id: 'pricebook',
@@ -364,14 +364,14 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Job costing & reports',
     question: 'How do I set up job costing so numbers are right?',
     answer:
-      '1) Enable Job costing & profit. 2) Settings → Job costing: target margin, burden, labor $/hr, overhead, optional weekly digest. 3) Tech wages. 4) Pricebook Cost + Sell + type. 5) Cost $ on job lines (inventory deduct fills cost). 6) Clock hours + wage = labor. Save lines to refresh P&L. Review estimate P&L before quoting.',
+      '1) Enable Job costing & profit. 2) Settings → Job costing: target margin, burden, labor $/hr, overhead, optional weekly digest. 3) Tech wages. 4) Pricebook Cost + Sell + type. 5) Cost $ on job lines (inventory deduct fills cost). 6) Clock hours + wage = labor. Save lines to refresh P&L. Review estimate P&L before quoting. If Sold/Cost/Profit still looks empty after that, double-check wages and costs are saved — then contact support.',
   },
   {
     id: 'costing-export-digest',
     category: 'Job costing & reports',
     question: 'How do I export job costing CSV or get a weekly profit email?',
     answer:
-      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit (needs Resend on the server). For payroll hours, see Payroll timesheets export.',
+      'Needs Job costing & Accounting export modules. Export → date range → Job costing (P&L) or Tech P&L summary. Weekly digest: Settings → Job costing → enable Weekly owner profit digest + email. Mondays email last week’s sold/cost/profit. For payroll hours, see Payroll timesheets export.',
   },
   {
     id: 'payroll-timesheets',

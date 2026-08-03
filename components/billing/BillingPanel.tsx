@@ -113,8 +113,7 @@ export function BillingPanel({
           </dl>
         ) : (
           <p className="text-sm text-ink-500">
-            Run <code className="font-mono">supabase/multi-tenant-saas.sql</code>{' '}
-            then sign out and back in to activate company billing.
+            No company linked yet. Sign out and back in, or contact support.
           </p>
         )}
 

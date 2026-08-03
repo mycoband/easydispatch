@@ -23,7 +23,7 @@ export async function createTeamMember(
     if (!profile.company_id) {
       return {
         error:
-          'No company linked. Sign out/in after running multi-tenant-saas.sql',
+          'No company linked. Sign out and back in, or contact support.',
       };
     }
 

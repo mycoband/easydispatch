@@ -459,7 +459,7 @@ export async function saveEquipmentPmChecklist(
     if (error) {
       return {
         error: /pm_checklist|column|schema cache/i.test(error.message)
-          ? 'Run supabase/workflow-depth.sql in Supabase first.'
+          ? 'Could not save checklist. Refresh and try again, or contact support.'
           : error.message,
       };
     }
@@ -619,7 +619,7 @@ export async function uploadPmChecklistPhoto(
     if (error) {
       return {
         error: /pm_checklist|column|schema cache/i.test(error.message)
-          ? 'Run supabase/workflow-depth.sql in Supabase first.'
+          ? 'Could not save photo. Refresh and try again, or contact support.'
           : error.message,
       };
     }

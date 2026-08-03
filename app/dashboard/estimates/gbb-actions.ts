@@ -99,7 +99,7 @@ export async function createGbbPackage(input: {
       return {
         error:
           error?.message.includes('package_id') || error?.code === '42703'
-            ? 'Run supabase/competitive-features.sql in Supabase first'
+            ? 'Could not create package option. Refresh and try again, or contact support.'
             : error?.message || 'Could not create package option',
       };
     }

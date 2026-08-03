@@ -59,7 +59,7 @@ export async function GET(
     return NextResponse.json(
       {
         error:
-          'Walkthrough column missing. Run supabase/ai-walkthrough.sql in Supabase.',
+          'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
       },
       { status: 400 }
     );

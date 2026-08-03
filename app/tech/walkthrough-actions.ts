@@ -43,7 +43,7 @@ async function loadAssignedJob(jobId: string) {
       if (retry.error || !retry.data) {
         throw new Error(
           retry.error?.message ||
-            'Job not found. Run supabase/ai-walkthrough.sql in Supabase.'
+            'Job not found. Refresh and try again, or contact support.'
         );
       }
       const office = isOfficeRole(profile.role);
@@ -90,7 +90,7 @@ export async function saveWalkthroughDraft(
     if (columnMissing) {
       return {
         error:
-          'Walkthrough column missing. Run supabase/ai-walkthrough.sql in the Supabase SQL editor.',
+          'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
       };
     }
 
@@ -119,7 +119,7 @@ export async function saveWalkthroughDraft(
       if (/walkthrough|column|schema cache/i.test(error.message)) {
         return {
           error:
-            'Walkthrough column missing. Run supabase/ai-walkthrough.sql in the Supabase SQL editor.',
+            'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
         };
       }
       return { error: error.message };
@@ -255,7 +255,7 @@ export async function transcribeWalkthroughVoice(
     if (columnMissing) {
       return {
         error:
-          'Walkthrough column missing. Run supabase/ai-walkthrough.sql in the Supabase SQL editor.',
+          'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
       };
     }
 
@@ -475,7 +475,7 @@ export async function generateWalkthroughReportAction(
     if (columnMissing) {
       return {
         error:
-          'Walkthrough column missing. Run supabase/ai-walkthrough.sql in the Supabase SQL editor.',
+          'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
       };
     }
 
@@ -650,7 +650,7 @@ export async function generateWalkthroughReportAction(
       if (!process.env.OPENAI_API_KEY?.trim()) {
         return {
           error:
-            'OPENAI_API_KEY is required so Grok can hear the video (Whisper). Add it in Vercel env, redeploy, then Generate again.',
+            'Video audio could not be processed right now. Try Generate again, or contact support if it keeps failing.',
         };
       }
       return {
@@ -803,7 +803,7 @@ export async function saveWalkthroughToJob(
     if (columnMissing) {
       return {
         error:
-          'Walkthrough column missing. Run supabase/ai-walkthrough.sql in the Supabase SQL editor.',
+          'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
       };
     }
 
@@ -835,7 +835,7 @@ export async function saveWalkthroughToJob(
       if (/walkthrough|column|schema cache/i.test(error.message)) {
         return {
           error:
-            'Walkthrough column missing. Run supabase/ai-walkthrough.sql in the Supabase SQL editor.',
+            'Walkthrough is unavailable on this job. Refresh and try again, or contact support.',
         };
       }
       return { error: error.message };

@@ -150,7 +150,7 @@ export async function GET(
         return NextResponse.json(
           {
             error: /cost_total|gross_profit|column/i.test(error.message)
-              ? 'Run supabase/job-costing.sql first, then export again.'
+              ? 'Job costing export is unavailable. Check Job costing is on in Settings, then try again or contact support.'
               : error.message,
           },
           { status: 500 }
@@ -213,7 +213,7 @@ export async function GET(
         return NextResponse.json(
           {
             error: /cost_total|gross_profit|column/i.test(error.message)
-              ? 'Run supabase/job-costing.sql first, then export again.'
+              ? 'Job costing export is unavailable. Check Job costing is on in Settings, then try again or contact support.'
               : error.message,
           },
           { status: 500 }

@@ -121,7 +121,7 @@ export async function saveCompanySettings(
         revalidatePath('/dashboard');
         return {
           success:
-            'Saved (run supabase/differentiation.sql to store Google review URL)',
+            'Saved. Google review URL could not be stored — check Settings or contact support.',
         };
       }
     }
@@ -129,7 +129,7 @@ export async function saveCompanySettings(
     if (error) {
       return {
         error: /google_review_url|column|schema cache/i.test(error.message)
-          ? 'Run supabase/differentiation.sql in Supabase, then save again.'
+          ? 'Could not save Google review URL. Check Settings, then try again, or contact support.'
           : error.message,
       };
     }

@@ -51,8 +51,8 @@ export async function upsertPricebookItem(
       revalidatePath('/dashboard/pricebook');
       return {
         success: id
-          ? 'Updated (run job-costing.sql to save costs)'
-          : 'Added (run job-costing.sql to save costs)',
+          ? 'Updated (cost fields unavailable — check Settings or contact support)'
+          : 'Added (cost fields unavailable — check Settings or contact support)',
       };
     }
   }
@@ -61,7 +61,7 @@ export async function upsertPricebookItem(
     return {
       error:
         error.message.includes('pricebook_items') || error.code === '42P01'
-          ? 'Run supabase/office-features.sql in Supabase first'
+          ? 'Pricebook is unavailable. Refresh and try again, or contact support.'
           : error.message,
     };
   }

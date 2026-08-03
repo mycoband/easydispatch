@@ -36,7 +36,7 @@ export async function saveCostingSettings(
   if (error) {
     return {
       error: /costing|column|schema cache/i.test(error.message)
-        ? 'Run supabase/job-costing.sql in Supabase first.'
+        ? 'Could not save costing settings. Check Settings, then try again, or contact support.'
         : error.message,
     };
   }
@@ -68,7 +68,7 @@ export async function saveTechWage(
   if (error) {
     return {
       error: /hourly_cost|burden_pct|column|schema cache/i.test(error.message)
-        ? 'Run supabase/job-costing.sql in Supabase first.'
+        ? 'Could not save wage. Check Settings, then try again, or contact support.'
         : error.message,
     };
   }

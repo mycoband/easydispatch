@@ -71,7 +71,7 @@ export async function saveRolePermissions(
       return {
         error:
           error.message.includes('role_permissions') || error.code === 'PGRST204'
-            ? `${error.message} — run supabase/role-permissions.sql in the SQL editor.`
+            ? 'Could not save permissions. Refresh, check Settings, or contact support.'
             : error.message,
       };
     }

@@ -63,7 +63,7 @@ export async function saveCompanyModules(
       return {
         error:
           error.message.includes('modules') || error.code === 'PGRST204'
-            ? `${error.message} — run supabase/company-modules.sql in the SQL editor.`
+            ? 'Could not save modules. Refresh, check Settings, or contact support.'
             : error.message,
       };
     }

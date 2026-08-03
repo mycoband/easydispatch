@@ -39,10 +39,9 @@ export default async function PricebookPage() {
 
       {error && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Pricebook table missing?</p>
+          <p className="font-semibold">Pricebook unavailable</p>
           <p className="mt-1">
-            Run <code className="font-mono">supabase/office-features.sql</code>{' '}
-            in the Supabase SQL editor, then refresh.
+            Refresh and try again. If this keeps happening, contact support.
           </p>
           <p className="mt-1 text-xs">{error.message}</p>
         </div>

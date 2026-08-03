@@ -27,7 +27,7 @@ export async function startCheckout(
     if (!profile.company_id) {
       return {
         error:
-          'No company linked yet. Run supabase/multi-tenant-saas.sql, then sign out/in.',
+          'No company linked yet. Sign out and back in, or contact support.',
       };
     }
 

@@ -42,7 +42,7 @@ export async function createPortalLink(input: {
     return {
       error:
         error.message.includes('portal_tokens') || error.code === '42P01'
-          ? 'Run supabase/office-features.sql in Supabase first'
+          ? 'Customer portal links are unavailable. Refresh and try again, or contact support.'
           : error.message,
     };
   }

@@ -42,7 +42,7 @@ function revalidatePartsPaths(jobId: string) {
 
 function missingTableError(error: { message: string; code?: string }) {
   return error.code === '42P01' || error.message.includes('job_part_orders')
-    ? 'Run supabase/competitive-features.sql in Supabase first'
+    ? 'Parts orders are unavailable. Refresh and try again, or contact support.'
     : error.message;
 }
 
