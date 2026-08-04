@@ -29,7 +29,10 @@ import {
 } from '@/lib/jobs/time-tracking';
 import { toDatetimeLocalValue } from '@/lib/jobs/totals';
 import { createClient } from '@/lib/supabase/client';
+import { DROP_TARGET_ATTR, usePointerBoardDrag } from '@/lib/ui/pointer-dnd';
 import { cn } from '@/lib/utils';
+
+const JOB_DRAG_MIME = 'text/job-id';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All statuses' },
@@ -70,7 +73,6 @@ export function DispatchBoard({
   const [jobs, setJobs] = useState(initialJobs);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingJobId, setPendingJobId] = useState<string | null>(null);
@@ -84,6 +86,16 @@ export function DispatchBoard({
     liveRealtime ? 'connecting' : 'off'
   );
   const [isPending, startTransition] = useTransition();
+
+  const dnd = usePointerBoardDrag({
+    onDrop: (jobId, columnKey) => {
+      const assignedTo = columnKey === 'unassigned' ? null : columnKey;
+      const job = jobs.find((j) => j.id === jobId);
+      if (!job) return;
+      if ((job.assigned_to || null) === assignedTo) return;
+      runAssign(jobId, assignedTo);
+    },
+  });
 
   useEffect(() => {
     setJobs(initialJobs);
@@ -299,20 +311,6 @@ export function DispatchBoard({
     });
   }
 
-  function onDropColumn(columnKey: string) {
-    return (e: React.DragEvent) => {
-      e.preventDefault();
-      setDragOverCol(null);
-      const jobId = e.dataTransfer.getData('text/job-id');
-      if (!jobId) return;
-      const assignedTo = columnKey === 'unassigned' ? null : columnKey;
-      const job = jobs.find((j) => j.id === jobId);
-      if (!job) return;
-      if ((job.assigned_to || null) === assignedTo) return;
-      runAssign(jobId, assignedTo);
-    };
-  }
-
   function renderCard(job: DispatchJob) {
     const live = deriveLiveStatus(job) as LiveStatus;
     const high = job.priority === 'High' || job.priority === 'Emergency';
@@ -343,22 +341,39 @@ export function DispatchBoard({
           ]
         : techs;
 
+    const isSource = dnd.draggingId === job.id;
     return (
       <article
         key={job.id}
         draggable={!busy}
         onDragStart={(e) => {
-          e.dataTransfer.setData('text/job-id', job.id);
-          e.dataTransfer.effectAllowed = 'move';
+          if (busy) {
+            e.preventDefault();
+            return;
+          }
+          dnd.onHtml5DragStart(e, job.id, JOB_DRAG_MIME);
         }}
+        onDragEnd={dnd.onHtml5DragEnd}
+        onPointerDown={(e) => {
+          if (busy) return;
+          dnd.onPointerDownChip(e, job.id, {
+            label: job.customer_name || 'Job',
+            high,
+          });
+        }}
+        onPointerMove={dnd.onPointerMoveChip}
+        onPointerUp={dnd.onPointerUpChip}
+        onPointerCancel={dnd.onPointerUpChip}
         className={cn(
-          'rounded-xl border p-3 text-xs shadow-sm transition',
+          'touch-none rounded-xl border p-3 text-xs shadow-sm transition',
           high
             ? 'border-red-300 bg-red-50/60'
             : overlappingIds.has(job.id)
               ? 'border-amber-400 bg-amber-50/70'
               : 'border-ink-200 bg-ink-50/80',
-          busy && 'opacity-60'
+          busy && 'opacity-60',
+          isSource && 'opacity-40 ring-2 ring-brand-400',
+          dnd.draggingId && !isSource && 'pointer-events-none'
         )}
       >
         <div className="mb-1 flex items-start justify-between gap-1">
@@ -600,21 +615,19 @@ export function DispatchBoard({
     return (
       <section
         key={key}
+        {...{ [DROP_TARGET_ATTR]: key }}
         className={cn(
-          'flex min-h-[360px] flex-col rounded-2xl border bg-white p-4',
+          'flex w-[280px] shrink-0 flex-col rounded-2xl border bg-white p-4 sm:w-[300px]',
+          'min-h-[360px]',
           overloaded
             ? 'border-amber-300 bg-amber-50/40'
             : 'border-ink-100',
-          dragOverCol === key && 'ring-2 ring-brand-400'
+          dnd.dropTargetKey === key && 'bg-brand-50/50 ring-2 ring-brand-400'
         )}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOverCol(key);
-        }}
-        onDragLeave={() => {
-          setDragOverCol((cur) => (cur === key ? null : cur));
-        }}
-        onDrop={onDropColumn(key)}
+        onDragEnter={(e) => dnd.onHtml5DragOverTarget(e, key)}
+        onDragOver={(e) => dnd.onHtml5DragOverTarget(e, key)}
+        onDragLeave={(e) => dnd.onHtml5DragLeaveTarget(e, key)}
+        onDrop={(e) => dnd.onHtml5DropTarget(e, key, JOB_DRAG_MIME)}
       >
         <div className="mb-3 flex items-start justify-between gap-2 px-0.5">
           <div>
@@ -674,11 +687,15 @@ export function DispatchBoard({
             Dispatch board
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Assign techs · Track status · Message customers
+            Drag jobs between columns (phone or computer) · Track status ·
+            Message customers
             {skillAware
               ? ' · Assign for me: skills + load + last location'
               : ''}
             {capacityWarnings ? ' · capacity warnings' : ''}
+          </p>
+          <p className="mt-1 text-xs text-ink-400 md:hidden">
+            Swipe sideways for more tech columns — same board as desktop
           </p>
           {liveRealtime && (
             <p
@@ -740,22 +757,24 @@ export function DispatchBoard({
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {renderColumn('unassigned', 'Unassigned', columns.unassigned)}
-        {columns.techCols.map(
-          ({ tech, jobs: techJobs, load, overloaded, overlapCount }) =>
-            renderColumn(
-              tech.id,
-              tech.full_name || 'Tech',
-              techJobs,
-              `${load.hours.toFixed(1)}h today${
-                skillAware
-                  ? ` · ${tech.skills?.slice(0, 3).join(', ') || 'no skills set'}`
-                  : ''
-              }`,
-              { overloaded, overlapCount }
-            )
-        )}
+      <div className="board-scroll -mx-1 px-1 pb-1">
+        <div className="flex min-w-max gap-4">
+          {renderColumn('unassigned', 'Unassigned', columns.unassigned)}
+          {columns.techCols.map(
+            ({ tech, jobs: techJobs, load, overloaded, overlapCount }) =>
+              renderColumn(
+                tech.id,
+                tech.full_name || 'Tech',
+                techJobs,
+                `${load.hours.toFixed(1)}h today${
+                  skillAware
+                    ? ` · ${tech.skills?.slice(0, 3).join(', ') || 'no skills set'}`
+                    : ''
+                }`,
+                { overloaded, overlapCount }
+              )
+          )}
+        </div>
       </div>
 
       {techs.length === 0 && (
@@ -763,6 +782,22 @@ export function DispatchBoard({
           No technician profiles yet. Create a user with role{' '}
           <span className="font-medium">technician</span> to get a column.
         </p>
+      )}
+
+      {dnd.ghost && (
+        <div
+          aria-hidden
+          className={cn(
+            'pointer-events-none fixed z-[80] w-40 -translate-x-1/2 -translate-y-full rounded-xl border p-2 text-left text-xs shadow-lg ring-2 ring-brand-500',
+            dnd.ghost.high
+              ? 'border-red-300 bg-red-50 text-red-900'
+              : 'border-ink-200 bg-white text-ink-900'
+          )}
+          style={{ left: dnd.ghost.x, top: dnd.ghost.y - 8 }}
+        >
+          <p className="truncate font-semibold">{dnd.ghost.label}</p>
+          <p className="text-[10px] text-ink-500">Drop on a column</p>
+        </div>
       )}
     </div>
   );

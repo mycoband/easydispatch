@@ -12,6 +12,7 @@ type NavItem = { href: string; label: string };
 const PRIMARY_HREFS = new Set([
   '/dashboard',
   '/dashboard/dispatch',
+  '/dashboard/calendar',
   '/dashboard/jobs',
   '/dashboard/customers',
   '/dashboard/invoices',
@@ -74,7 +75,7 @@ export function AppNav({
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-200/80 bg-white/95 backdrop-blur">
+    <header className="safe-top sticky top-0 z-40 border-b border-ink-200/80 bg-white/95 backdrop-blur">
       <div
         className={`mx-auto flex max-w-[1400px] items-center gap-3 px-4 ${
           dense ? 'h-14' : 'h-16'
@@ -120,7 +121,7 @@ export function AppNav({
           {helpHref && (
             <Link
               href={helpHref}
-              className={`hidden rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold sm:inline-flex ${
+              className={`hidden min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold sm:inline-flex ${
                 isActive(helpHref)
                   ? 'border-brand-200 bg-brand-50 text-brand-800'
                   : 'text-ink-800 hover:bg-ink-50'
@@ -132,7 +133,7 @@ export function AppNav({
           {settingsHref && (
             <Link
               href={settingsHref}
-              className={`hidden rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold sm:inline-flex ${
+              className={`hidden min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold sm:inline-flex ${
                 isActive(settingsHref)
                   ? 'border-brand-200 bg-brand-50 text-brand-800'
                   : 'text-ink-800 hover:bg-ink-50'
@@ -148,38 +149,41 @@ export function AppNav({
             <p className="text-xs text-ink-500">{roleLabel(profile.role)}</p>
           </div>
           <SignOutButton />
-          {moreItems.length > 0 && (
-            <button
-              type="button"
-              className="rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-semibold text-ink-800 md:hidden"
-              onClick={() => setMoreOpen((v) => !v)}
-            >
-              More
-            </button>
-          )}
+          <button
+            type="button"
+            className="min-h-11 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-semibold text-ink-800 md:hidden"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-expanded={moreOpen}
+          >
+            More
+          </button>
         </div>
       </div>
 
-      <nav className="flex gap-1 overflow-x-auto border-t border-ink-100 px-2 py-1 md:hidden">
+      <nav className="board-scroll flex gap-1 border-t border-ink-100 px-2 py-1 md:hidden">
         {primaryItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className={linkClass(isActive(item.href), true)}
+            className={linkClass(isActive(item.href), true) + ' min-h-11 inline-flex items-center'}
           >
             {item.label}
           </Link>
         ))}
       </nav>
 
-      {moreOpen && moreItems.length > 0 && (
+      {moreOpen && (
         <div className="border-t border-ink-100 bg-white px-3 py-2 md:hidden">
           <div className="flex flex-wrap gap-1">
-            {moreItems.map((item) => (
+            {/* Full destination list — same IA as desktop nav */}
+            {items.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={linkClass(isActive(item.href), true)}
+                className={
+                  linkClass(isActive(item.href), true) +
+                  ' min-h-11 inline-flex items-center'
+                }
                 onClick={() => setMoreOpen(false)}
               >
                 {item.label}
@@ -188,7 +192,10 @@ export function AppNav({
             {helpHref && (
               <Link
                 href={helpHref}
-                className={linkClass(isActive(helpHref), true)}
+                className={
+                  linkClass(isActive(helpHref), true) +
+                  ' min-h-11 inline-flex items-center'
+                }
                 onClick={() => setMoreOpen(false)}
               >
                 Help
@@ -197,7 +204,10 @@ export function AppNav({
             {settingsHref && (
               <Link
                 href={settingsHref}
-                className={linkClass(isActive(settingsHref), true)}
+                className={
+                  linkClass(isActive(settingsHref), true) +
+                  ' min-h-11 inline-flex items-center'
+                }
                 onClick={() => setMoreOpen(false)}
               >
                 Settings

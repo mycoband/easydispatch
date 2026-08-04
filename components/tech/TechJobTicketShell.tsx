@@ -112,7 +112,7 @@ function TechJobTicketShellInner({
       {header}
 
       <div
-        className="sticky top-14 z-30 rounded-xl border border-ink-200 bg-white/95 p-1 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90"
+        className="sticky top-16 z-30 rounded-xl border border-ink-200 bg-white/95 p-1 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:top-14"
         role="tablist"
         aria-label="Job phases"
       >
@@ -150,7 +150,7 @@ function TechJobTicketShellInner({
       </div>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
-        <div className="pointer-events-auto border-t border-ink-200 bg-white/95 px-4 py-3 pr-20 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:pr-4">
+        <div className="pointer-events-auto safe-bottom border-t border-ink-200 bg-white/95 px-4 py-3 pr-4 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90">
           <div className="mx-auto flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-ink-500 sm:max-w-[40%]">{sticky.hint}</p>
             <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -158,7 +158,7 @@ function TechJobTicketShellInner({
                 <button
                   type="button"
                   onClick={() => setPhase(sticky.secondaryPhase!)}
-                  className="rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
+                  className="min-h-11 rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink-800 hover:bg-ink-50"
                 >
                   {sticky.secondaryLabel}
                 </button>
@@ -166,7 +166,7 @@ function TechJobTicketShellInner({
               {sticky.primaryHref ? (
                 <Link
                   href={sticky.primaryHref}
-                  className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+                  className="inline-flex min-h-11 items-center rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
                 >
                   {sticky.primaryLabel}
                 </Link>
@@ -176,7 +176,7 @@ function TechJobTicketShellInner({
                   onClick={() =>
                     sticky.primaryPhase && setPhase(sticky.primaryPhase)
                   }
-                  className="rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+                  className="min-h-11 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
                 >
                   {sticky.primaryLabel}
                 </button>

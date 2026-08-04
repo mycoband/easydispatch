@@ -167,8 +167,8 @@ export default async function InvoicesPage({
         </p>
       )}
 
-      <div className="panel overflow-hidden">
-        <table className="w-full text-left text-sm">
+      <div className="panel board-scroll overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="border-b border-ink-100 bg-ink-50/80 text-xs uppercase tracking-wide text-ink-500">
             <tr>
               <th className="px-4 py-3 font-medium">Job</th>
@@ -218,6 +218,10 @@ export default async function InvoicesPage({
                       <p className="mt-0.5 text-xs text-ink-400">
                         {job.status}
                       </p>
+                      <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
+                        <InvoiceStatusBadge status={job.invoice_status} />
+                        <PaymentStatusBadge status={job.payment_status} />
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-ink-800">
                       {job.customer_name || '—'}

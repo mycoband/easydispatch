@@ -122,11 +122,18 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
       'Enable Day capacity warnings. Dispatch columns and Day sheet flag techs over ~8h estimated work and jobs whose scheduled windows overlap (uses scheduled end or est hours). Overlapping cards show an Overlap badge.',
   },
   {
+    id: 'install-app',
+    category: 'Getting started',
+    question: 'How do I install EasyDispatch on phone, tablet, or computer?',
+    answer:
+      'Same app everywhere — install once per device. Windows/Mac (Chrome or Edge): use the Install EasyDispatch banner or the browser Install / App menu. Android (Chrome): Install or Add to Home screen. iPhone/iPad (Safari): Share → Add to Home Screen. Opens full-screen without browser chrome; office and tech screens match what you see in the browser.',
+  },
+  {
     id: 'offline-queue',
     category: 'Tech app',
     question: 'Can techs save notes and time when offline?',
     answer:
-      'Enable Offline notes & time. On a job, Drive/Arrive/Clock Out and Save notes queue in the browser when signal drops, then auto-sync when online (banner shows Sync now). Better than view-only offline — still not a full offline app like Housecall Pro.',
+      'Enable Offline notes & time. Install the app for a home-screen icon that can open when briefly offline. On a job, Drive/Arrive/Clock Out and Save notes queue when signal drops, then auto-sync when online (banner shows Sync now). Notes/time sync is the offline focus — not a full offline media library.',
   },
   {
     id: 'skill-dispatch',
@@ -147,7 +154,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do I use the Dispatch board?',
     answer:
-      'Enable Dispatch board. Drag jobs onto a tech column or use Reassign. Set Time on a card. Message customers from the card when Customer messaging is on. Pair Live dispatch board for realtime En Route/On Site.',
+      'Enable Dispatch board. Same board on phone and computer: drag jobs onto a tech column (or Unassigned) with mouse or finger; on phone, swipe sideways for more columns. Or use Reassign. Set Time on a card. Message customers from the card when Customer messaging is on. Pair Live dispatch board for realtime En Route/On Site.',
   },
   {
     id: 'voice-notes',

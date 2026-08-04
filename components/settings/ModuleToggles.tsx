@@ -130,13 +130,13 @@ export function ModuleToggles({
                     role="switch"
                     aria-checked={on}
                     onClick={() => toggle(mod.id)}
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                    className={`relative h-11 w-[3.25rem] shrink-0 rounded-full transition ${
                       on ? 'bg-brand-600' : 'bg-ink-200'
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition ${
-                        on ? 'left-5' : 'left-0.5'
+                      className={`absolute top-1 h-9 w-9 rounded-full bg-white shadow transition ${
+                        on ? 'left-[1.35rem]' : 'left-1'
                       }`}
                     />
                   </button>

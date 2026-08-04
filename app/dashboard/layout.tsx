@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AppNav } from '@/components/AppNav';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
+import { InstallAppPrompt } from '@/components/pwa/InstallAppPrompt';
 import { TechViewToggle } from '@/components/tech/TechViewToggle';
 import { isOfficeTechViewEnabled, requireOffice } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
@@ -99,6 +100,7 @@ export default async function OfficeLayout({
           ) : undefined
         }
       />
+      <InstallAppPrompt />
       {billingBanner && (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-950">
           {billingBanner}{' '}

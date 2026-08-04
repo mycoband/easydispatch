@@ -449,50 +449,6 @@ export default async function JobDetailPage({
         )}
       </div>
 
-      {mods.invoices && (
-        <div id="job-invoice" className="scroll-mt-24">
-          <JobInvoicePanel
-            jobId={job.id}
-            customerId={job.customer_id}
-            total={Number(job.total) || 0}
-            invoiceStatus={job.invoice_status}
-            paymentStatus={job.payment_status}
-            invoiceSentAt={job.invoice_sent_at}
-            paymentMethod={job.payment_method}
-            paymentLink={job.stripe_payment_link}
-            hasPhone={hasPhone}
-            hasEmail={hasEmail}
-            allowPdf={Boolean(mods.print_pdfs)}
-          />
-        </div>
-      )}
-
-      {mods.part_orders && (
-        <>
-          <JobPickTickets
-            jobId={job.id}
-            jobNumber={job.job_number}
-            tickets={pickTickets}
-            enableAi={Boolean(mods.ai)}
-          />
-          <JobPartsOrders jobId={job.id} orders={partOrders} />
-        </>
-      )}
-
-      {costingSnapshot && (
-        <JobCostingPanel
-          snapshot={costingSnapshot}
-          coachEnabled={Boolean(mods.ai)}
-        />
-      )}
-
-      {mods.messaging && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <JobMessageActions jobId={job.id} hasPhone={hasPhone} allowCustom />
-          <JobMessageLog messages={messages ?? []} />
-        </div>
-      )}
-
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
         <section className="panel p-5">
           <h2 className="mb-4 font-display text-lg font-semibold text-ink-950">
@@ -537,6 +493,50 @@ export default async function JobDetailPage({
           }))}
         />
       </div>
+
+      {mods.invoices && (
+        <div id="job-invoice" className="scroll-mt-24">
+          <JobInvoicePanel
+            jobId={job.id}
+            customerId={job.customer_id}
+            total={Number(job.total) || 0}
+            invoiceStatus={job.invoice_status}
+            paymentStatus={job.payment_status}
+            invoiceSentAt={job.invoice_sent_at}
+            paymentMethod={job.payment_method}
+            paymentLink={job.stripe_payment_link}
+            hasPhone={hasPhone}
+            hasEmail={hasEmail}
+            allowPdf={Boolean(mods.print_pdfs)}
+          />
+        </div>
+      )}
+
+      {mods.part_orders && (
+        <>
+          <JobPickTickets
+            jobId={job.id}
+            jobNumber={job.job_number}
+            tickets={pickTickets}
+            enableAi={Boolean(mods.ai)}
+          />
+          <JobPartsOrders jobId={job.id} orders={partOrders} />
+        </>
+      )}
+
+      {costingSnapshot && (
+        <JobCostingPanel
+          snapshot={costingSnapshot}
+          coachEnabled={Boolean(mods.ai)}
+        />
+      )}
+
+      {mods.messaging && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <JobMessageActions jobId={job.id} hasPhone={hasPhone} allowCustom />
+          <JobMessageLog messages={messages ?? []} />
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ExportKind } from '@/lib/export/kinds';
+import { isIosSafari, isStandaloneDisplay } from '@/lib/ui/platform';
 
 function monthStartDateStr() {
   const d = new Date();
@@ -85,7 +86,14 @@ export function ExportPanel({
     setMessage(null);
     try {
       const qs = usesDateRange ? `?from=${from}&to=${to}` : '';
-      const res = await fetch(`/api/export/${kind}${qs}`);
+      const href = `/api/export/${kind}${qs}`;
+      // iOS / installed PWA: blob + <a download> often fails — open the CSV URL
+      if (isStandaloneDisplay() || isIosSafari()) {
+        window.location.assign(href);
+        setMessage('Opening CSV…');
+        return;
+      }
+      const res = await fetch(href);
       if (!res.ok) {
         const body = await res.json().catch(() => null);
         throw new Error(body?.error || `Export failed (${res.status})`);
@@ -166,7 +174,7 @@ export function ExportPanel({
               type="button"
               disabled={pending === exp.kind}
               onClick={() => download(exp.kind, exp.usesDateRange)}
-              className="mt-4 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
             >
               {pending === exp.kind ? 'Preparing…' : 'Download CSV'}
             </button>

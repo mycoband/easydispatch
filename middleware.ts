@@ -48,7 +48,8 @@ export async function middleware(request: NextRequest) {
     return redirectWithSession(url, supabaseResponse);
   }
 
-  // Avoid stale HTML on iOS Safari (was showing old walkthrough UI after deploys)
+  // App HTML: always revalidate (avoid stale iOS Safari shells after deploys).
+  // PWA static assets (/icons, /sw.js, manifest) are excluded from this matcher.
   supabaseResponse.headers.set(
     'Cache-Control',
     'private, no-cache, no-store, must-revalidate'
@@ -58,6 +59,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    /*
+     * Run auth on app routes. Skip Next static, images, and PWA shell assets
+     * so the service worker can cache them with long-lived headers.
+     */
+    '/((?!_next/static|_next/image|favicon\\.ico|favicon\\.png|apple-touch-icon\\.png|manifest\\.webmanifest|sw\\.js|offline\\.html|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

@@ -38,7 +38,7 @@ export const COMPANY_MODULES = [
     id: 'dispatch',
     label: 'Dispatch board',
     description: 'Assign techs and watch En Route / On Site status',
-    help: 'Office → Dispatch. Drag jobs onto tech columns or use Reassign. Unassigned open jobs also appear in Dashboard → Needs you. Pair with Live dispatch board for realtime status.',
+    help: 'Office → Dispatch. Same columns on phone and computer — drag a job onto a tech column (or Unassigned) with mouse or finger; swipe sideways for more columns. Or use Reassign. Unassigned open jobs also appear in Dashboard → Needs you. Pair with Live dispatch board for realtime status.',
     href: '/dashboard/dispatch',
     defaultEnabled: true,
     group: 'Scheduling',
@@ -304,7 +304,7 @@ export const COMPANY_MODULES = [
     label: 'Offline notes & time',
     description:
       'Queue diagnosis notes and Drive/Arrive/Clock Out when signal drops; sync when back online',
-    help: 'On tech job (Arrive / Wrap): banner shows Offline / Sync now. Queues Save notes and time buttons in the browser until online. After sync, Arrive still advances to Work and Clock out to Wrap up on the tech ticket.',
+    help: 'Install EasyDispatch to the home screen for a full-screen app. On tech job (Arrive / Wrap): banner shows Offline / Sync now. Queues Save notes and time buttons until online. The installed app can open offline to a simple shell; notes/time still need this module. After sync, Arrive still advances to Work and Clock out to Wrap up.',
     href: null,
     defaultEnabled: true,
     group: 'Field / tech',

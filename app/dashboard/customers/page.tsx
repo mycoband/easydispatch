@@ -144,6 +144,9 @@ export default async function CustomersPage({
                     <p className="mt-0.5 text-xs text-ink-500 md:hidden">
                       {formatAddress(customer) || '—'}
                     </p>
+                    <p className="mt-0.5 text-xs text-ink-500 lg:hidden">
+                      {customer.phone || 'No phone'}
+                    </p>
                   </td>
                   <td className="hidden px-4 py-3 text-ink-600 md:table-cell">
                     {formatAddress(customer) || '—'}
@@ -154,7 +157,7 @@ export default async function CustomersPage({
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/dashboard/customers/${customer.id}`}
-                      className="text-sm font-medium text-brand-700 hover:text-brand-800"
+                      className="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 hover:text-brand-800"
                     >
                       Open
                     </Link>

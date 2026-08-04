@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { HelpChat } from '@/components/help/HelpChat';
 import { cn } from '@/lib/utils';
 
@@ -13,7 +14,12 @@ type Props = {
  * Conversation is kept in sessionStorage so it survives navigation.
  */
 export function HelpChatWidget({ faqHref = '/faq' }: Props) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  /** Tech job ticket has a sticky CTA footer — lift help above it */
+  const aboveTicketFooter = Boolean(
+    pathname?.match(/^\/tech\/jobs\/[^/]+/)
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -26,7 +32,14 @@ export function HelpChatWidget({ faqHref = '/faq' }: Props) {
   }, [open]);
 
   return (
-    <div className="pointer-events-none fixed bottom-20 right-4 z-50 flex flex-col items-end gap-3 sm:bottom-20 sm:right-6">
+    <div
+      className={cn(
+        'pointer-events-none fixed right-4 z-50 flex flex-col items-end gap-3 sm:right-6',
+        aboveTicketFooter
+          ? 'bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))]'
+          : 'bottom-20 sm:bottom-20'
+      )}
+    >
       {open ? (
         <div
           className="pointer-events-auto w-[min(100vw-2rem,24rem)] overflow-hidden"

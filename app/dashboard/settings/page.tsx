@@ -93,14 +93,52 @@ export default async function SettingsPage() {
         </div>
         <Link
           href="/dashboard/settings/billing"
-          className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+          className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
         >
           Billing & plan
         </Link>
       </div>
 
+      <nav
+        aria-label="Settings sections"
+        className="flex flex-wrap gap-2 text-sm"
+      >
+        {canManageTeam && (
+          <a
+            href="#settings-team"
+            className="inline-flex min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 font-medium text-ink-700 hover:bg-ink-50"
+          >
+            Team
+          </a>
+        )}
+        {canPermissions && (
+          <a
+            href="#settings-permissions"
+            className="inline-flex min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 font-medium text-ink-700 hover:bg-ink-50"
+          >
+            Permissions
+          </a>
+        )}
+        {canModules && (
+          <a
+            href="#settings-modules"
+            className="inline-flex min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 font-medium text-ink-700 hover:bg-ink-50"
+          >
+            Modules
+          </a>
+        )}
+        {canSettings && (
+          <a
+            href="#settings-company"
+            className="inline-flex min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 font-medium text-ink-700 hover:bg-ink-50"
+          >
+            Company
+          </a>
+        )}
+      </nav>
+
       {canManageTeam && (
-        <section className="panel p-5">
+        <section id="settings-team" className="panel scroll-mt-24 p-5">
           <TeamMembersPanel
             members={members}
             inviteCode={tenant?.invite_code ?? null}
@@ -118,7 +156,7 @@ export default async function SettingsPage() {
       )}
 
       {canPermissions && (
-        <section className="panel p-5">
+        <section id="settings-permissions" className="panel scroll-mt-24 p-5">
           <h2 className="mb-1 font-display text-lg font-semibold text-ink-950">
             Role permissions
           </h2>
@@ -131,7 +169,7 @@ export default async function SettingsPage() {
       )}
 
       {canModules && (
-        <section className="panel p-5">
+        <section id="settings-modules" className="panel scroll-mt-24 p-5">
           <h2 className="mb-1 font-display text-lg font-semibold text-ink-950">
             Feature modules
           </h2>
@@ -174,7 +212,7 @@ export default async function SettingsPage() {
       )}
 
       {canSettings && (
-        <section className="panel p-5">
+        <section id="settings-company" className="panel scroll-mt-24 p-5">
           <h2 className="mb-4 font-display text-lg font-semibold text-ink-950">
             Company profile
           </h2>

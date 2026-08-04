@@ -605,7 +605,7 @@ export function JobWalkthroughPanel({
 
       {/* Sticky status so iPhone users see progress above the fold */}
       {(busy || message || error) && (
-        <div className="sticky top-16 z-20 space-y-2">
+        <div className="sticky top-28 z-20 space-y-2 sm:top-20">
           {busy && (
             <p className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">
               {message ||
@@ -878,7 +878,7 @@ export function JobWalkthroughPanel({
                           type="button"
                           disabled={busy}
                           onClick={() => void transcribe(a.id)}
-                          className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50"
+                          className="inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
                         >
                           {pending === `tx-${a.id}`
                             ? 'Transcribing…'
@@ -890,7 +890,7 @@ export function JobWalkthroughPanel({
                           type="button"
                           disabled={busy}
                           onClick={() => void removeMedia(a.id)}
-                          className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
+                          className="inline-flex min-h-11 items-center rounded-lg px-2 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                         >
                           {pending === `del-${a.id}` ? 'Removing…' : 'Delete'}
                         </button>

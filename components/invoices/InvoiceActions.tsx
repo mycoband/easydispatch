@@ -69,8 +69,17 @@ export function InvoiceActions({
   }
 
   const btn = compact
-    ? 'rounded-lg px-2.5 py-1 text-xs font-semibold transition disabled:opacity-50'
-    : 'rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50';
+    ? 'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-50 sm:min-h-0 sm:px-2.5 sm:py-1'
+    : 'inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-50';
+
+  const sendBlockedReason =
+    !allowSend || paid
+      ? null
+      : total <= 0
+        ? 'Add priced line items first'
+        : !hasPhone && !hasEmail
+          ? 'Customer needs phone or email'
+          : null;
 
   return (
     <div className={cn('space-y-2', compact ? '' : '')}>
@@ -82,7 +91,6 @@ export function InvoiceActions({
               btn,
               'border border-ink-200 bg-white text-ink-700 hover:bg-ink-50'
             )}
-            title="Download branded invoice PDF"
           >
             PDF
           </a>
@@ -98,15 +106,6 @@ export function InvoiceActions({
                 ? 'bg-ink-900 text-white hover:bg-ink-800'
                 : 'bg-ink-100 text-ink-400'
             )}
-            title={
-              total <= 0
-                ? 'Add priced line items first'
-                : !hasPhone && !hasEmail
-                  ? 'Customer needs phone or email'
-                  : sent
-                    ? 'Resend invoice'
-                    : 'Send invoice'
-            }
           >
             {pending?.startsWith('send')
               ? 'Sending…'
@@ -142,6 +141,16 @@ export function InvoiceActions({
           </>
         )}
       </div>
+      {sendBlockedReason && (
+        <p
+          className={cn(
+            'text-ink-500',
+            compact ? 'text-right text-[10px]' : 'text-sm'
+          )}
+        >
+          {sendBlockedReason}
+        </p>
+      )}
       {paid && (
         <p className={cn('text-emerald-700', compact ? 'text-xs' : 'text-sm')}>
           Paid

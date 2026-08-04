@@ -350,7 +350,7 @@ export default async function ReportsPage({
         </div>
       </div>
 
-      <section className="panel overflow-hidden">
+      <section className="panel board-scroll overflow-x-auto">
         <div className="border-b border-ink-100 px-4 py-3">
           <h2 className="font-semibold">AR aging</h2>
           <p className="text-xs text-ink-400">
@@ -379,7 +379,7 @@ export default async function ReportsPage({
         </div>
       </section>
 
-      <section className="panel overflow-hidden">
+      <section className="panel board-scroll overflow-x-auto">
         <div className="border-b border-ink-100 px-4 py-3">
           <h2 className="font-semibold">
             {showCosting ? 'Tech productivity & profit' : 'Tech productivity'}
@@ -451,7 +451,7 @@ export default async function ReportsPage({
       </section>
 
       {showCosting && (
-        <section className="panel overflow-hidden">
+        <section className="panel board-scroll overflow-x-auto">
           <div className="border-b border-ink-100 px-4 py-3">
             <h2 className="font-semibold">Profit by job type</h2>
           </div>
@@ -506,7 +506,7 @@ export default async function ReportsPage({
       )}
 
       {showCosting && worstJobs.length > 0 && (
-        <section className="panel overflow-hidden">
+        <section className="panel board-scroll overflow-x-auto">
           <div className="border-b border-ink-100 px-4 py-3">
             <h2 className="font-semibold">Lowest profit jobs</h2>
           </div>
@@ -538,7 +538,7 @@ export default async function ReportsPage({
         </section>
       )}
 
-      <section className="panel overflow-hidden">
+      <section className="panel board-scroll overflow-x-auto">
         <div className="flex items-center justify-between border-b border-ink-100 px-4 py-3">
           <h2 className="font-semibold">Unpaid invoices</h2>
           <Link

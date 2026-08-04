@@ -1,0 +1,22 @@
+{
+  "appId": "app.easydispatch.shop",
+  "appName": "EasyDispatch",
+  "webDir": "www",
+  "server": {
+    "url": "https://easydispatch.vercel.app",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0f172a"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { AppNav } from '@/components/AppNav';
 import { HelpChatWidget } from '@/components/help/HelpChatWidget';
+import { InstallAppPrompt } from '@/components/pwa/InstallAppPrompt';
 import { TechViewToggle } from '@/components/tech/TechViewToggle';
 import { requireTechApp } from '@/lib/auth';
 import { loadCompanySettings } from '@/lib/company';
@@ -29,6 +30,7 @@ export default async function TechLayout({
         companyLogoUrl={company.logo_url}
         helpHref="/tech/help"
       />
+      <InstallAppPrompt />
       {techViewPreview && <TechViewToggle enabled variant="banner" />}
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">{children}</main>
       <HelpChatWidget faqHref="/tech/help" />
