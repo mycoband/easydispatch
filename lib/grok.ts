@@ -1058,6 +1058,7 @@ Known product facts:
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
 - Job assistant (office): on a job page when AI tools is on — proactive Missing to invoice banner with Fix jumps plus chat (draft customer text, owner summary). Separate from the floating Help bot (how-to FAQ).
 - Job costing: enable Job costing & profit; set wages and pricebook costs; Sold/Cost/Profit on each job. If numbers stay empty after setup, contact support — do not tell users to run SQL.
+- Calendar: Office → Calendar is the same 7-day week/month board on phone and desktop. Drag a job to another day (works on iPhone); tap/click a job to edit time & duration.
 - Pick tickets: on a job (office or assigned tech) with Special-order parts on — upload counter slip photo → Extract with AI → review lines → Add parts to that job # (Received).
 - Payroll timesheets (not full payroll): with Accounting export on, Office → Export → Payroll timesheets CSV — clocked job hours by tech for a date range, regular vs OT, for Gusto/ADP/QB Payroll import. No direct deposit or tax filing in EasyDispatch.
 - The FAQ block below starts with the full module catalog (labels, groups, how-to) — prefer that list; do not invent modules not listed.

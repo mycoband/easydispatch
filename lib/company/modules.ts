@@ -77,8 +77,8 @@ export const COMPANY_MODULES = [
     id: 'calendar',
     label: 'Calendar',
     description:
-      'Week/month view — drag to change day, click to edit start time & duration',
-    help: 'Office → Calendar. Drag a job to another day; click to edit start time and duration hours.',
+      'Week/month board — drag jobs between days on phone or computer',
+    help: 'Office → Calendar. Same 7-day board on phone and desktop — drag a job to another day (time kept); tap/click to edit start time and duration.',
     href: '/dashboard/calendar',
     defaultEnabled: true,
     group: 'Scheduling',

@@ -308,7 +308,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How do I reschedule a job on the calendar?',
     answer:
-      'Needs Calendar module on. Drag a job onto another day (time of day is kept). Click a job to edit start time and duration (hours), then Save — or Open job for full details.',
+      'Needs Calendar module on. Phone and desktop use the same week/month board (scroll sideways on a small screen if needed). Drag a job onto another day — time of day is kept. Tap or click a job to edit start time and duration (hours), then Save — or Open job for full details.',
   },
   {
     id: 'day-sheet',

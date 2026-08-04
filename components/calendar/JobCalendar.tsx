@@ -9,6 +9,7 @@ import {
   useState,
   useTransition,
   type DragEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { isSameMonth } from 'date-fns';
 import {
@@ -48,6 +49,7 @@ export type CalendarJob = {
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DRAG_MIME = 'application/x-easydispatch-job';
+const TOUCH_DRAG_THRESHOLD_PX = 10;
 
 function hrefFor(
   view: CalendarView,
@@ -86,6 +88,12 @@ function groupJobs(jobs: CalendarJob[]) {
   return byDay;
 }
 
+function dateKeyFromPoint(clientX: number, clientY: number): string | null {
+  const el = document.elementFromPoint(clientX, clientY);
+  const cell = el?.closest('[data-cal-day]') as HTMLElement | null;
+  return cell?.dataset.calDay || null;
+}
+
 export function JobCalendar({
   view,
   weekOffset,
@@ -104,11 +112,27 @@ export function JobCalendar({
   const [localJobs, setLocalJobs] = useState(jobs);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [touchGhost, setTouchGhost] = useState<{
+    label: string;
+    high: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTime, setEditTime] = useState('09:00');
   const [editHours, setEditHours] = useState('');
   const dragMoved = useRef(false);
+  const dragOverDateRef = useRef<string | null>(null);
+  const touchDragRef = useRef<{
+    jobId: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    active: boolean;
+    label: string;
+    high: boolean;
+  } | null>(null);
 
   useEffect(() => {
     setLocalJobs(jobs);
@@ -156,6 +180,31 @@ export function JobCalendar({
     date: highlightDate,
   });
 
+  function setDropTarget(dateKey: string | null) {
+    dragOverDateRef.current = dateKey;
+    setDragOverDate(dateKey);
+  }
+
+  function commitMove(jobId: string, dateKey: string) {
+    const job = localJobs.find((j) => j.id === jobId);
+    const currentKey = scheduledLocalDateKey(job?.scheduled_start);
+    if (currentKey === dateKey) return;
+
+    dragMoved.current = true;
+    const snapshot = localJobs;
+    applyOptimisticMove(jobId, dateKey);
+
+    startTransition(async () => {
+      const result = await moveJobToDate(jobId, dateKey);
+      if (result.error) {
+        setLocalJobs(snapshot);
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   function onDragStart(e: DragEvent, job: CalendarJob) {
     dragMoved.current = false;
     setDraggingId(job.id);
@@ -167,28 +216,28 @@ export function JobCalendar({
 
   function onDragEnd() {
     setDraggingId(null);
-    setDragOverDate(null);
+    setDropTarget(null);
   }
 
   function onDragOverDay(e: DragEvent, dateKey: string) {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    if (dragOverDate !== dateKey) setDragOverDate(dateKey);
+    if (dragOverDateRef.current !== dateKey) setDropTarget(dateKey);
   }
 
   function onDragEnterDay(e: DragEvent, dateKey: string) {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    setDragOverDate(dateKey);
+    setDropTarget(dateKey);
   }
 
   /** Ignore leave events that are just moving into a child (label, +, job chip). */
   function onDragLeaveDay(e: DragEvent, dateKey: string) {
     const related = e.relatedTarget as Node | null;
     if (related && e.currentTarget.contains(related)) return;
-    if (dragOverDate === dateKey) setDragOverDate(null);
+    if (dragOverDateRef.current === dateKey) setDropTarget(null);
   }
 
   function applyOptimisticMove(jobId: string, dateKey: string) {
@@ -210,27 +259,78 @@ export function JobCalendar({
     e.stopPropagation();
     const jobId =
       e.dataTransfer.getData(DRAG_MIME) || e.dataTransfer.getData('text/plain');
-    setDragOverDate(null);
+    setDropTarget(null);
     setDraggingId(null);
     if (!jobId) return;
+    commitMove(jobId, dateKey);
+  }
 
-    const job = localJobs.find((j) => j.id === jobId);
-    const currentKey = scheduledLocalDateKey(job?.scheduled_start);
-    if (currentKey === dateKey) return;
+  /** iOS/Safari: HTML5 drag is unreliable — use pointer drag for touch/pen. */
+  function onJobPointerDown(e: ReactPointerEvent, job: CalendarJob) {
+    if (e.pointerType === 'mouse' || e.button !== 0) return;
+    const high = job.priority === 'High' || job.priority === 'Emergency';
+    touchDragRef.current = {
+      jobId: job.id,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+      label: job.customer_name || 'Customer',
+      high,
+    };
+    setError(null);
+  }
 
-    dragMoved.current = true;
-    const snapshot = localJobs;
-    applyOptimisticMove(jobId, dateKey);
+  function onJobPointerMove(e: ReactPointerEvent) {
+    const pd = touchDragRef.current;
+    if (!pd || pd.pointerId !== e.pointerId) return;
 
-    startTransition(async () => {
-      const result = await moveJobToDate(jobId, dateKey);
-      if (result.error) {
-        setLocalJobs(snapshot);
-        setError(result.error);
-        return;
+    const dx = e.clientX - pd.startX;
+    const dy = e.clientY - pd.startY;
+    if (!pd.active) {
+      if (Math.hypot(dx, dy) < TOUCH_DRAG_THRESHOLD_PX) return;
+      pd.active = true;
+      dragMoved.current = false;
+      setDraggingId(pd.jobId);
+      try {
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
       }
-      router.refresh();
+    }
+
+    e.preventDefault();
+    setTouchGhost({
+      label: pd.label,
+      high: pd.high,
+      x: e.clientX,
+      y: e.clientY,
     });
+    setDropTarget(dateKeyFromPoint(e.clientX, e.clientY));
+  }
+
+  function endTouchDrag(e: ReactPointerEvent, job: CalendarJob) {
+    const pd = touchDragRef.current;
+    touchDragRef.current = null;
+    setTouchGhost(null);
+    if (!pd || pd.pointerId !== e.pointerId) return;
+
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    if (!pd.active) {
+      openScheduleEditor(job);
+      return;
+    }
+
+    const dateKey =
+      dragOverDateRef.current || dateKeyFromPoint(e.clientX, e.clientY);
+    setDraggingId(null);
+    setDropTarget(null);
+    if (dateKey) commitMove(pd.jobId, dateKey);
   }
 
   function openScheduleEditor(job: CalendarJob) {
@@ -318,7 +418,8 @@ export function JobCalendar({
             Calendar
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Drag to change day · click a job to edit start time &amp; duration
+            Drag a job to another day · tap/click to edit start time &amp;
+            duration
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -457,192 +558,226 @@ export function JobCalendar({
         </div>
       )}
 
+      {/* Same 7-day board on phone and desktop; scroll sideways on small screens */}
       <div className="panel overflow-hidden">
-        <div className="hidden grid-cols-7 border-b border-ink-100 bg-ink-50/80 text-xs font-semibold text-ink-500 sm:grid">
-          {DAY_NAMES.map((name) => (
-            <div key={name} className="p-3 text-center">
-              {name}
-            </div>
-          ))}
-        </div>
-        <div
-          className={cn(
-            'grid grid-cols-1 sm:grid-cols-7',
-            view === 'month' && 'sm:auto-rows-fr'
-          )}
-        >
-          {days.map((day) => {
-            const key = localDateKey(day);
-            const dayJobs = byDay.get(key) || [];
-            const today = isToday(day);
-            const highlighted = highlightDate === key;
-            const inMonth =
-              view === 'week' ? true : isSameMonth(day, monthStart);
-            const visibleJobs = dayJobs.slice(0, maxJobsPerCell);
-            const overflow = dayJobs.length - visibleJobs.length;
-            const isDropTarget = dragOverDate === key;
-            const dragging = Boolean(draggingId);
-
-            return (
-              <div
-                key={key}
-                onDragEnter={(e) => onDragEnterDay(e, key)}
-                onDragOver={(e) => onDragOverDay(e, key)}
-                onDragLeave={(e) => onDragLeaveDay(e, key)}
-                onDrop={(e) => onDropDay(e, key)}
-                className={cn(
-                  'relative flex flex-col border-b border-ink-100 p-2 sm:border-r sm:last:border-r-0',
-                  view === 'month'
-                    ? 'min-h-[110px] sm:min-h-[120px]'
-                    : 'min-h-[140px]',
-                  !inMonth && 'bg-ink-50/60',
-                  inMonth && today && 'bg-brand-50/40',
-                  inMonth && highlighted && !today && 'bg-amber-50/50',
-                  inMonth && !today && !highlighted && 'bg-white',
-                  isDropTarget && 'ring-2 ring-inset ring-brand-500 bg-brand-50'
-                )}
-              >
-                {/*
-                  While dragging, disable pointer events on labels/links/chips
-                  so the whole cell (including the top date row) stays a drop
-                  target. Source chip stays interactive so HTML5 drag continues.
-                */}
-                <div
-                  className={cn(
-                    'mb-2 flex items-center justify-between gap-1',
-                    dragging && 'pointer-events-none'
-                  )}
-                >
-                  <p
-                    className={cn(
-                      'text-xs font-semibold',
-                      !inMonth && 'text-ink-300',
-                      inMonth && today && 'text-brand-800',
-                      inMonth && !today && 'text-ink-500',
-                      highlighted && inMonth && 'text-amber-900'
-                    )}
-                  >
-                    <span className="sm:hidden">{DAY_NAMES[day.getDay()]} </span>
-                    {view === 'month' ? (
-                      <Link
-                        href={hrefFor('week', {
-                          week: weekOffsetForDateKey(key),
-                          date: key,
-                        })}
-                        className="hover:underline"
-                        title="Open week view"
-                      >
-                        {day.getDate()}
-                      </Link>
-                    ) : (
-                      day.getDate()
-                    )}
-                    {today && inMonth ? ' · Today' : ''}
-                  </p>
-                  <Link
-                    href={`/dashboard/jobs/new?date=${key}`}
-                    className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-                    title="Schedule job this day"
-                  >
-                    +
-                  </Link>
+        <div className="overflow-x-auto overscroll-x-contain">
+          <div className="min-w-[720px]">
+            <div className="grid grid-cols-7 border-b border-ink-100 bg-ink-50/80 text-xs font-semibold text-ink-500">
+              {DAY_NAMES.map((name) => (
+                <div key={name} className="p-3 text-center">
+                  {name}
                 </div>
+              ))}
+            </div>
+            <div
+              className={cn(
+                'grid grid-cols-7',
+                view === 'month' && 'auto-rows-fr'
+              )}
+            >
+              {days.map((day) => {
+                const key = localDateKey(day);
+                const dayJobs = byDay.get(key) || [];
+                const today = isToday(day);
+                const highlighted = highlightDate === key;
+                const inMonth =
+                  view === 'week' ? true : isSameMonth(day, monthStart);
+                const visibleJobs = dayJobs.slice(0, maxJobsPerCell);
+                const overflow = dayJobs.length - visibleJobs.length;
+                const isDropTarget = dragOverDate === key;
+                const dragging = Boolean(draggingId);
 
-                <div
-                  className={cn(
-                    'flex flex-1 flex-col space-y-1.5',
-                    dragging && 'pointer-events-none'
-                  )}
-                >
-                  {dayJobs.length === 0 ? (
-                    inMonth || isDropTarget ? (
+                return (
+                  <div
+                    key={key}
+                    data-cal-day={key}
+                    onDragEnter={(e) => onDragEnterDay(e, key)}
+                    onDragOver={(e) => onDragOverDay(e, key)}
+                    onDragLeave={(e) => onDragLeaveDay(e, key)}
+                    onDrop={(e) => onDropDay(e, key)}
+                    className={cn(
+                      'relative flex flex-col border-b border-r border-ink-100 p-2 last:border-r-0',
+                      view === 'month' ? 'min-h-[120px]' : 'min-h-[140px]',
+                      !inMonth && 'bg-ink-50/60',
+                      inMonth && today && 'bg-brand-50/40',
+                      inMonth && highlighted && !today && 'bg-amber-50/50',
+                      inMonth && !today && !highlighted && 'bg-white',
+                      isDropTarget &&
+                        'bg-brand-50 ring-2 ring-inset ring-brand-500'
+                    )}
+                  >
+                    {/*
+                      While dragging, disable pointer events on labels/links/chips
+                      so the whole cell stays a drop target. Source chip stays
+                      interactive so HTML5 / touch drag continues.
+                    */}
+                    <div
+                      className={cn(
+                        'mb-2 flex items-center justify-between gap-1',
+                        dragging && 'pointer-events-none'
+                      )}
+                    >
                       <p
                         className={cn(
-                          'flex flex-1 items-center justify-center text-center text-[10px] text-ink-300',
-                          view === 'month' ? 'min-h-[48px]' : 'min-h-[72px]',
-                          isDropTarget && 'text-brand-600'
+                          'text-xs font-semibold',
+                          !inMonth && 'text-ink-300',
+                          inMonth && today && 'text-brand-800',
+                          inMonth && !today && 'text-ink-500',
+                          highlighted && inMonth && 'text-amber-900'
                         )}
                       >
-                        {isDropTarget
-                          ? 'Drop to schedule'
-                          : view === 'month'
-                            ? '—'
-                            : 'No jobs — drag here or schedule'}
+                        {view === 'month' ? (
+                          <Link
+                            href={hrefFor('week', {
+                              week: weekOffsetForDateKey(key),
+                              date: key,
+                            })}
+                            className="hover:underline"
+                            title="Open week view"
+                          >
+                            {day.getDate()}
+                          </Link>
+                        ) : (
+                          day.getDate()
+                        )}
+                        {today && inMonth ? ' · Today' : ''}
                       </p>
-                    ) : null
-                  ) : (
-                    <>
-                      {visibleJobs.map((job) => {
-                        const high =
-                          job.priority === 'High' ||
-                          job.priority === 'Emergency';
-                        const time = job.scheduled_start
-                          ? new Date(job.scheduled_start).toLocaleTimeString(
-                              'en-US',
-                              { hour: 'numeric', minute: '2-digit' }
-                            )
-                          : '';
-                        const isSource = draggingId === job.id;
-                        return (
-                          <button
-                            key={job.id}
-                            type="button"
-                            draggable
-                            onDragStart={(e) => onDragStart(e, job)}
-                            onDragEnd={onDragEnd}
-                            onClick={() => openScheduleEditor(job)}
-                            title="Drag to another day · click to edit time"
+                      <Link
+                        href={`/dashboard/jobs/new?date=${key}`}
+                        className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        title="Schedule job this day"
+                      >
+                        +
+                      </Link>
+                    </div>
+
+                    <div
+                      className={cn(
+                        'flex flex-1 flex-col space-y-1.5',
+                        dragging && 'pointer-events-none'
+                      )}
+                    >
+                      {dayJobs.length === 0 ? (
+                        inMonth || isDropTarget ? (
+                          <p
                             className={cn(
-                              'block w-full cursor-grab rounded-lg p-1.5 text-left text-[11px] leading-tight transition active:cursor-grabbing',
-                              high
-                                ? 'bg-red-100 text-red-900'
-                                : 'bg-brand-100 text-brand-950',
-                              isSource && 'opacity-40',
-                              // Keep the dragged chip receiving events; others pass through to the day cell
-                              dragging && !isSource && 'pointer-events-none',
-                              dragging && isSource && 'pointer-events-auto'
+                              'flex flex-1 items-center justify-center text-center text-[10px] text-ink-300',
+                              view === 'month' ? 'min-h-[48px]' : 'min-h-[72px]',
+                              isDropTarget && 'text-brand-600'
                             )}
                           >
-                            <p className="truncate font-semibold">
-                              {job.customer_name || 'Customer'}
-                            </p>
-                            {view === 'week' && (
-                              <>
-                                <p className="truncate opacity-80">
-                                  {job.job_type || 'Job'}
-                                  {time ? ` · ${time}` : ''}
+                            {isDropTarget
+                              ? 'Drop to schedule'
+                              : view === 'month'
+                                ? '—'
+                                : 'No jobs — drag here or schedule'}
+                          </p>
+                        ) : null
+                      ) : (
+                        <>
+                          {visibleJobs.map((job) => {
+                            const high =
+                              job.priority === 'High' ||
+                              job.priority === 'Emergency';
+                            const time = job.scheduled_start
+                              ? new Date(
+                                  job.scheduled_start
+                                ).toLocaleTimeString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })
+                              : '';
+                            const isSource = draggingId === job.id;
+                            return (
+                              <button
+                                key={job.id}
+                                type="button"
+                                draggable
+                                onDragStart={(e) => onDragStart(e, job)}
+                                onDragEnd={onDragEnd}
+                                onPointerDown={(e) => onJobPointerDown(e, job)}
+                                onPointerMove={onJobPointerMove}
+                                onPointerUp={(e) => endTouchDrag(e, job)}
+                                onPointerCancel={(e) => endTouchDrag(e, job)}
+                                onClick={() => {
+                                  // Touch opens editor on pointerup (tap). Mouse uses click.
+                                  // Skip when a drag just finished (dragMoved).
+                                  if (touchDragRef.current) return;
+                                  openScheduleEditor(job);
+                                }}
+                                title="Drag to another day · tap/click to edit time"
+                                className={cn(
+                                  'block w-full cursor-grab touch-none rounded-lg p-1.5 text-left text-[11px] leading-tight transition active:cursor-grabbing',
+                                  high
+                                    ? 'bg-red-100 text-red-900'
+                                    : 'bg-brand-100 text-brand-950',
+                                  isSource && 'opacity-40',
+                                  dragging &&
+                                    !isSource &&
+                                    'pointer-events-none',
+                                  dragging &&
+                                    isSource &&
+                                    'pointer-events-auto'
+                                )}
+                              >
+                                <p className="truncate font-semibold">
+                                  {job.customer_name || 'Customer'}
                                 </p>
-                                <p className="truncate opacity-70">
-                                  {job.assigned_to_name?.split(' ')[0] ||
-                                    'Unassigned'}
-                                </p>
-                              </>
-                            )}
-                            {view === 'month' && time ? (
-                              <p className="truncate opacity-80">{time}</p>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                      {overflow > 0 && (
-                        <Link
-                          href={hrefFor('week', {
-                            week: weekOffsetForDateKey(key),
-                            date: key,
+                                {view === 'week' && (
+                                  <>
+                                    <p className="truncate opacity-80">
+                                      {job.job_type || 'Job'}
+                                      {time ? ` · ${time}` : ''}
+                                    </p>
+                                    <p className="truncate opacity-70">
+                                      {job.assigned_to_name?.split(' ')[0] ||
+                                        'Unassigned'}
+                                    </p>
+                                  </>
+                                )}
+                                {view === 'month' && time ? (
+                                  <p className="truncate opacity-80">{time}</p>
+                                ) : null}
+                              </button>
+                            );
                           })}
-                          className="block px-1 text-[10px] font-medium text-ink-500 hover:text-ink-800"
-                        >
-                          +{overflow} more
-                        </Link>
+                          {overflow > 0 && (
+                            <Link
+                              href={hrefFor('week', {
+                                week: weekOffsetForDateKey(key),
+                                date: key,
+                              })}
+                              className="block px-1 text-[10px] font-medium text-ink-500 hover:text-ink-800"
+                            >
+                              +{overflow} more
+                            </Link>
+                          )}
+                        </>
                       )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
+
+      {touchGhost && (
+        <div
+          aria-hidden
+          className={cn(
+            'pointer-events-none fixed z-[80] w-36 -translate-x-1/2 -translate-y-full rounded-lg p-1.5 text-left text-[11px] shadow-lg ring-2 ring-brand-500',
+            touchGhost.high
+              ? 'bg-red-100 text-red-900'
+              : 'bg-brand-100 text-brand-950'
+          )}
+          style={{ left: touchGhost.x, top: touchGhost.y - 8 }}
+        >
+          <p className="truncate font-semibold">{touchGhost.label}</p>
+          <p className="opacity-70">Drop on a day</p>
+        </div>
+      )}
     </div>
   );
 }
