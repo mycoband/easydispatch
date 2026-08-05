@@ -3,8 +3,6 @@ import { allocateNextJobNumber } from '@/lib/jobs/numbers';
 import { normalizePhone } from '@/lib/twilio';
 import type { IntakeChannel, IntakeExtract } from '@/lib/intake/types';
 
-const DEDUPE_HOURS = 6;
-
 export type CreateIntakeJobResult = {
   jobId: string;
   customerId: string;
@@ -12,9 +10,59 @@ export type CreateIntakeJobResult = {
   merged: boolean;
 };
 
+function digitsPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const d = raw.replace(/\D/g, '');
+  if (d.length === 11 && d.startsWith('1')) return d.slice(1);
+  if (d.length === 10) return d;
+  return d.length >= 10 ? d.slice(-10) : null;
+}
+
+/** Same open intake job only when clearly the same request (webhook retry or continuation). */
+function isRelatedIntake(opts: {
+  existingDiagnosis: string | null | undefined;
+  existingSummary: string | null | undefined;
+  existingAddress: string | null | undefined;
+  extract: IntakeExtract;
+}): boolean {
+  const norm = (s: string | null | undefined) =>
+    (s || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const addrA = norm(opts.existingAddress);
+  const addrB = norm(opts.extract.address);
+  if (addrA && addrB && addrA === addrB) {
+    const diagA = norm(opts.existingDiagnosis);
+    const diagB = norm(opts.extract.diagnosis);
+    if (diagA && diagB) {
+      // Same address + overlapping problem text → treat as update, not a second job
+      if (diagA.includes(diagB) || diagB.includes(diagA)) return true;
+      const wordsA = new Set(diagA.split(' ').filter((w) => w.length > 3));
+      const wordsB = diagB.split(' ').filter((w) => w.length > 3);
+      const overlap = wordsB.filter((w) => wordsA.has(w)).length;
+      if (wordsB.length > 0 && overlap / wordsB.length >= 0.5) return true;
+    }
+  }
+
+  const sumA = norm(opts.existingSummary);
+  const sumB = norm(opts.extract.summary);
+  if (sumA && sumB && (sumA.includes(sumB) || sumB.includes(sumA))) return true;
+
+  return false;
+}
+
 /**
- * Find or create customer + undated New job from AI intake extract.
- * Dedupes open intake jobs for the same phone within a short window.
+ * Find or create customer by phone, then create an undated New job.
+ *
+ * Rules:
+ * - Existing customer (same company + phone) → reuse that customer
+ * - New phone → create customer (+ primary property)
+ * - Each call/SMS completion → new job by default
+ * - Merge/update only when:
+ *   1) same intake_external_id (Twilio/Vapi retry), or
+ *   2) same customer has an open undated intake job that is clearly the same request
  */
 export async function createJobFromIntake(opts: {
   companyId: string;
@@ -24,80 +72,77 @@ export async function createJobFromIntake(opts: {
   externalId?: string | null;
 }): Promise<CreateIntakeJobResult> {
   const admin = createServiceClient();
-  const phone = normalizePhone(opts.extract.phone) || normalizePhone(
-    opts.extract.phone || ''
-  );
   const fromPhone =
-    phone ||
+    normalizePhone(opts.extract.phone) ||
     (opts.extract.phone?.trim() ? opts.extract.phone.trim() : null);
+  const externalId = opts.externalId?.trim() || null;
 
-  if (fromPhone) {
-    const since = new Date(
-      Date.now() - DEDUPE_HOURS * 60 * 60 * 1000
-    ).toISOString();
-    const { data: existing } = await admin
+  // 1) Idempotent retry: same Twilio MessageSid / Vapi call id
+  if (externalId) {
+    const { data: byExt } = await admin
       .from('jobs')
-      .select('id, customer_id, diagnosis, internal_notes')
+      .select('id, customer_id')
       .eq('company_id', opts.companyId)
-      .eq('intake_source', opts.channel)
-      .is('scheduled_start', null)
-      .neq('status', 'Cancelled')
-      .neq('status', 'Completed')
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(8);
-
-    for (const job of existing ?? []) {
-      const { data: cust } = await admin
-        .from('customers')
-        .select('id, phone')
-        .eq('id', job.customer_id)
-        .maybeSingle();
-      const custPhone = normalizePhone(cust?.phone);
-      if (custPhone && custPhone === fromPhone) {
-        const mergedNotes = [
-          job.internal_notes || '',
-          opts.extract.access_notes
-            ? `Access: ${opts.extract.access_notes}`
-            : '',
-          `Updated via AI receptionist (${opts.channel})`,
-        ]
-          .filter(Boolean)
-          .join('\n');
-        await admin
-          .from('jobs')
-          .update({
-            diagnosis: opts.extract.diagnosis || job.diagnosis,
-            customer_summary: opts.extract.customer_summary,
-            priority: opts.extract.priority,
-            job_type: opts.extract.job_type,
-            intake_summary: opts.extract.summary,
-            intake_transcript: opts.transcript.slice(0, 20000),
-            intake_external_id: opts.externalId || null,
-            internal_notes: mergedNotes.slice(0, 10000),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', job.id);
-        return {
-          jobId: job.id,
-          customerId: job.customer_id as string,
-          created: false,
-          merged: true,
-        };
-      }
+      .eq('intake_external_id', externalId)
+      .limit(1)
+      .maybeSingle();
+    if (byExt?.id && byExt.customer_id) {
+      await admin
+        .from('jobs')
+        .update({
+          diagnosis: opts.extract.diagnosis,
+          customer_summary: opts.extract.customer_summary,
+          priority: opts.extract.priority,
+          job_type: opts.extract.job_type,
+          intake_summary: opts.extract.summary,
+          intake_transcript: opts.transcript.slice(0, 20000),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', byExt.id);
+      return {
+        jobId: byExt.id,
+        customerId: byExt.customer_id as string,
+        created: false,
+        merged: true,
+      };
     }
   }
 
+  // 2) Resolve customer by phone (reuse account)
   let customerId: string | null = null;
+  let customerAddress: string | null = null;
+
   if (fromPhone) {
-    const { data: byPhone } = await admin
+    const last10 = digitsPhone(fromPhone);
+    let match: { id: string; phone: string | null; address: string | null } | null =
+      null;
+
+    const { data: exact } = await admin
       .from('customers')
-      .select('id')
+      .select('id, phone, address')
       .eq('company_id', opts.companyId)
       .eq('phone', fromPhone)
       .limit(1)
       .maybeSingle();
-    customerId = byPhone?.id ?? null;
+    if (exact) match = exact;
+
+    if (!match && last10) {
+      const { data: candidates } = await admin
+        .from('customers')
+        .select('id, phone, address')
+        .eq('company_id', opts.companyId)
+        .ilike('phone', `%${last10}%`)
+        .limit(25);
+      match =
+        (candidates ?? []).find(
+          (c) => normalizePhone(c.phone) === fromPhone || digitsPhone(c.phone) === last10
+        ) ?? null;
+    }
+
+    if (match) {
+      customerId = match.id;
+      customerAddress = match.address;
+    }
   }
 
   const name =
@@ -123,6 +168,7 @@ export async function createJobFromIntake(opts: {
       throw new Error(custErr?.message || 'Could not create customer');
     }
     customerId = customer.id;
+    customerAddress = opts.extract.address;
     await admin.from('properties').insert({
       company_id: opts.companyId,
       customer_id: customerId,
@@ -137,16 +183,77 @@ export async function createJobFromIntake(opts: {
   } else {
     const patch: Record<string, string> = {};
     if (name && !name.startsWith('Caller ')) patch.name = name;
-    if (opts.extract.address) patch.address = opts.extract.address;
+    if (opts.extract.address) {
+      patch.address = opts.extract.address;
+      customerAddress = opts.extract.address;
+    }
     if (opts.extract.city) patch.city = opts.extract.city;
     if (opts.extract.state) patch.state = opts.extract.state;
     if (opts.extract.zip) patch.zip = opts.extract.zip;
     if (opts.extract.email) patch.email = opts.extract.email;
+    if (fromPhone) patch.phone = fromPhone;
     if (Object.keys(patch).length) {
       await admin.from('customers').update(patch).eq('id', customerId);
     }
   }
 
+  // 3) Related open intake for this customer only (same problem) → update, else new job
+  const { data: openIntake } = await admin
+    .from('jobs')
+    .select(
+      'id, customer_id, diagnosis, intake_summary, internal_notes, status'
+    )
+    .eq('company_id', opts.companyId)
+    .eq('customer_id', customerId)
+    .not('intake_source', 'is', null)
+    .is('scheduled_start', null)
+    .neq('status', 'Cancelled')
+    .neq('status', 'Completed')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  for (const job of openIntake ?? []) {
+    if (
+      isRelatedIntake({
+        existingDiagnosis: job.diagnosis,
+        existingSummary: job.intake_summary,
+        existingAddress: customerAddress || opts.extract.address,
+        extract: opts.extract,
+      })
+    ) {
+      const mergedNotes = [
+        job.internal_notes || '',
+        opts.extract.access_notes
+          ? `Access: ${opts.extract.access_notes}`
+          : '',
+        `Updated via AI receptionist (${opts.channel})`,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      await admin
+        .from('jobs')
+        .update({
+          diagnosis: opts.extract.diagnosis || job.diagnosis,
+          customer_summary: opts.extract.customer_summary,
+          priority: opts.extract.priority,
+          job_type: opts.extract.job_type,
+          intake_summary: opts.extract.summary,
+          intake_transcript: opts.transcript.slice(0, 20000),
+          intake_external_id: externalId || null,
+          internal_notes: mergedNotes.slice(0, 10000),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', job.id);
+      return {
+        jobId: job.id,
+        customerId,
+        created: false,
+        merged: true,
+      };
+    }
+  }
+
+  // 4) New job for this call
   const jobNumber = await allocateNextJobNumber(admin, opts.companyId);
   const internal = [
     opts.extract.access_notes
@@ -176,7 +283,7 @@ export async function createJobFromIntake(opts: {
       intake_source: opts.channel,
       intake_summary: opts.extract.summary,
       intake_transcript: opts.transcript.slice(0, 20000),
-      intake_external_id: opts.externalId || null,
+      intake_external_id: externalId,
       tax_rate_id: 'kcmo-jackson',
     })
     .select('id')

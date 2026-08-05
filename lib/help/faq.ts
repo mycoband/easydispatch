@@ -133,7 +133,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Jobs & calendar',
     question: 'How does the AI receptionist work?',
     answer:
-      'Turn on Feature modules → AI receptionist (and AI tools). Your connected SMS/phone line is answered by an AI assistant that asks for name, address, and the problem, then creates a customer and a job with no date. Dashboard → Needs you shows Unscheduled intake; open the job or use Calendar/Dispatch to schedule. Office → AI receptionist shows the intake log. It does not auto-schedule yet. Configure greeting and escalate phone under Settings → Company.',
+      'Turn on Feature modules → AI receptionist (and AI tools). Your connected SMS/phone line is answered by an AI assistant that asks for name, address, and the problem. It reuses an existing customer when the phone number matches, otherwise creates a new customer. Each call creates a new undated job unless it is clearly the same open request (or a retry of the same call). Dashboard → Needs you shows Unscheduled intake; schedule on Calendar or Dispatch. Configure greeting under Settings → Company.',
   },
   {
     id: 'offline-queue',
