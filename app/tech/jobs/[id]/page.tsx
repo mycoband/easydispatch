@@ -551,6 +551,7 @@ export default async function TechJobDetailPage({
           diagnosis={job.diagnosis}
           customerSummary={job.customer_summary}
           internalNotes={job.internal_notes}
+          updatedAt={job.updated_at}
           offlineQueue={Boolean(mods.tech_offline_queue)}
         />
       )}
@@ -625,6 +626,7 @@ export default async function TechJobDetailPage({
           diagnosis={job.diagnosis}
           customerSummary={job.customer_summary}
           internalNotes={job.internal_notes}
+          updatedAt={job.updated_at}
           offlineQueue={Boolean(mods.tech_offline_queue)}
         />
       )}

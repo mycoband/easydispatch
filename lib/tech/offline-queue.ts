@@ -21,6 +21,7 @@ export type OfflineQueueItem =
       diagnosis: string;
       customer_summary: string;
       internal_notes: string;
+      expectedUpdatedAt?: string | null;
       queuedAt: string;
     };
 
@@ -66,6 +67,7 @@ export function enqueueOfflineItem(
         diagnosis: string;
         customer_summary: string;
         internal_notes: string;
+        expectedUpdatedAt?: string | null;
         queuedAt?: string;
       }
 ): OfflineQueueItem {

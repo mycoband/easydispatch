@@ -140,6 +140,7 @@ async function applyItem(
     diagnosis: item.diagnosis,
     customer_summary: item.customer_summary,
     internal_notes: item.internal_notes,
+    expectedUpdatedAt: item.expectedUpdatedAt,
   });
   if (result.error) return { ok: false, error: result.error };
   return { ok: true };

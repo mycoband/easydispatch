@@ -15,18 +15,22 @@ export function TechJobNotes({
   diagnosis,
   customerSummary,
   internalNotes,
+  updatedAt = null,
   offlineQueue = false,
 }: {
   jobId: string;
   diagnosis?: string | null;
   customerSummary?: string | null;
   internalNotes?: string | null;
+  /** Job.updated_at when this page loaded — used to avoid overwriting others */
+  updatedAt?: string | null;
   offlineQueue?: boolean;
 }) {
   const router = useRouter();
   const [diag, setDiag] = useState(diagnosis || '');
   const [summary, setSummary] = useState(customerSummary || '');
   const [internal, setInternal] = useState(internalNotes || '');
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(updatedAt || '');
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +39,8 @@ export function TechJobNotes({
     setDiag(diagnosis || '');
     setSummary(customerSummary || '');
     setInternal(internalNotes || '');
-  }, [diagnosis, customerSummary, internalNotes]);
+    setExpectedUpdatedAt(updatedAt || '');
+  }, [diagnosis, customerSummary, internalNotes, updatedAt]);
 
   async function save() {
     setPending(true);
@@ -46,10 +51,18 @@ export function TechJobNotes({
       diagnosis: diag,
       customer_summary: summary,
       internal_notes: internal,
+      expectedUpdatedAt: expectedUpdatedAt || null,
     };
 
     if (offlineQueue && isBrowserOffline()) {
-      enqueueOfflineItem({ kind: 'notes', jobId, ...payload });
+      enqueueOfflineItem({
+        kind: 'notes',
+        jobId,
+        diagnosis: payload.diagnosis,
+        customer_summary: payload.customer_summary,
+        internal_notes: payload.internal_notes,
+        expectedUpdatedAt: payload.expectedUpdatedAt,
+      });
       notifyOfflineQueueChanged();
       setMessage('Queued — will sync when online');
       setPending(false);
@@ -59,8 +72,16 @@ export function TechJobNotes({
     try {
       const result = await saveTechJobNotes(jobId, payload);
       if (result.error) {
-        if (offlineQueue) {
-          enqueueOfflineItem({ kind: 'notes', jobId, ...payload });
+        const conflict = result.error.toLowerCase().includes('someone else saved');
+        if (offlineQueue && !conflict) {
+          enqueueOfflineItem({
+            kind: 'notes',
+            jobId,
+            diagnosis: payload.diagnosis,
+            customer_summary: payload.customer_summary,
+            internal_notes: payload.internal_notes,
+            expectedUpdatedAt: payload.expectedUpdatedAt,
+          });
           notifyOfflineQueueChanged();
           setMessage('Saved offline — will sync when online');
           setError(null);
@@ -73,7 +94,14 @@ export function TechJobNotes({
       }
     } catch {
       if (offlineQueue) {
-        enqueueOfflineItem({ kind: 'notes', jobId, ...payload });
+        enqueueOfflineItem({
+          kind: 'notes',
+          jobId,
+          diagnosis: payload.diagnosis,
+          customer_summary: payload.customer_summary,
+          internal_notes: payload.internal_notes,
+          expectedUpdatedAt: payload.expectedUpdatedAt,
+        });
         notifyOfflineQueueChanged();
         setMessage('Saved offline — will sync when online');
       } else {
@@ -145,7 +173,20 @@ export function TechJobNotes({
       >
         {pending ? 'Saving…' : 'Save notes'}
       </button>
-      {error && <p className="text-sm text-red-700">{error}</p>}
+      {error && (
+        <div className="text-sm text-red-700">
+          <p>{error}</p>
+          {error.toLowerCase().includes('someone else saved') && (
+            <button
+              type="button"
+              className="mt-1 font-semibold underline"
+              onClick={() => router.refresh()}
+            >
+              Reload job
+            </button>
+          )}
+        </div>
+      )}
       {message && <p className="text-sm text-emerald-700">{message}</p>}
     </section>
   );

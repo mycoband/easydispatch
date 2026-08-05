@@ -46,22 +46,26 @@ export async function saveTechJobNotes(
     diagnosis?: string;
     customer_summary?: string;
     internal_notes?: string;
+    /** Row version from when the form was loaded */
+    expectedUpdatedAt?: string | null;
   }
 ): Promise<TechActionState> {
   try {
     const perm = await assertTechCapability('edit_notes');
     if (!perm.ok) return { error: perm.error };
     const { supabase } = await loadAssignedJob(jobId);
-    const { error } = await supabase
-      .from('jobs')
-      .update({
+    const { updateJobIfUnchanged } = await import('@/lib/jobs/optimistic-lock');
+    const locked = await updateJobIfUnchanged(
+      supabase,
+      jobId,
+      input.expectedUpdatedAt,
+      {
         diagnosis: input.diagnosis?.trim() || null,
         customer_summary: input.customer_summary?.trim() || null,
         internal_notes: input.internal_notes?.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', jobId);
-    if (error) return { error: error.message };
+      }
+    );
+    if (!locked.ok) return { error: locked.error };
     revalidateTechJob(jobId);
     return { success: 'Notes saved' };
   } catch (err) {

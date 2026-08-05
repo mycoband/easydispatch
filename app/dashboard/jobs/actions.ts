@@ -221,6 +221,10 @@ export async function updateJob(
     Number(tax.rate) || 0
   );
 
+  const expectedUpdatedAt = emptyToNull(
+    formString(formData, 'expected_updated_at')
+  );
+
   const customNumber = parsed.data.job_number?.trim() || '';
   let jobNumber = customNumber;
   if (!jobNumber) {
@@ -234,9 +238,12 @@ export async function updateJob(
       (await allocateNextJobNumber(supabase, profile.company_id));
   }
 
-  const { error } = await supabase
-    .from('jobs')
-    .update({
+  const { updateJobIfUnchanged } = await import('@/lib/jobs/optimistic-lock');
+  const locked = await updateJobIfUnchanged(
+    supabase,
+    jobId,
+    expectedUpdatedAt,
+    {
       job_number: jobNumber,
       customer_id: customer.id,
       customer_name: customer.name,
@@ -260,17 +267,19 @@ export async function updateJob(
       customer_summary: emptyToNull(parsed.data.customer_summary),
       is_callback: Boolean(parsed.data.is_callback),
       warranty_flag: Boolean(parsed.data.warranty_flag),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', jobId);
+    }
+  );
 
-  if (error) {
-    if (error.message?.toLowerCase().includes('unique')) {
+  if (!locked.ok) {
+    if (
+      !locked.conflict &&
+      locked.error.toLowerCase().includes('unique')
+    ) {
       return {
         error: `Job # / name "${jobNumber}" is already in use. Choose another.`,
       };
     }
-    return { error: error.message };
+    return { error: locked.error };
   }
 
   revalidatePath('/dashboard/jobs');

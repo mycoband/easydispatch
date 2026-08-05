@@ -34,6 +34,8 @@ type JobValues = {
   customer_summary?: string | null;
   is_callback?: boolean | null;
   warranty_flag?: boolean | null;
+  /** Row version for optimistic lock (existing jobs only). */
+  updated_at?: string | null;
 };
 
 const initialState: ActionState = {};
@@ -254,6 +256,13 @@ export function JobForm({
         setClientError(null);
       }}
     >
+      {initial?.updated_at ? (
+        <input
+          type="hidden"
+          name="expected_updated_at"
+          value={initial.updated_at}
+        />
+      ) : null}
       <section className="space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-ink-900">
@@ -652,9 +661,20 @@ export function JobForm({
       )}
 
       {(clientError || state.error) && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {clientError || state.error}
-        </p>
+        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p>{clientError || state.error}</p>
+          {(clientError || state.error || '')
+            .toLowerCase()
+            .includes('someone else saved') && (
+            <button
+              type="button"
+              className="mt-2 font-semibold underline"
+              onClick={() => window.location.reload()}
+            >
+              Reload job
+            </button>
+          )}
+        </div>
       )}
       {state.success && (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
