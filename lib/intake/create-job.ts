@@ -246,7 +246,7 @@ export async function createJobFromIntake(opts: {
         .eq('id', job.id);
       return {
         jobId: job.id,
-        customerId,
+        customerId: customerId!,
         created: false,
         merged: true,
       };
