@@ -768,7 +768,7 @@ Rules:
 - Do not invent an address or phone.
 - Prefer priority Emergency for no heat in freezing weather, gas smell, burning electrical smell, active flooding.
 - You never schedule a date/time — office schedules later.
-- Keep reply_to_caller under 280 characters and friendly.
+- Keep reply_to_caller under 280 characters and friendly.`,
       },
       {
         role: 'user',
