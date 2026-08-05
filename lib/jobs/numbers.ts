@@ -6,54 +6,48 @@ function parseSequentialNumber(value: string | null | undefined): number | null 
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-type JobsQueryClient = {
-  from: (table: 'jobs') => {
-    select: (columns: string) => {
-      eq: (
-        column: string,
-        value: string
-      ) => {
-        range: (
-          from: number,
-          to: number
-        ) => Promise<{ data: { job_number: string | null }[] | null; error: unknown }>;
-      };
-      range: (
-        from: number,
-        to: number
-      ) => Promise<{ data: { job_number: string | null }[] | null; error: unknown }>;
-    };
-  };
-};
-
 /**
  * Next default job number for a company: #1, #2, #3…
  * Custom names (e.g. "River Market Bistro") do not affect the sequence.
+ *
+ * Also guarantees the value is free under the legacy global unique
+ * `jobs_job_number_key` constraint (multi-tenant shops were colliding on #1).
  */
 export async function allocateNextJobNumber(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   companyId?: string | null
 ): Promise<string> {
-  const client = supabase as JobsQueryClient;
   let max = 0;
   const page = 1000;
 
   for (let from = 0; ; from += page) {
-    const base = client.from('jobs').select('job_number');
-    const { data } = companyId
-      ? await base.eq('company_id', companyId).range(from, from + page - 1)
-      : await base.range(from, from + page - 1);
+    let q = supabase.from('jobs').select('job_number');
+    if (companyId) q = q.eq('company_id', companyId);
+    const { data } = await q.range(from, from + page - 1);
 
     if (!data?.length) break;
-    for (const row of data) {
+    for (const row of data as { job_number: string | null }[]) {
       const n = parseSequentialNumber(row.job_number);
       if (n != null && n > max) max = n;
     }
     if (data.length < page) break;
   }
 
-  return `#${max + 1}`;
+  let candidate = max + 1;
+  for (let attempt = 0; attempt < 2000; attempt++) {
+    const jobNumber = `#${candidate}`;
+    const { data: taken } = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('job_number', jobNumber)
+      .limit(1)
+      .maybeSingle();
+    if (!taken) return jobNumber;
+    candidate += 1;
+  }
+
+  return generateJobNumber();
 }
 
 /** Sync fallback — prefer allocateNextJobNumber for real creates. */

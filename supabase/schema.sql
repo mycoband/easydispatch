@@ -59,7 +59,7 @@ create index equipment_customer_idx on public.equipment (customer_id);
 -- ========== JOBS ==========
 create table public.jobs (
   id uuid primary key default uuid_generate_v4(),
-  job_number text unique,
+  job_number text, -- uniqueness: (company_id, job_number) via jobs-number-per-company.sql
   customer_id uuid references public.customers(id),
   customer_name text, -- denormalized for speed
   equipment_id uuid references public.equipment(id),

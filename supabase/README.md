@@ -18,6 +18,7 @@ All scripts are idempotent where possible (`if not exists`, `on conflict`).
 | 11 | `role-permissions.sql` | Per-role capability toggles |
 | 12 | `seed-demo.sql` | **Optional** KC demo customers/jobs (after you have a signed-in owner) |
 | 13 | `ai-receptionist.sql` | AI SMS/voice intake columns, sessions, events, receptionist settings |
+| 14 | `jobs-number-per-company.sql` | Job numbers unique per company (fixes multi-tenant #1 collisions) |
 
 ## Fresh project (recommended path)
 
