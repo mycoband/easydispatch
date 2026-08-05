@@ -2,30 +2,28 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ProductMark } from '@/components/brand/ProductMark';
 import { SignOutButton } from '@/components/SignOutButton';
 import { roleLabel, type AppRole } from '@/lib/roles';
 
 type NavItem = { href: string; label: string };
 
-const PRIMARY_HREFS = new Set([
-  '/dashboard',
-  '/dashboard/dispatch',
-  '/dashboard/calendar',
-  '/dashboard/jobs',
-  '/dashboard/customers',
-  '/dashboard/invoices',
-  '/tech',
-]);
-
-function linkClass(active: boolean, compact = false) {
+function linkClass(active: boolean) {
   return [
-    compact ? 'px-3 py-2 text-sm' : 'px-3 py-2 text-sm',
-    'whitespace-nowrap rounded-md font-medium transition',
+    'inline-flex min-h-11 items-center whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition',
     active
       ? 'bg-brand-50 text-brand-800'
       : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900',
+  ].join(' ');
+}
+
+function chromeLinkClass(active: boolean) {
+  return [
+    'inline-flex min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold',
+    active
+      ? 'border-brand-200 bg-brand-50 text-brand-800'
+      : 'text-ink-800 hover:bg-ink-50',
   ].join(' ');
 }
 
@@ -53,26 +51,18 @@ export function AppNav({
   trailing?: ReactNode;
 }) {
   const pathname = usePathname();
-  const [moreOpen, setMoreOpen] = useState(false);
-
-  const primary = items.filter(
-    (i) =>
-      PRIMARY_HREFS.has(i.href) ||
-      i.href === '/dashboard/day-sheet' ||
-      i.href.startsWith('/tech')
-  );
-  const primaryItems =
-    primary.length >= 3
-      ? items.filter((i) => primary.some((p) => p.href === i.href)).slice(0, 5)
-      : items.slice(0, 5);
-  const moreItems = items.filter(
-    (i) => !primaryItems.some((p) => p.href === i.href)
-  );
 
   function isActive(href: string) {
     if (href === '/dashboard' || href === '/tech') return pathname === href;
     return pathname === href || pathname.startsWith(`${href}/`);
   }
+
+  // Avoid duplicating Help/Settings that already live in the chrome row
+  const wrapItems = items.filter((item) => {
+    if (helpHref && item.href === helpHref) return false;
+    if (settingsHref && item.href === settingsHref) return false;
+    return true;
+  });
 
   return (
     <header className="safe-top sticky top-0 z-40 border-b border-ink-200/80 bg-white/95 backdrop-blur">
@@ -104,28 +94,12 @@ export function AppNav({
           </span>
         </Link>
 
-        <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={linkClass(isActive(item.href))}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           {trailing}
           {helpHref && (
             <Link
               href={helpHref}
-              className={`hidden min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold sm:inline-flex ${
-                isActive(helpHref)
-                  ? 'border-brand-200 bg-brand-50 text-brand-800'
-                  : 'text-ink-800 hover:bg-ink-50'
-              }`}
+              className={chromeLinkClass(isActive(helpHref))}
             >
               Help
             </Link>
@@ -133,11 +107,7 @@ export function AppNav({
           {settingsHref && (
             <Link
               href={settingsHref}
-              className={`hidden min-h-11 items-center rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-sm font-semibold sm:inline-flex ${
-                isActive(settingsHref)
-                  ? 'border-brand-200 bg-brand-50 text-brand-800'
-                  : 'text-ink-800 hover:bg-ink-50'
-              }`}
+              className={chromeLinkClass(isActive(settingsHref))}
             >
               Settings
             </Link>
@@ -149,72 +119,24 @@ export function AppNav({
             <p className="text-xs text-ink-500">{roleLabel(profile.role)}</p>
           </div>
           <SignOutButton />
-          <button
-            type="button"
-            className="min-h-11 rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-semibold text-ink-800 md:hidden"
-            onClick={() => setMoreOpen((v) => !v)}
-            aria-expanded={moreOpen}
-          >
-            More
-          </button>
         </div>
       </div>
 
-      <nav className="board-scroll flex gap-1 border-t border-ink-100 px-2 py-1 md:hidden">
-        {primaryItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={linkClass(isActive(item.href), true) + ' min-h-11 inline-flex items-center'}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-
-      {moreOpen && (
-        <div className="border-t border-ink-100 bg-white px-3 py-2 md:hidden">
-          <div className="flex flex-wrap gap-1">
-            {/* Full destination list — same IA as desktop nav */}
-            {items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={
-                  linkClass(isActive(item.href), true) +
-                  ' min-h-11 inline-flex items-center'
-                }
-                onClick={() => setMoreOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {helpHref && (
-              <Link
-                href={helpHref}
-                className={
-                  linkClass(isActive(helpHref), true) +
-                  ' min-h-11 inline-flex items-center'
-                }
-                onClick={() => setMoreOpen(false)}
-              >
-                Help
-              </Link>
-            )}
-            {settingsHref && (
-              <Link
-                href={settingsHref}
-                className={
-                  linkClass(isActive(settingsHref), true) +
-                  ' min-h-11 inline-flex items-center'
-                }
-                onClick={() => setMoreOpen(false)}
-              >
-                Settings
-              </Link>
-            )}
-          </div>
-        </div>
+      {wrapItems.length > 0 && (
+        <nav
+          aria-label="Main"
+          className="mx-auto flex max-w-[1400px] flex-wrap gap-1 border-t border-ink-100 px-3 py-1.5 sm:px-6"
+        >
+          {wrapItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={linkClass(isActive(item.href))}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       )}
     </header>
   );

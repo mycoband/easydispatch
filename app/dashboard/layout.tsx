@@ -14,6 +14,7 @@ const officeNav = [
   { href: '/dashboard/day-sheet', label: 'Day sheet' },
   { href: '/dashboard/dispatch', label: 'Dispatch' },
   { href: '/dashboard/jobs', label: 'Jobs' },
+  { href: '/dashboard/intake', label: 'AI receptionist' },
   { href: '/dashboard/calendar', label: 'Calendar' },
   { href: '/dashboard/estimates', label: 'Estimates' },
   { href: '/dashboard/customers', label: 'Customers' },
