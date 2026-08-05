@@ -56,7 +56,7 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     category: 'Getting started',
     question: 'What is Needs you on the dashboard?',
     answer:
-      'Office home (/dashboard) leads with Needs you — not another stats strip. It lists unassigned open jobs (→ Dispatch or the job), unpaid sent invoices (→ Invoices), and today’s callbacks when Callbacks is on. Each row is one line with a deep link. Today’s schedule and counts stay below as secondary. Uses existing Dispatch and Invoices modules (no separate toggle).',
+      'Office home (/dashboard) leads with Needs you — not another stats strip. It lists unscheduled AI intake jobs (when AI receptionist is on), unassigned open jobs (→ Dispatch or the job), unpaid sent invoices (→ Invoices), and today’s callbacks when Callbacks is on. Each row is one line with a deep link. Today’s schedule and counts stay below as secondary.',
   },
   {
     id: 'tech-next-up',
@@ -127,6 +127,13 @@ const CORE_FAQ_ITEMS: FaqItem[] = [
     question: 'How do I install EasyDispatch on phone, tablet, or computer?',
     answer:
       'Same app everywhere — install once per device. Windows/Mac (Chrome or Edge): use the Install EasyDispatch banner or the browser Install / App menu. Android (Chrome): Install or Add to Home screen. iPhone/iPad (Safari): Share → Add to Home Screen. Opens full-screen without browser chrome; office and tech screens match what you see in the browser.',
+  },
+  {
+    id: 'ai-receptionist',
+    category: 'Jobs & calendar',
+    question: 'How does the AI receptionist work?',
+    answer:
+      'Turn on Feature modules → AI receptionist (and AI tools). Your connected SMS/phone line is answered by an AI assistant that asks for name, address, and the problem, then creates a customer and a job with no date. Dashboard → Needs you shows Unscheduled intake; open the job or use Calendar/Dispatch to schedule. Office → AI receptionist shows the intake log. It does not auto-schedule yet. Configure greeting and escalate phone under Settings → Company.',
   },
   {
     id: 'offline-queue',

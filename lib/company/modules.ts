@@ -240,6 +240,16 @@ export const COMPANY_MODULES = [
     group: 'Customer experience',
   },
   {
+    id: 'ai_receptionist',
+    label: 'AI receptionist',
+    description:
+      'AI answers the shop SMS/phone line, creates undated jobs; office schedules',
+    help: 'When on (and SMS/voice are connected), inbound texts and calls are handled by the AI receptionist. It asks for name, address, and the problem, then creates a customer + job with no date. Dashboard → Needs you shows Unscheduled intake. Open the job to schedule on Calendar or Dispatch. Configure greeting under Settings → Company. Needs AI tools on. Does not auto-schedule in this version.',
+    href: '/dashboard/intake',
+    defaultEnabled: false,
+    group: 'Customer experience',
+  },
+  {
     id: 'review_ask',
     label: 'Review ask',
     description:
@@ -370,6 +380,7 @@ export function moduleForPath(pathname: string): ModuleId | null {
     { prefix: '/dashboard/parts', id: 'part_orders' },
     { prefix: '/dashboard/callbacks', id: 'callbacks' },
     { prefix: '/dashboard/reports', id: 'reports' },
+    { prefix: '/dashboard/intake', id: 'ai_receptionist' },
   ];
 
   for (const row of prefixes) {

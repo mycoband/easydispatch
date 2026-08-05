@@ -17,6 +17,7 @@ All scripts are idempotent where possible (`if not exists`, `on conflict`).
 | 10 | `multi-tenant-saas.sql` | Companies, `company_id`, tenant RLS, billing columns |
 | 11 | `role-permissions.sql` | Per-role capability toggles |
 | 12 | `seed-demo.sql` | **Optional** KC demo customers/jobs (after you have a signed-in owner) |
+| 13 | `ai-receptionist.sql` | AI SMS/voice intake columns, sessions, events, receptionist settings |
 
 ## Fresh project (recommended path)
 

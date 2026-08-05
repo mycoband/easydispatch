@@ -8,12 +8,16 @@ const PUBLIC_PATHS = [
   '/login',
   '/join',
   '/faq',
+  '/privacy',
+  '/terms',
   '/auth',
   '/pay',
   '/portal',
   '/confirm',
   '/billing-locked',
   '/api/stripe/webhook',
+  '/api/webhooks',
+  '/api/inngest',
   // Vercel Cron has no session — routes enforce CRON_SECRET (fail-closed).
   '/api/cron',
 ];

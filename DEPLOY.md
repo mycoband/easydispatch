@@ -73,7 +73,30 @@ RESEND_FROM_EMAIL=EasyDispatch <billing@yourdomain.com>
 2. Set `RESEND_API_KEY` + `RESEND_FROM_EMAIL`  
 3. Send a test invoice to yourself
 
-## F. Post-deploy verification
+## F. AI receptionist (SMS + voice)
+
+1. Run `supabase/ai-receptionist.sql` in the SQL Editor.  
+2. Twilio Console → Phone number → Messaging webhook (POST):  
+   `https://your-domain.com/api/webhooks/twilio/sms`  
+3. **Vapi voice** (dashboard.vapi.ai):  
+   - Create an assistant (HVAC intake script — name, address, issue, urgency).  
+   - Server URL on the assistant (or phone number):  
+     `https://your-domain.com/api/webhooks/vapi`  
+   - Auth: Vapi no longer has a “server URL secret” box. Create a Custom Credential  
+     (Settings → Integrations / Custom Credentials): **Bearer Token**, header  
+     `X-Vapi-Secret`, **Bearer prefix OFF**, token = `VAPI_WEBHOOK_SECRET`.  
+     On the assistant Webhook Server, set **Authorization** to that credential.  
+   - Ensure `serverMessages` includes **end-of-call-report** (default on most assistants).  
+   - Phone Numbers → **Import Twilio** for the shop DID.  
+     **Turn SMS Enabled OFF** so Vapi does not overwrite the Twilio Messaging webhook.  
+   - Assign the assistant to that imported number for inbound calls.  
+4. Optional Inngest: set `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY`; sync `/api/inngest`.  
+   Without Inngest, office notify still runs inline.  
+5. Settings → Company → set inbound Twilio number + greeting; Feature modules → AI receptionist + AI tools on.  
+   Click **Save modules** after toggling.  
+6. Test text and call → Dashboard Needs you → Unscheduled intake.
+
+## G. Post-deploy verification
 
 Run through [docs/GO_LIVE_CHECKLIST.md](./docs/GO_LIVE_CHECKLIST.md).
 
@@ -87,7 +110,7 @@ Critical:
 - [ ] Role permissions hide tech money actions when configured  
 - [ ] Storage uploads (logo / job photo) work  
 
-## G. Ops hygiene
+## H. Ops hygiene
 
 - Rotate `SUPABASE_SERVICE_ROLE_KEY` if it ever leaked  
 - Keep Stripe webhook secret in sync after regenerating  

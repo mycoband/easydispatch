@@ -699,6 +699,92 @@ ${text}`,
   return parsed.data;
 }
 
+const intakeExtractSchema = z.object({
+  customer_name: z.string().trim().min(1).max(200).default('Caller'),
+  phone: z.string().trim().max(40).nullable().optional(),
+  email: z.string().trim().max(200).nullable().optional(),
+  address: z.string().trim().max(300).nullable().optional(),
+  city: z.string().trim().max(100).nullable().optional(),
+  state: z.string().trim().max(40).nullable().optional(),
+  zip: z.string().trim().max(20).nullable().optional(),
+  job_type: z.string().trim().min(1).max(200).default('Service call'),
+  priority: z.enum(['Low', 'Medium', 'High', 'Emergency']).default('Medium'),
+  diagnosis: z.string().trim().max(10000).default(''),
+  customer_summary: z.string().trim().max(10000).nullable().optional(),
+  access_notes: z.string().trim().max(5000).nullable().optional(),
+  ready: z.boolean().default(false),
+  needs_human: z.boolean().default(false),
+  reply_to_caller: z.string().trim().max(500).default(''),
+  summary: z.string().trim().max(500).default(''),
+});
+
+export type IntakeConversationExtract = z.infer<typeof intakeExtractSchema>;
+
+/**
+ * Parse an AI receptionist SMS/voice conversation into a job ticket extract.
+ * Set ready=true only when name + problem (+ address when possible) are known.
+ */
+export async function extractIntakeConversation(input: {
+  transcript: string;
+  shopName: string;
+  serviceArea?: string | null;
+  hoursNote?: string | null;
+  channel: 'sms' | 'voice';
+}): Promise<IntakeConversationExtract> {
+  const text = input.transcript.trim();
+  if (text.length < 2) {
+    throw new Error('Empty conversation');
+  }
+
+  const content = await callGrok(
+    [
+      {
+        role: 'system',
+        content: `You turn an HVAC AI receptionist ${input.channel} conversation into a job ticket for ${input.shopName}.
+Extract: caller name, phone, service address, what’s wrong, urgency, gate/pets/access notes.
+${input.serviceArea ? `Service area: ${input.serviceArea}.` : ''}
+${input.hoursNote ? `Hours note: ${input.hoursNote}.` : ''}
+
+Return ONLY valid JSON:
+{
+  "customer_name": string,
+  "phone": string | null,
+  "email": string | null,
+  "address": string | null,
+  "city": string | null,
+  "state": string | null,
+  "zip": string | null,
+  "job_type": string (Service call, No cool, No heat, Emergency, Estimate / quote, etc.),
+  "priority": "Low" | "Medium" | "High" | "Emergency",
+  "diagnosis": string (clear tech-facing problem statement),
+  "customer_summary": string | null,
+  "access_notes": string | null,
+  "ready": boolean (true only if you have a name AND a clear problem; address preferred but not required for emergencies),
+  "needs_human": boolean (true if they demand a person, gas smell, CO, fire, flooding, or medical emergency),
+  "reply_to_caller": string (short next SMS reply; if ready, thank them and say the office will call or text to schedule — never invent a time),
+  "summary": string (1 sentence for the office Needs you list)
+}
+Rules:
+- Do not invent an address or phone.
+- Prefer priority Emergency for no heat in freezing weather, gas smell, burning electrical smell, active flooding.
+- You never schedule a date/time — office schedules later.
+- Keep reply_to_caller under 280 characters and friendly.
+      },
+      {
+        role: 'user',
+        content: `Conversation / transcript:\n${text}`,
+      },
+    ],
+    { model: chatModel(), temperature: 0.2 }
+  );
+
+  const parsed = intakeExtractSchema.safeParse(parseJsonContent(content));
+  if (!parsed.success) {
+    throw new Error('Could not parse intake extract');
+  }
+  return parsed.data;
+}
+
 const voiceNotesSchema = z.object({
   diagnosis: z.string().trim().max(10000).default(''),
   customer_summary: z.string().trim().max(10000).nullable().optional(),
@@ -1058,6 +1144,7 @@ Known product facts:
 - New job (~30 seconds): with AI tools on, paste call notes → Fill ticket with AI → review → Create. Primary fields are customer, job type, diagnosis; schedule/assign/job # under More options.
 - Job assistant (office): on a job page when AI tools is on — proactive Missing to invoice banner with Fix jumps plus chat (draft customer text, owner summary). Separate from the floating Help bot (how-to FAQ).
 - Job costing: enable Job costing & profit; set wages and pricebook costs; Sold/Cost/Profit on each job. If numbers stay empty after setup, contact support — do not tell users to run SQL.
+- AI receptionist: with AI receptionist + AI tools on, inbound SMS/phone can create a customer + undated job; Needs you shows Unscheduled intake; office schedules on Calendar/Dispatch. Configure greeting in Settings → Company. Does not auto-book times yet.
 - Install app: EasyDispatch is one installable app on Windows, Mac, Android, and iPhone (browser Install / Add to Home Screen). Same screens and actions as the website; opens full-screen. Banner may say Install EasyDispatch.
 - Offline: with Offline notes & time on, techs queue Drive/Arrive/Clock Out and Save notes when signal drops (Sync now). Installed app can show a simple shell offline; full offline walkthrough/media is not supported.
 - Calendar: Office → Calendar is the same 7-day week/month board on phone and desktop. Drag a job to another day (works on iPhone); tap/click a job to edit time & duration. Swipe sideways on phone for more days.

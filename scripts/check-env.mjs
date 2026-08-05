@@ -69,6 +69,10 @@ const groups = [
     keys: ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBER'],
   },
   {
+    title: 'AI receptionist (optional)',
+    keys: ['VAPI_API_KEY', 'VAPI_WEBHOOK_SECRET', 'INNGEST_EVENT_KEY', 'INNGEST_SIGNING_KEY'],
+  },
+  {
     title: 'Resend (email)',
     keys: ['RESEND_API_KEY', 'RESEND_FROM_EMAIL'],
   },

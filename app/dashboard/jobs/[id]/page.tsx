@@ -38,6 +38,7 @@ import {
   JOB_DETAIL_COLUMNS_NO_WALKTHROUGH,
 } from '@/lib/jobs/select';
 import { JobEstimatesPanel } from '@/components/estimates/JobEstimatesPanel';
+import { IntakeBanner } from '@/components/jobs/IntakeBanner';
 
 const PanelPlaceholder = ({ label }: { label: string }) => (
   <div className="panel p-5 text-sm text-ink-500">{label}</div>
@@ -111,6 +112,23 @@ export default async function JobDetailPage({
     const retry = await supabase
       .from('jobs')
       .select(JOB_DETAIL_COLUMNS_NO_WALKTHROUGH)
+      .eq('id', id)
+      .maybeSingle();
+    job = retry.data;
+    jobError = retry.error;
+  }
+
+  if (
+    jobError &&
+    /intake_|column|schema cache/i.test(jobError.message)
+  ) {
+    const cols = JOB_DETAIL_COLUMNS_NO_WALKTHROUGH.replace(
+      /, intake_source, intake_summary, intake_transcript/g,
+      ''
+    );
+    const retry = await supabase
+      .from('jobs')
+      .select(cols)
       .eq('id', id)
       .maybeSingle();
     job = retry.data;
@@ -359,6 +377,12 @@ export default async function JobDetailPage({
           <DeleteJobButton jobId={job.id} />
         </div>
       </div>
+
+      <IntakeBanner
+        source={job.intake_source}
+        summary={job.intake_summary}
+        hasSchedule={Boolean(job.scheduled_start)}
+      />
 
       <div id="job-time" className="scroll-mt-24">
         <TimeTrackingPanel jobId={job.id} job={job} />

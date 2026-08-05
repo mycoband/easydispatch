@@ -37,6 +37,7 @@ export default async function OfficeDashboardPage({
     { data: unassignedJobs },
     { data: unpaidJobs },
     { data: callbackJobs },
+    { data: intakeJobs },
   ] = await Promise.all([
     supabase.from('customers').select('*', { count: 'exact', head: true }),
     supabase.from('jobs').select('*', { count: 'exact', head: true }),
@@ -111,6 +112,27 @@ export default async function OfficeDashboardPage({
       .neq('status', 'Completed')
       .order('scheduled_start', { ascending: true, nullsFirst: false })
       .limit(5),
+    mods.ai_receptionist
+      ? supabase
+          .from('jobs')
+          .select(
+            'id, job_number, customer_name, job_type, intake_source, intake_summary, created_at'
+          )
+          .not('intake_source', 'is', null)
+          .is('scheduled_start', null)
+          .neq('status', 'Cancelled')
+          .neq('status', 'Completed')
+          .order('created_at', { ascending: false })
+          .limit(8)
+      : Promise.resolve({ data: [] as {
+          id: string;
+          job_number: string | null;
+          customer_name: string | null;
+          job_type: string | null;
+          intake_source: string | null;
+          intake_summary: string | null;
+          created_at: string;
+        }[] }),
   ]);
 
   const needsYouRows: {
@@ -118,7 +140,7 @@ export default async function OfficeDashboardPage({
     label: string;
     detail: string;
     href: string;
-    tone: 'amber' | 'rose' | 'sky';
+    tone: 'amber' | 'rose' | 'sky' | 'violet';
   }[] = [];
 
   if (mods.dispatch) {
@@ -165,6 +187,26 @@ export default async function OfficeDashboardPage({
     });
   }
 
+  if (mods.ai_receptionist) {
+    for (const job of intakeJobs ?? []) {
+      const via =
+        job.intake_source === 'ai_voice'
+          ? 'phone'
+          : job.intake_source === 'ai_sms'
+            ? 'SMS'
+            : 'intake';
+      needsYouRows.unshift({
+        id: `intake-${job.id}`,
+        label: 'Unscheduled intake',
+        detail: `${job.customer_name || 'Caller'} · ${via}${
+          job.intake_summary ? ` · ${job.intake_summary}` : ''
+        }`,
+        href: `/dashboard/jobs/${job.id}`,
+        tone: 'violet',
+      });
+    }
+  }
+
   const cards = [
     { label: 'Today', value: todayJobs?.length ?? 0, href: '/dashboard/calendar' },
     { label: 'Unassigned', value: unassignedCount ?? 0, href: '/dashboard/dispatch' },
@@ -178,6 +220,7 @@ export default async function OfficeDashboardPage({
     amber: 'bg-amber-100 text-amber-900',
     rose: 'bg-rose-100 text-rose-900',
     sky: 'bg-sky-100 text-sky-900',
+    violet: 'bg-violet-100 text-violet-900',
   } as const;
 
   return (

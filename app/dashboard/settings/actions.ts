@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireOffice } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase/admin';
+import { normalizePhone } from '@/lib/twilio';
 
 export type ActionState = {
   error?: string;
@@ -83,6 +84,25 @@ export async function saveCompanySettings(
       estimate_footer: emptyToNull(formString(formData, 'estimate_footer')),
       sms_signature: emptyToNull(formString(formData, 'sms_signature')),
       google_review_url: emptyToNull(formString(formData, 'google_review_url')),
+      receptionist: {
+        greeting: emptyToNull(formString(formData, 'receptionist_greeting')),
+        service_area: emptyToNull(
+          formString(formData, 'receptionist_service_area')
+        ),
+        business_hours_note: emptyToNull(
+          formString(formData, 'receptionist_hours')
+        ),
+        escalate_phone: emptyToNull(
+          formString(formData, 'receptionist_escalate_phone')
+        ),
+        twilio_phone: (() => {
+          const raw = emptyToNull(
+            formString(formData, 'receptionist_twilio_phone')
+          );
+          if (!raw) return null;
+          return normalizePhone(raw) || raw;
+        })(),
+      },
       updated_at: new Date().toISOString(),
     };
 
@@ -110,6 +130,18 @@ export async function saveCompanySettings(
     }
 
     let { error } = await writeSettings(payload);
+    if (error && /receptionist|column|schema cache/i.test(error.message)) {
+      const { receptionist: _dropR, ...withoutReceptionist } = payload;
+      ({ error } = await writeSettings(withoutReceptionist));
+      if (!error) {
+        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard');
+        return {
+          success:
+            'Saved. AI receptionist fields need the database update — contact support or run the receptionist SQL.',
+        };
+      }
+    }
     if (
       error &&
       /google_review_url|column|schema cache/i.test(error.message)

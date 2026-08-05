@@ -3,6 +3,11 @@
 import { useActionState, useState } from 'react';
 import { saveCompanySettings } from '@/app/dashboard/settings/actions';
 import type { CompanySettings } from '@/lib/company';
+import {
+  defaultGreeting,
+  defaultVoiceFirstMessage,
+  defaultVoiceSystemPrompt,
+} from '@/lib/intake/script';
 
 type ActionState = {
   error?: string;
@@ -257,6 +262,106 @@ export function CompanySettingsForm({ company }: { company: CompanySettings }) {
           className={inputClass}
         />
       </label>
+
+      <div className="rounded-xl border border-ink-100 bg-ink-50/50 p-4">
+        <h3 className="font-display text-base font-semibold text-ink-950">
+          AI receptionist
+        </h3>
+        <p className="mt-1 text-xs text-ink-500">
+          Used when Feature modules → AI receptionist is on. Inbound SMS and
+          phone create undated jobs for the office to schedule. After changing
+          toggles, click Save modules. Paste the voice script into Vapi when
+          you set up the phone assistant.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="block sm:col-span-2">
+            <span className={labelClass}>SMS greeting</span>
+            <textarea
+              name="receptionist_greeting"
+              rows={3}
+              defaultValue={company.receptionist?.greeting ?? ''}
+              placeholder={defaultGreeting(company.name || 'our shop')}
+              className={inputClass}
+            />
+            <span className="mt-1 block text-xs text-ink-400">
+              First reply when someone texts in. Leave blank to use the default
+              above.
+            </span>
+          </label>
+          <div className="sm:col-span-2 space-y-2 rounded-lg border border-ink-200 bg-white p-3">
+            <p className="text-sm font-medium text-ink-800">
+              Recommended Vapi voice script
+            </p>
+            <p className="text-xs text-ink-500">
+              Copy into Vapi → Assistant → First message and System prompt.
+            </p>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-ink-600">
+                First message
+              </span>
+              <textarea
+                readOnly
+                rows={2}
+                value={defaultVoiceFirstMessage(company.name || 'our shop')}
+                className={`${inputClass} bg-ink-50 text-ink-700`}
+                onFocus={(e) => e.target.select()}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-ink-600">
+                System prompt
+              </span>
+              <textarea
+                readOnly
+                rows={8}
+                value={defaultVoiceSystemPrompt({
+                  shopName: company.name || 'our shop',
+                  serviceArea: company.receptionist?.service_area,
+                  hoursNote: company.receptionist?.business_hours_note,
+                })}
+                className={`${inputClass} bg-ink-50 font-mono text-xs text-ink-700`}
+                onFocus={(e) => e.target.select()}
+              />
+            </label>
+          </div>
+          <label className="block">
+            <span className={labelClass}>Service area note</span>
+            <input
+              name="receptionist_service_area"
+              defaultValue={company.receptionist?.service_area ?? ''}
+              placeholder="KC metro"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className={labelClass}>Hours note</span>
+            <input
+              name="receptionist_hours"
+              defaultValue={company.receptionist?.business_hours_note ?? ''}
+              placeholder="Mon–Fri 8–5"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className={labelClass}>Escalate / office alert phone</span>
+            <input
+              name="receptionist_escalate_phone"
+              defaultValue={company.receptionist?.escalate_phone ?? ''}
+              placeholder="+18165551212"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className={labelClass}>Inbound Twilio number (E.164)</span>
+            <input
+              name="receptionist_twilio_phone"
+              defaultValue={company.receptionist?.twilio_phone ?? ''}
+              placeholder="+18165551212"
+              className={inputClass}
+            />
+          </label>
+        </div>
+      </div>
 
       {state.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
