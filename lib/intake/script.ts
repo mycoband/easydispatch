@@ -33,7 +33,8 @@ export function defaultVoiceSystemPrompt(input: {
     'If they ask for a real person, or it is a life-safety emergency (gas smell, fire, carbon monoxide, flooding with risk), say you will notify the shop right away, collect a callback number if needed, and keep the call short.',
     area ? `Service area note: ${area}.` : null,
     hours ? `Hours note: ${hours}.` : null,
-    'When you have name, address, and the problem, briefly confirm back, thank them, and end the call.',
+    'When you have name, address, and the problem: briefly confirm back, thank them, say goodbye, then immediately use the endCall tool to hang up. Do not wait for the caller to hang up.',
+    'Also use endCall after goodbye if the caller says they are done, bye, or thanks that is all.',
   ]
     .filter(Boolean)
     .join('\n');
