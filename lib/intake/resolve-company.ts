@@ -16,48 +16,30 @@ export type IntakeCompanyContext = {
 };
 
 /**
- * Map inbound Twilio "To" number → company_settings.receptionist.twilio_phone.
- * Falls back to env TWILIO_PHONE_NUMBER + first company with ai_receptionist on.
+ * Map inbound Twilio/Vapi "To" number → company_settings.receptionist.twilio_phone.
+ * Only matches an explicit inbound DID — never the first shop with the module on
+ * (that sent voice jobs to the wrong company).
  */
 export async function resolveCompanyForInboundDid(
   toRaw: string | null | undefined
 ): Promise<IntakeCompanyContext | null> {
   const admin = createServiceClient();
-  const to = normalizePhone(toRaw);
-  const envDid = normalizePhone(process.env.TWILIO_PHONE_NUMBER);
+  const to =
+    normalizePhone(toRaw) || normalizePhone(process.env.TWILIO_PHONE_NUMBER);
+  if (!to) return null;
 
-  let settingsQuery = admin
+  const { data: rows } = await admin
     .from('company_settings')
-    .select('company_id, name, phone, email, modules, receptionist');
+    .select('company_id, name, phone, email, modules, receptionist')
+    .not('company_id', 'is', null);
 
-  if (to) {
-    const { data: byDid } = await settingsQuery;
-    const match = (byDid ?? []).find((row) => {
-      const r = normalizeReceptionist(row.receptionist);
-      const did = normalizePhone(r.twilio_phone);
-      return did && did === to;
-    });
-    if (match?.company_id) {
-      return hydrateContext(admin, match);
-    }
-  }
-
-  if (to && envDid && to === envDid) {
-    const { data: rows } = await admin
-      .from('company_settings')
-      .select('company_id, name, phone, email, modules, receptionist')
-      .not('company_id', 'is', null)
-      .limit(40);
-    const enabled = (rows ?? []).find((row) => {
-      const mods = normalizeModules(row.modules);
-      return mods.ai_receptionist && mods.ai;
-    });
-    if (enabled?.company_id) {
-      return hydrateContext(admin, enabled);
-    }
-    if (rows?.[0]?.company_id) {
-      return hydrateContext(admin, rows[0]);
-    }
+  const match = (rows ?? []).find((row) => {
+    const r = normalizeReceptionist(row.receptionist);
+    const did = normalizePhone(r.twilio_phone);
+    return did && did === to;
+  });
+  if (match?.company_id) {
+    return hydrateContext(admin, match);
   }
 
   return null;

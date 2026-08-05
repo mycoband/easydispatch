@@ -5,8 +5,11 @@ import { mapGrokIntake } from '@/lib/intake/map-extract';
 import { processReadyIntake } from '@/lib/intake/process';
 import { intakeRateLimit } from '@/lib/intake/rate-limit';
 import { resolveCompanyForInboundDid } from '@/lib/intake/resolve-company';
+import {
+  resolveVapiFromPhone,
+  resolveVapiToPhone,
+} from '@/lib/intake/vapi-phone';
 import { createServiceClient } from '@/lib/supabase/admin';
-import { normalizePhone } from '@/lib/twilio';
 
 export const runtime = 'nodejs';
 
@@ -52,10 +55,6 @@ export async function POST(request: Request) {
 
   const artifact = (message.artifact || {}) as Record<string, unknown>;
   const call = (message.call || payload.call || {}) as Record<string, unknown>;
-  const customer = (call.customer || message.customer || {}) as Record<
-    string,
-    unknown
-  >;
 
   const transcript = String(
     artifact.transcript ||
@@ -64,26 +63,15 @@ export async function POST(request: Request) {
       ''
   ).trim();
 
-  const fromPhone = normalizePhone(
-    String(customer.number || call.customerNumber || message.phone || '')
-  );
-  const toPhone = normalizePhone(
-    String(
-      call.phoneNumber ||
-        (call.phoneNumberId as string) ||
-        process.env.TWILIO_PHONE_NUMBER ||
-        ''
-    )
-  );
-
-  // Some Vapi payloads nest phoneNumber.number
-  const phoneNumberObj = (call.phoneNumber || message.phoneNumber || {}) as {
-    number?: string;
-  };
-  const toResolved =
-    toPhone || normalizePhone(phoneNumberObj.number) || null;
+  const fromPhone = resolveVapiFromPhone(call, message);
+  const toResolved = resolveVapiToPhone(call, message, payload);
 
   if (!transcript || transcript.length < 20) {
+    console.warn('vapi skip short_transcript', {
+      type,
+      len: transcript.length,
+      to: toResolved,
+    });
     return NextResponse.json({ ok: true, skipped: 'short_transcript' });
   }
 
@@ -96,11 +84,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
   }
 
-  const ctx = await resolveCompanyForInboundDid(
-    toResolved || process.env.TWILIO_PHONE_NUMBER
-  );
+  const ctx = await resolveCompanyForInboundDid(toResolved);
   if (!ctx || !ctx.modules.ai_receptionist || !ctx.modules.ai) {
-    return NextResponse.json({ ok: false, error: 'module_off' }, { status: 200 });
+    console.warn('vapi company/module miss', {
+      to: toResolved,
+      companyId: ctx?.companyId ?? null,
+      ai: ctx?.modules.ai ?? null,
+      ai_receptionist: ctx?.modules.ai_receptionist ?? null,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: ctx ? 'module_off' : 'unknown_did',
+        to: toResolved,
+      },
+      { status: 200 }
+    );
   }
 
   const admin = createServiceClient();
