@@ -5,11 +5,17 @@ import {
 } from '@/lib/supabase/middleware';
 
 const PUBLIC_PATHS = [
+  '/',
   '/login',
   '/join',
   '/faq',
+  '/features',
+  '/pricing',
   '/privacy',
   '/terms',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/opengraph-image',
   '/auth',
   '/pay',
   '/portal',
@@ -30,14 +36,15 @@ export async function middleware(request: NextRequest) {
     (path) => pathname === path || pathname.startsWith(`${path}/`)
   );
 
-  if (!user && !isPublic && pathname !== '/') {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
     return redirectWithSession(url, supabaseResponse);
   }
 
-  // Logged-in users hitting login/home → send to app (with session cookies intact)
+  // Logged-in users hitting login or `/` → send to app (PWA start_url is `/`).
+  // Marketing inner pages (/features, /pricing, /faq) stay viewable while signed in.
   // /join stays reachable so we can show "already signed in → add team in Settings"
   if (user && (pathname === '/login' || pathname === '/')) {
     const { data: profile } = await supabase

@@ -41,8 +41,8 @@ RESEND_API_KEY=
 RESEND_FROM_EMAIL=EasyDispatch <billing@yourdomain.com>
 ```
 
-4. Deploy. Confirm `https://your-domain.com/login` loads.
-5. Attach a custom domain in Vercel → set `NEXT_PUBLIC_APP_URL` to that domain → redeploy.
+4. Deploy. Confirm `https://your-domain.com/login` loads. The public marketing homepage is `/` (anonymous); signed-in `/` still opens the app.
+5. Attach **easydispatch.app** (and `www`) in Vercel → Domains. Typical DNS: A `@` → `10.0.1.2`, CNAME `www` → `cname.vercel-dns.com`. Set `NEXT_PUBLIC_APP_URL=https://easydispatch.app` → redeploy. See the README “Custom domain” section. Optional later: `app.easydispatch.app` for the product vs marketing on the apex.
 
 ## C. Stripe (two products)
 

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans, Source_Sans_3 } from 'next/font/google';
 import { ServiceWorkerRegister } from '@/components/pwa/ServiceWorkerRegister';
+import { MARKETING_ORIGIN, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE } from '@/lib/site';
 import './globals.css';
 
 const sans = Source_Sans_3({
@@ -15,14 +16,18 @@ const display = IBM_Plex_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'EasyDispatch',
-  description: 'AI-first HVAC field service management',
-  applicationName: 'EasyDispatch',
+  metadataBase: new URL(MARKETING_ORIGIN),
+  title: {
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'EasyDispatch',
+    title: SITE_NAME,
   },
   icons: {
     icon: [
@@ -31,6 +36,23 @@ export const metadata: Metadata = {
       { url: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: MARKETING_ORIGIN,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
   formatDetection: {
     telephone: false,
