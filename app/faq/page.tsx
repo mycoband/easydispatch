@@ -1,53 +1,50 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ProductLockup } from '@/components/brand/ProductMark';
 import { FaqAccordion } from '@/components/help/FaqAccordion';
+import { MarketingShell } from '@/components/marketing/MarketingShell';
+import { MARKETING_ORIGIN, SITE_NAME } from '@/lib/site';
 
-export const metadata = {
-  title: 'FAQ · EasyDispatch',
-  description: 'Common questions about EasyDispatch HVAC field service software.',
+const title = 'FAQ';
+const description =
+  'Common questions about EasyDispatch HVAC field service software — customers, jobs, modules, costing, estimates, and the tech app.';
+
+export const metadata: Metadata = {
+  title,
+  description,
+  alternates: { canonical: `${MARKETING_ORIGIN}/faq` },
+  openGraph: {
+    title: `${title} · ${SITE_NAME}`,
+    description,
+    url: `${MARKETING_ORIGIN}/faq`,
+  },
 };
 
 export default function PublicFaqPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-        <div className="mb-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="inline-flex">
-            <ProductLockup size="md" />
-          </Link>
-          <div className="flex flex-wrap gap-3 text-sm">
-            <Link
-              href="/login"
-              className="font-medium text-sky-700 hover:underline"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-lg bg-sky-600 px-3 py-1.5 font-medium text-white hover:bg-sky-500"
-            >
-              Open app
-            </Link>
-          </div>
-        </div>
-
+    <MarketingShell>
+      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
         <header className="mb-8 space-y-2">
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-950">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-950">
             FAQ
           </h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-600">
             Customers, jobs, every Feature module toggle, costing, estimates,
             tech app, and settings. Signed-in users also get Help & FAQ plus
-            the Help chat button (bottom-right).
+            the Help chat button (bottom-right). For a shorter overview, see
+            the{' '}
+            <Link href="/" className="font-medium text-brand-700 hover:underline">
+              homepage
+            </Link>
+            .
           </p>
         </header>
 
         <FaqAccordion />
 
-        <p className="mt-10 text-center text-xs text-slate-400">
+        <p className="mt-10 text-center text-xs text-ink-400">
           Still stuck? Sign in and open Help to ask the AI assistant.
         </p>
       </div>
-    </main>
+    </MarketingShell>
   );
 }

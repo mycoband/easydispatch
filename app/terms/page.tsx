@@ -1,21 +1,23 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { MarketingShell } from '@/components/marketing/MarketingShell';
+import { MARKETING_ORIGIN, SITE_NAME } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | EasyDispatch',
+  title: 'Terms of Service',
   description: 'EasyDispatch terms of service, including SMS messaging terms.',
+  alternates: { canonical: `${MARKETING_ORIGIN}/terms` },
+  openGraph: {
+    title: `Terms of Service · ${SITE_NAME}`,
+    url: `${MARKETING_ORIGIN}/terms`,
+  },
 };
 
 export default function TermsPage() {
   return (
+    <MarketingShell>
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <Link
-        href="/"
-        className="text-sm font-medium text-ink-500 hover:text-ink-800"
-      >
-        ← EasyDispatch
-      </Link>
-      <h1 className="mt-4 font-display text-3xl font-semibold text-ink-950">
+      <h1 className="font-display text-3xl font-semibold text-ink-950">
         Terms of Service
       </h1>
       <p className="mt-2 text-sm text-ink-500">Last updated: August 4, 2026</p>
@@ -153,5 +155,6 @@ export default function TermsPage() {
         </p>
       </div>
     </div>
+    </MarketingShell>
   );
 }

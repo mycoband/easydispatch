@@ -1,21 +1,23 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { MarketingShell } from '@/components/marketing/MarketingShell';
+import { MARKETING_ORIGIN, SITE_NAME } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | EasyDispatch',
+  title: 'Privacy Policy',
   description: 'EasyDispatch privacy policy, including SMS and mobile messaging disclosures.',
+  alternates: { canonical: `${MARKETING_ORIGIN}/privacy` },
+  openGraph: {
+    title: `Privacy Policy · ${SITE_NAME}`,
+    url: `${MARKETING_ORIGIN}/privacy`,
+  },
 };
 
 export default function PrivacyPage() {
   return (
+    <MarketingShell>
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-      <Link
-        href="/"
-        className="text-sm font-medium text-ink-500 hover:text-ink-800"
-      >
-        ← EasyDispatch
-      </Link>
-      <h1 className="mt-4 font-display text-3xl font-semibold text-ink-950">
+      <h1 className="font-display text-3xl font-semibold text-ink-950">
         Privacy Policy
       </h1>
       <p className="mt-2 text-sm text-ink-500">Last updated: August 4, 2026</p>
@@ -161,5 +163,6 @@ export default function PrivacyPage() {
         </p>
       </div>
     </div>
+    </MarketingShell>
   );
 }

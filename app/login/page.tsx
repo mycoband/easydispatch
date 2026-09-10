@@ -1,7 +1,13 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { ProductLockup } from '@/components/brand/ProductMark';
 import { LoginForm } from './LoginForm';
+
+export const metadata: Metadata = {
+  title: 'Sign in',
+  description: 'Sign in to EasyDispatch or start a 14-day trial for your HVAC shop.',
+};
 
 export default function LoginPage() {
   return (
@@ -9,7 +15,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="flex justify-center">
-            <ProductLockup size="lg" />
+            <Link
+              href="/"
+              className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+            >
+              <ProductLockup size="lg" />
+            </Link>
           </div>
           <p className="mt-3 text-sm text-ink-500">
             AI-first HVAC field service management
